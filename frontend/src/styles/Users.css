@@ -1,0 +1,101 @@
+.users-management {
+  padding: 2rem;
+  background-color: #f9f9f9;
+  min-height: 100vh;
+  margin-left: 80px; /* match sidebar width */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.users-management h2 {
+  font-size: 2rem;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+/* Form Styles */
+.users-management form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+}
+
+.users-management input,
+.users-management select {
+  flex: 1 1 200px;
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: #f9fafb;
+  transition: border-color 0.3s ease;
+}
+
+.users-management input:focus,
+.users-management select:focus {
+  border-color: #2563eb;
+  outline: none;
+}
+
+.users-management button[type="submit"] {
+  background-color: #2563eb;
+  color: white;
+  font-weight: bold;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.users-management button[type="submit"]:hover {
+  background-color: #1e40af;
+}
+
+/* Table Styles */
+.users-management table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.users-management th,
+.users-management td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.users-management th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+}
+
+.users-management td {
+  background-color: #ffffff;
+}
+
+/* Delete Button */
+.users-management table button {
+  background-color: #dc2626;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.users-management table button:hover {
+  background-color: #b91c1c;
+}
