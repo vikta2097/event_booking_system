@@ -1,22 +1,24 @@
-// server.js
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
 const bcrypt = require("bcrypt");
-const db = require("./db"); 
-
-
-// Auth middleware
-const { verifyToken } = require("./auth");
+const db = require("./db"); // ✅ unified database interface
+const { verifyToken } = require("./auth"); // Auth middleware
 
 // Routes
 const authRoutes = require("./routes/authentification");
 const adminRoutes = require("./routes/admins");
-const bookingsRouter = require('./routes/bookings');
-const userRoutes = require('./routes/users');
-
+const bookingsRouter = require("./routes/bookings");
+const userRoutes = require("./routes/users");
+const eventsRouter = require("./routes/events"); // ✅ new
+const categoriesRouter = require("./routes/categories"); // ✅ new
+const dashboardRouter = require("./routes/dashboard"); // ✅ new dynamic stats route
+const paymentsRouter = require("./routes/payments");
+const reportsRouter = require("./routes/reports");
+const supportRoutes = require("./routes/support");
+const settingsRoutes = require("./routes/settings");
 
 
 const app = express();
@@ -29,14 +31,25 @@ app.use(
     credentials: true,
   })
 );
+
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads/avatars", express.static(path.join(__dirname, "uploads/avatars")));
 
 // ✅ Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
-app.use('/api/bookings', bookingsRouter);
-app.use('/api/users', userRoutes);
+app.use("/api/bookings", bookingsRouter);
+app.use("/api/users", userRoutes);
+app.use("/api/events", eventsRouter);        // ✅ events route
+app.use("/api/categories", categoriesRouter); // ✅ categories route
+app.use("/api/dashboard", dashboardRouter);   // ✅ new dashboard stats route
+app.use("/api/payments", paymentsRouter);
+app.use("/api/reports", reportsRouter);
+app.use("/api/support", supportRoutes);
+app.use("/api/settings", settingsRoutes);
+
+
 
 // ✅ Token validation
 app.get("/api/validate-token", verifyToken, (req, res) => {
@@ -62,7 +75,7 @@ app.use((err, req, res, next) => {
 // ✅ Ensure default admin account exists
 const ensureDefaultAdmin = async () => {
   try {
-    const [rows] = await db.query(
+    const [rows] = await db.promise.query(
       "SELECT * FROM usercredentials WHERE role = 'admin' LIMIT 1"
     );
 
@@ -70,8 +83,8 @@ const ensureDefaultAdmin = async () => {
       console.log("⚠️ No admin found — creating default admin account...");
 
       const hashedPassword = await bcrypt.hash("Admin@123", 10);
-      await db.query(
-        "INSERT INTO usercredentials (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
+      await db.promise.query(
+        "INSERT INTO usercredentials (fullname, email, password_hash, role) VALUES (?, ?, ?, ?)",
         ["System Admin", "admin@system.com", hashedPassword, "admin"]
       );
 
@@ -100,7 +113,7 @@ const startServer = async () => {
     });
   } catch (err) {
     console.error("❌ Failed to connect to the database:", err.message);
-    process.exit(1); // Stop server if DB fails
+    process.exit(1);
   }
 };
 

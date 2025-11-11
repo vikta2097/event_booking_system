@@ -16,18 +16,16 @@ import {
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, onLogout }) => {
   const navItems = [
-  { name: "Dashboard", icon: <LayoutDashboard size={18} />, path: "." },
-  { name: "Events", icon: <CalendarDays size={18} />, path: "events" },
-  { name: "Users", icon: <Users size={18} />, path: "users" },
-  { name: "Bookings", icon: <ClipboardList size={18} />, path: "bookings" },
-  { name: "Payments", icon: <CreditCard size={18} />, path: "payments" },
-  { name: "Reports", icon: <BarChart3 size={18} />, path: "reports" },
-  { name: "Settings", icon: <Settings size={18} />, path: "settings" },
-  { name: "Support", icon: <MessageCircle size={18} />, path: "support" },
-  { name: "Security", icon: <Shield size={18} />, path: "security" },
+  { name: "Dashboard", icon: <LayoutDashboard size={18} />, path: "/admin/dashboard" },
+  { name: "Events", icon: <CalendarDays size={18} />, path: "/admin/dashboard/events" },
+  { name: "Users", icon: <Users size={18} />, path: "/admin/dashboard/users" },
+  { name: "Bookings", icon: <ClipboardList size={18} />, path: "/admin/dashboard/bookings" },
+  { name: "Payments", icon: <CreditCard size={18} />, path: "/admin/dashboard/payments" },
+  { name: "Reports", icon: <BarChart3 size={18} />, path: "/admin/dashboard/reports" },
+  { name: "Settings", icon: <Settings size={18} />, path: "/admin/dashboard/settings" },
+  { name: "Support", icon: <MessageCircle size={18} />, path: "/admin/dashboard/support" },
+  { name: "Security", icon: <Shield size={18} />, path: "/admin/dashboard/security" },
 ];
-
-
   return (
     <aside className={`sidebar ${sidebarOpen ? "open" : "collapsed"}`}>
       {/* Header */}

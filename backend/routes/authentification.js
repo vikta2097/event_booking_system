@@ -23,12 +23,10 @@ function isValidPassword(password) {
 // REGISTER
 //
 router.post("/register", async (req, res) => {
-  const { email, password, name, phone, role } = req.body;
+  const { email, password, fullname, phone, role } = req.body;
 
-  if (!email || !password || !name) {
-    return res
-      .status(400)
-      .json({ message: "Email, password, and name are required" });
+  if (!email || !password || !fullname) {
+    return res.status(400).json({ message: "Email, password, and fullname are required" });
   }
 
   if (!isValidEmail(email)) {
@@ -46,7 +44,7 @@ router.post("/register", async (req, res) => {
 
   try {
     // Check existing email
-    const [existing] = await db.query(
+    const [existing] = await db.promise.query(
       "SELECT id FROM usercredentials WHERE email = ?",
       [email]
     );
@@ -57,9 +55,9 @@ router.post("/register", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await db.query(
-      "INSERT INTO usercredentials (name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?)",
-      [name, email, hashedPassword, phone || null, userRole]
+    await db.promise.query(
+      "INSERT INTO usercredentials (fullname, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?)",
+      [fullname, email, hashedPassword, phone || null, userRole]
     );
 
     res.json({ message: "User registered successfully" });
@@ -79,7 +77,7 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ message: "Email and password are required" });
 
   try {
-    const [rows] = await db.query(
+    const [rows] = await db.promise.query(
       "SELECT * FROM usercredentials WHERE email = ?",
       [email]
     );
@@ -98,7 +96,7 @@ router.post("/login", async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
-        name: user.name,
+        fullname: user.fullname,
       },
       process.env.JWT_SECRET,
       { expiresIn: "2h" }
@@ -109,9 +107,12 @@ router.post("/login", async (req, res) => {
       token,
       user: {
         id: user.id,
-        name: user.name,
+        fullname: user.fullname,
         email: user.email,
         role: user.role,
+        phone: user.phone,
+        profile_image: user.profile_image,
+        status: user.status,
       },
     });
   } catch (err) {
@@ -130,7 +131,7 @@ router.post("/forgot-password", async (req, res) => {
     return res.status(400).json({ message: "Email is required" });
 
   try {
-    const [users] = await db.query(
+    const [users] = await db.promise.query(
       "SELECT id FROM usercredentials WHERE email = ?",
       [email]
     );
@@ -192,7 +193,7 @@ router.post("/reset-password/:token", async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await db.query(
+    await db.promise.query(
       "UPDATE usercredentials SET password_hash = ? WHERE email = ?",
       [hashedPassword, decoded.email]
     );
@@ -211,8 +212,8 @@ router.get("/me", verifyToken, async (req, res) => {
   const { id } = req.user;
 
   try {
-    const [rows] = await db.query(
-      "SELECT id, name, email, role, phone, profile_image, status FROM usercredentials WHERE id = ?",
+    const [rows] = await db.promise.query(
+      "SELECT id, fullname, email, role, phone, profile_image, status FROM usercredentials WHERE id = ?",
       [id]
     );
 

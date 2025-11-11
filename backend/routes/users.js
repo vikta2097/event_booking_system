@@ -1,22 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const db = require('../db');
+const db = require('../db'); // ✅ unified db
 const { verifyToken, verifyAdmin } = require('../auth');
 
-// Protect all routes: first verify token, then verify admin role
+// ✅ Protect all routes
 router.use(verifyToken);
 router.use(verifyAdmin);
 
-// Get all users
-router.get('/', (req, res) => {
-  db.query('SELECT id, email, fullname, role FROM usercredentials', (err, results) => {
-    if (err) return res.status(500).json({ message: 'Error fetching users' });
-    res.json(results);
-  });
+// ✅ Get all users
+router.get('/', async (req, res) => {
+  try {
+    const [rows] = await db.promise.query(
+      'SELECT id, email, fullname, role FROM usercredentials'
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Error fetching users:', err);
+    res.status(500).json({ message: 'Error fetching users' });
+  }
 });
 
-// Create new user
+// ✅ Create new user
 router.post('/', async (req, res) => {
   const { email, fullname, role, password } = req.body;
 
@@ -26,24 +31,23 @@ router.post('/', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    db.query(
-      'INSERT INTO usercredentials (email, password_hash, fullname, role) VALUES (?, ?, ?, ?)', 
-      [email, hashedPassword, fullname, role],
-      (err, result) => {
-        if (err) {
-          if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email already registered' });
-          console.error('DB error!', err);
-          return res.status(500).json({ message: 'Error creating user' });
-        }
-        res.status(201).json({ message: 'User created!', id: result.insertId });
-      }
+
+    await db.promise.query(
+      'INSERT INTO usercredentials (email, password_hash, fullname, role) VALUES (?, ?, ?, ?)',
+      [email, hashedPassword, fullname, role]
     );
-  } catch (error) {
-    res.status(500).json({ message: 'Server error during user creation' });
+
+    res.status(201).json({ message: 'User created successfully!' });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+    console.error('❌ Error creating user:', err);
+    res.status(500).json({ message: 'Error creating user' });
   }
 });
 
-// Update user
+// ✅ Update user
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { email, fullname, role, password } = req.body;
@@ -55,33 +59,48 @@ router.put('/:id', async (req, res) => {
   try {
     const fields = [email, fullname, role];
     let query = 'UPDATE usercredentials SET email = ?, fullname = ?, role = ?';
+
     if (password && password.trim() !== '') {
       const hashedPassword = await bcrypt.hash(password, 10);
       query += ', password_hash = ?';
       fields.push(hashedPassword);
     }
+
     query += ' WHERE id = ?';
     fields.push(id);
 
-    db.query(query, fields, (err, result) => {
-      if (err) return res.status(500).json({ message: 'Error updating user' });
-      if (result.affectedRows === 0) return res.status(404).json({ message: 'User not found' });
-      res.json({ message: 'User updated' });
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error during user update' });
+    const [result] = await db.promise.query(query, fields);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ message: 'User updated successfully' });
+  } catch (err) {
+    console.error('❌ Error updating user:', err);
+    res.status(500).json({ message: 'Error updating user' });
   }
 });
 
-// Delete user
-router.delete('/:id', (req, res) => {
+// ✅ Delete user
+router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
-  db.query('DELETE FROM usercredentials WHERE id = ?', [id], (err, result) => {
-    if (err) return res.status(500).json({ message: 'Error deleting user' });
-    if (result.affectedRows === 0) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User deleted' });
-  });
+  try {
+    const [result] = await db.promise.query(
+      'DELETE FROM usercredentials WHERE id = ?',
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (err) {
+    console.error('❌ Error deleting user:', err);
+    res.status(500).json({ message: 'Error deleting user' });
+  }
 });
 
 module.exports = router;

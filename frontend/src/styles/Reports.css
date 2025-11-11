@@ -1,0 +1,110 @@
+.reports-container {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+h2 {
+  margin-bottom: 20px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+}
+
+.filters input,
+.filters select {
+  padding: 5px;
+  font-size: 14px;
+  margin-top: 3px;
+}
+
+.apply-btn,
+.download-btn {
+  padding: 8px 15px;
+  margin-left: 5px;
+  cursor: pointer;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+}
+
+.apply-btn:hover,
+.download-btn:hover {
+  background-color: #0056b3;
+}
+
+.stats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  flex: 1;
+  min-width: 150px;
+  background-color: #f1f1f1;
+  padding: 15px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.stat-card h4 {
+  margin-bottom: 10px;
+}
+
+.reports-table {
+  overflow-x: auto;
+}
+
+.reports-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.reports-table th,
+.reports-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  font-size: 14px;
+}
+
+.reports-table th {
+  background-color: #f5f5f5;
+}
+
+.loading,
+.error,
+.no-data {
+  text-align: center;
+  padding: 20px;
+  font-size: 16px;
+  color: #555;
+}
+
+.status.completed {
+  color: green;
+  font-weight: bold;
+}
+
+.status.pending {
+  color: orange;
+}
+
+.status.cancelled,
+.status.failed,
+.status.refunded {
+  color: red;
+}

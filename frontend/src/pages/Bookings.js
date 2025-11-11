@@ -18,7 +18,7 @@ const Bookings = () => {
     try {
       setLoading(true);
       setError("");
-      const res = await axios.get("http://localhost:5000/api/bookings");
+      const res = await axios.get("http://localhost:3300/api/bookings");
       setBookings(res.data);
     } catch (err) {
       setError("Failed to fetch bookings");
@@ -31,7 +31,7 @@ const Bookings = () => {
   // Update booking status
   const handleStatusChange = async (bookingId, newStatus) => {
     try {
-      await axios.put(`http://localhost:5000/api/bookings/${bookingId}`, {
+      await axios.put(`http://localhost:3300/api/bookings/${bookingId}`, {
         status: newStatus,
       });
       
@@ -56,7 +56,7 @@ const Bookings = () => {
     if (!window.confirm("Are you sure you want to delete this booking?")) return;
     
     try {
-      await axios.delete(`http://localhost:3000/api/bookings/${id}`);
+      await axios.delete(`http://localhost:3300/api/bookings/${id}`);
       
       // Remove from local state immediately
       setBookings(prevBookings => prevBookings.filter(booking => booking.id !== id));

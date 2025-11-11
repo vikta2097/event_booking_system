@@ -54,9 +54,10 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
 
       // Pass entire profile including isEmployee to parent
       onLoginSuccess({
-        token: data.token,
-        ...profileData, // includes id, email, role, fullname, isEmployee
-      });
+  token: data.token,
+  role: profileData.role,
+  userId: profileData.id
+});
     } catch (err) {
       console.error("Login error:", err);
       setError("Network error. Please try again.");

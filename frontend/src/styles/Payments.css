@@ -1,0 +1,111 @@
+.payments-container {
+  padding: 20px;
+  color: #222;
+}
+
+.payments-container h2 {
+  font-size: 1.6rem;
+  margin-bottom: 1rem;
+  color: #003366;
+}
+
+/* ===== Stats Cards ===== */
+.payment-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  flex: 1 1 200px;
+  background: #f3f7ff;
+  border: 1px solid #cdd9f2;
+  border-radius: 10px;
+  padding: 15px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.stat-card h4 {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #0056b3;
+}
+
+.stat-card p {
+  font-size: 1.2rem;
+  color: #111;
+}
+
+/* ===== Filters ===== */
+.filters {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filters select {
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+/* ===== Table ===== */
+.payments-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.payments-table th,
+.payments-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e2e2;
+  text-align: left;
+}
+
+.payments-table th {
+  background-color: #003366;
+  color: white;
+  font-weight: 600;
+}
+
+.payments-table tr:hover {
+  background-color: #f8faff;
+}
+
+/* ===== Status Colors ===== */
+.status.success { color: green; font-weight: 600; }
+.status.pending { color: orange; font-weight: 600; }
+.status.failed, .status.refunded { color: red; font-weight: 600; }
+
+/* ===== Buttons ===== */
+.refund-btn {
+  background-color: #ff5252;
+  border: none;
+  padding: 6px 10px;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.refund-btn:hover {
+  background-color: #d93636;
+}
+
+/* ===== Messages ===== */
+.loading,
+.error,
+.no-data {
+  padding: 15px;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.error { color: red; }
+.no-data { color: #555; }

@@ -1,0 +1,166 @@
+.settings-page {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 30px;
+  background-color: #f9fafc;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #222;
+}
+
+.settings-page h2 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 25px;
+  color: #1e3a8a;
+  text-align: center;
+}
+
+/* Each settings section */
+.settings-page section {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 25px;
+  padding: 25px;
+  transition: all 0.2s ease-in-out;
+}
+
+.settings-page section:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.settings-page h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1e40af;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+/* Inputs and controls */
+.settings-page input[type="text"],
+.settings-page input[type="email"],
+.settings-page input[type="password"],
+.settings-page input[type="file"],
+.settings-page input[type="number"],
+.settings-page select {
+  width: 100%;
+  padding: 10px 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f9fafb;
+  font-size: 0.95rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.settings-page input:focus,
+.settings-page select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* Buttons */
+.settings-page button {
+  background-color: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: background-color 0.2s;
+}
+
+.settings-page button:hover {
+  background-color: #1d4ed8;
+}
+
+.settings-page button.danger {
+  background-color: #dc2626;
+}
+
+.settings-page button.danger:hover {
+  background-color: #b91c1c;
+}
+
+/* Checkboxes & labels */
+.settings-page label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.settings-page input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+/* Layout helpers */
+.settings-page section select {
+  margin-bottom: 10px;
+}
+
+.settings-page section button {
+  display: block;
+}
+
+.settings-page section:last-of-type {
+  margin-bottom: 60px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .settings-page {
+    padding: 20px;
+  }
+
+  .settings-page section {
+    padding: 20px;
+  }
+
+  .settings-page h2 {
+    font-size: 1.6rem;
+  }
+
+  .settings-page h3 {
+    font-size: 1.1rem;
+  }
+}
+
+/* Optional subtle animation on hover */
+.settings-page section:hover h3 {
+  color: #2563eb;
+  transition: color 0.2s;
+}
+
+/* File input styling */
+input[type="file"] {
+  background: #f1f5f9;
+  border: 1px dashed #93c5fd;
+  cursor: pointer;
+}
+
+input[type="file"]::-webkit-file-upload-button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+input[type="file"]::-webkit-file-upload-button:hover {
+  background: #1d4ed8;
+}

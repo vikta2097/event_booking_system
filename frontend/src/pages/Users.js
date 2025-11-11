@@ -17,7 +17,7 @@ const Users = () => {
   const [editUserId, setEditUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const baseUrl = "http://localhost:3000/api/users";
+  const baseUrl = "http://localhost:3300/api/users";
 
   const fetchUsers = useCallback(async () => {
     const token = localStorage.getItem("token");

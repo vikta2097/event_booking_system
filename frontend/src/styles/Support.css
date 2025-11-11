@@ -1,0 +1,85 @@
+.support-container {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+h2, h3 {
+  color: #2c3e50;
+}
+
+.new-ticket-form {
+  background: #f7f7f7;
+  padding: 15px;
+  margin-bottom: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.new-ticket-form input,
+.new-ticket-form textarea {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.new-ticket-form button {
+  padding: 10px 15px;
+  border: none;
+  background-color: #3498db;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.new-ticket-form button:hover {
+  background-color: #2980b9;
+}
+
+.tickets-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tickets-list th,
+.tickets-list td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.tickets-list th {
+  background-color: #3498db;
+  color: white;
+}
+
+.tickets-list tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+.tickets-list tr:hover {
+  background-color: #e1f5fe;
+}
+
+.delete-btn {
+  padding: 5px 8px;
+  border: none;
+  background-color: #e74c3c;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.delete-btn:hover {
+  background-color: #c0392b;
+}
+
+.error {
+  color: red;
+}
+
+.no-data {
+  color: #555;
+  font-style: italic;
+}

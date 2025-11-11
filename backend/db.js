@@ -1,7 +1,8 @@
-const mysql = require("mysql2/promise"); // ✅ Use promise version directly
+const mysql = require("mysql2");
 require("dotenv").config();
 
-const db = mysql.createPool({
+// ✅ Shared configuration
+const dbConfig = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD || process.env.DB_PASS,
@@ -10,16 +11,35 @@ const db = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-});
+};
 
+// ✅ Create a connection pool (callback + promise compatible)
+const pool = mysql.createPool(dbConfig);
+const promisePool = pool.promise();
+
+// ✅ Test connection once at startup
 (async () => {
   try {
-    const connection = await db.getConnection();
+    const conn = await promisePool.getConnection();
     console.log("✅ Connected to MySQL database!");
-    connection.release();
+    conn.release();
   } catch (err) {
-    console.error("❌ MySQL connection error!", err);
+    console.error("❌ MySQL connection error:", err.message);
   }
 })();
 
-module.exports = db;
+// ✅ Export a unified interface
+module.exports = {
+  // For EMS-style routes (callback syntax)
+  query: pool.query.bind(pool),
+  execute: pool.execute.bind(pool),
+
+  // For Event Booking and async/await style
+  promise: promisePool,
+
+  // For server startup connection verification
+  getConnection: () => promisePool.getConnection(),
+
+  // Optionally export the raw pool
+  pool,
+};

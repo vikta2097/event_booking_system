@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import API_BASE_URL from "./api";
 import AuthForm from "./components/AuthForm";
@@ -11,9 +11,28 @@ function App() {
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
 
+  // Use ref to store timer so we can clear it properly
+  const logoutTimerRef = useRef(null);
+
   // Duration before auto logout (2 hours = 7200000 ms)
   const SESSION_TIMEOUT = 2 * 60 * 60 * 1000;
 
+  // ✅ Define handleLogout first
+  const handleLogout = () => {
+    // Clear timer on logout
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+      logoutTimerRef.current = null;
+    }
+
+    localStorage.clear();
+    setIsAuthenticated(false);
+    setUserRole(null);
+    setToken(null);
+    setUserId(null);
+  };
+
+  // ✅ FIXED: Properly declared useEffect with correct dependencies
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
@@ -31,17 +50,22 @@ function App() {
 
         // Set timeout for remaining time
         const remainingTime = SESSION_TIMEOUT - timeElapsed;
-        const timer = setTimeout(() => {
+        logoutTimerRef.current = setTimeout(() => {
           handleLogout();
           alert("Session expired. Please log in again.");
         }, remainingTime);
-
-        return () => clearTimeout(timer);
       } else {
         handleLogout();
       }
     }
-  }, []);
+
+    // ✅ Cleanup function
+    return () => {
+      if (logoutTimerRef.current) {
+        clearTimeout(logoutTimerRef.current);
+      }
+    };
+  }, [SESSION_TIMEOUT]); // ✅ Added dependency
 
   const handleLogin = ({ token, role, userId }) => {
     const loginTime = Date.now();
@@ -56,22 +80,19 @@ function App() {
     setToken(token);
     setUserId(userId);
 
+    // ✅ Clear any existing timer before creating new one
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+    }
+
     // Set auto logout timer
-    const timer = setTimeout(() => {
+    logoutTimerRef.current = setTimeout(() => {
       handleLogout();
       alert("Session expired. Please log in again.");
     }, SESSION_TIMEOUT);
-
-    return () => clearTimeout(timer);
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    setIsAuthenticated(false);
-    setUserRole(null);
-    setToken(null);
-    setUserId(null);
-  };
+
 
   return (
     <Router>
