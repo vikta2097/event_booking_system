@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api"; // centralized axios instance
 import "../styles/Events.css";
 
 const Events = ({ currentUser }) => {
@@ -23,15 +23,13 @@ const Events = ({ currentUser }) => {
     status: "upcoming",
   });
 
-  // Category management
   const [showCategoryCard, setShowCategoryCard] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryError, setCategoryError] = useState("");
 
-  // Fetch events and categories
   useEffect(() => {
-    if (!currentUser) return; // Only fetch after user is set
+    if (!currentUser) return;
     fetchEvents();
     fetchCategories();
   }, [currentUser]);
@@ -39,9 +37,12 @@ const Events = ({ currentUser }) => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:3300/api/events");
-      setEvents(res.data);
+      const token = localStorage.getItem("token");
+      const res = await api.get("/events", { headers: { Authorization: `Bearer ${token}` } });
+      setEvents(res.data || []);
+      setError("");
     } catch (err) {
+      console.error(err);
       setError("Failed to fetch events");
     } finally {
       setLoading(false);
@@ -50,17 +51,15 @@ const Events = ({ currentUser }) => {
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get("http://localhost:3300/api/categories");
-      setCategories(res.data);
+      const token = localStorage.getItem("token");
+      const res = await api.get("/categories", { headers: { Authorization: `Bearer ${token}` } });
+      setCategories(res.data || []);
     } catch (err) {
       console.error("Failed to fetch categories");
     }
   };
 
-  // Event handlers
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const openModal = (event = null) => {
     if (!currentUser) return;
@@ -88,16 +87,19 @@ const Events = ({ currentUser }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!currentUser) return;
+
     try {
+      const token = localStorage.getItem("token");
       const payload = { ...formData, created_by: currentUser.id };
       if (editingEvent) {
-        await axios.put(`http://localhost:3300/api/events/${editingEvent.id}`, payload);
+        await api.put(`/events/${editingEvent.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
       } else {
-        await axios.post("http://localhost:3300/api/events", payload);
+        await api.post("/events", payload, { headers: { Authorization: `Bearer ${token}` } });
       }
       fetchEvents();
       setShowModal(false);
     } catch (err) {
+      console.error(err);
       setError("Failed to save event");
     }
   };
@@ -105,9 +107,11 @@ const Events = ({ currentUser }) => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this event?")) return;
     try {
-      await axios.delete(`http://localhost:3300/api/events/${id}`);
+      const token = localStorage.getItem("token");
+      await api.delete(`/events/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       fetchEvents();
     } catch (err) {
+      console.error(err);
       setError("Failed to delete event");
     }
   };
@@ -117,7 +121,8 @@ const Events = ({ currentUser }) => {
     e.preventDefault();
     if (!newCategory.trim()) return;
     try {
-      await axios.post("http://localhost:3300/api/categories", { name: newCategory });
+      const token = localStorage.getItem("token");
+      await api.post("/categories", { name: newCategory }, { headers: { Authorization: `Bearer ${token}` } });
       setNewCategory("");
       setShowCategoryCard(false);
       fetchCategories();
@@ -128,7 +133,8 @@ const Events = ({ currentUser }) => {
 
   const handleCategoryUpdate = async (id, name) => {
     try {
-      await axios.put(`http://localhost:3300/api/categories/${id}`, { name });
+      const token = localStorage.getItem("token");
+      await api.put(`/categories/${id}`, { name }, { headers: { Authorization: `Bearer ${token}` } });
       fetchCategories();
       setEditingCategory(null);
     } catch (err) {
@@ -139,17 +145,15 @@ const Events = ({ currentUser }) => {
   const handleCategoryDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this category?")) return;
     try {
-      await axios.delete(`http://localhost:3300/api/categories/${id}`);
+      const token = localStorage.getItem("token");
+      await api.delete(`/categories/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       fetchCategories();
     } catch (err) {
       setCategoryError("Failed to delete category");
     }
   };
 
-  // Wait for currentUser to be defined before rendering
-  if (currentUser === null) {
-    return <p>Loading user...</p>;
-  }
+  if (!currentUser) return <p>Loading user...</p>;
 
   return (
     <div className="events-container">
@@ -170,7 +174,6 @@ const Events = ({ currentUser }) => {
         )}
       </div>
 
-      
       {showCategoryCard && currentUser?.role === "admin" && (
         <div className="category-card">
           <h4>{editingCategory ? "Edit Category" : "Add New Category"}</h4>
@@ -227,7 +230,6 @@ const Events = ({ currentUser }) => {
         </div>
       )}
 
-      
       {loading ? (
         <p className="loading">Loading events...</p>
       ) : error ? (
@@ -272,7 +274,6 @@ const Events = ({ currentUser }) => {
         </table>
       )}
 
-      
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">

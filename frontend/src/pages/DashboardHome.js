@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../api"; // ✅ centralized axios instance
 import "../styles/DashboardHome.css";
 
 const DashboardHome = () => {
@@ -15,30 +15,26 @@ const DashboardHome = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:3300/api/dashboard", {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await api.get("/dashboard", {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setDashboardData(response.data);
       setError("");
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
-      setError("Failed to load dashboard data");
+      if (err.response && err.response.data) {
+        setError(err.response.data.message || "Failed to load dashboard data");
+      } else {
+        setError("Failed to load dashboard data. Check your network or backend.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return <div className="loading-screen">Loading dashboard...</div>;
-  }
-
-  if (error) {
-    return <div className="error-message">{error}</div>;
-  }
-
-  if (!dashboardData) {
-    return <div className="error-message">No data available</div>;
-  }
+  if (loading) return <div className="loading-screen">Loading dashboard...</div>;
+  if (error) return <div className="error-message">{error}</div>;
+  if (!dashboardData) return <div className="error-message">No data available</div>;
 
   const { totals, recentActivity, upcomingEvents, recentPayments } = dashboardData;
 
@@ -71,7 +67,9 @@ const DashboardHome = () => {
           <div className="stat-icon revenue">💰</div>
           <div className="stat-content">
             <h3>Total Revenue</h3>
-            <p className="stat-number">KES {totals.totalRevenue.toLocaleString()}</p>
+            <p className="stat-number">
+              KES {totals.totalRevenue.toLocaleString()}
+            </p>
           </div>
         </div>
       </div>
@@ -81,7 +79,7 @@ const DashboardHome = () => {
         {/* Upcoming Events */}
         <div className="dashboard-card">
           <h2>Upcoming Events</h2>
-          {upcomingEvents && upcomingEvents.length > 0 ? (
+          {upcomingEvents?.length ? (
             <ul className="event-list">
               {upcomingEvents.map((event) => (
                 <li key={event.id} className="event-item">
@@ -100,7 +98,7 @@ const DashboardHome = () => {
         {/* Recent Bookings */}
         <div className="dashboard-card">
           <h2>Recent Bookings</h2>
-          {recentActivity?.bookings && recentActivity.bookings.length > 0 ? (
+          {recentActivity?.bookings?.length ? (
             <ul className="booking-list">
               {recentActivity.bookings.map((booking) => (
                 <li key={booking.id} className="booking-item">
@@ -119,7 +117,7 @@ const DashboardHome = () => {
         {/* Recent Events */}
         <div className="dashboard-card">
           <h2>Recent Events</h2>
-          {recentActivity?.events && recentActivity.events.length > 0 ? (
+          {recentActivity?.events?.length ? (
             <ul className="event-list">
               {recentActivity.events.map((event) => (
                 <li key={event.id} className="event-item">
@@ -138,7 +136,7 @@ const DashboardHome = () => {
         {/* Recent Payments */}
         <div className="dashboard-card">
           <h2>Recent Payments</h2>
-          {recentPayments && recentPayments.length > 0 ? (
+          {recentPayments?.length ? (
             <ul className="payment-list">
               {recentPayments.map((payment) => (
                 <li key={payment.id} className="payment-item">

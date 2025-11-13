@@ -1,13 +1,24 @@
+/* Reports.css */
+
 .reports-container {
   padding: 20px;
-  font-family: Arial, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
 }
 
-h2 {
+.reports-container h2 {
+  text-align: center;
   margin-bottom: 20px;
+  font-size: 28px;
+  color: #2c3e50;
 }
 
-.filters {
+/* ===========================
+   Filters Form
+=========================== */
+.report-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -15,96 +26,124 @@ h2 {
   align-items: center;
 }
 
-.filters label {
-  display: flex;
-  flex-direction: column;
+.report-filters input,
+.report-filters select {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
   font-size: 14px;
 }
 
-.filters input,
-.filters select {
-  padding: 5px;
-  font-size: 14px;
-  margin-top: 3px;
-}
-
-.apply-btn,
-.download-btn {
-  padding: 8px 15px;
-  margin-left: 5px;
-  cursor: pointer;
-  background-color: #007bff;
+.report-filters button {
+  padding: 8px 16px;
+  background-color: #3498db;
   color: white;
   border: none;
-  border-radius: 4px;
-}
-
-.apply-btn:hover,
-.download-btn:hover {
-  background-color: #0056b3;
-}
-
-.stats-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  flex: 1;
-  min-width: 150px;
-  background-color: #f1f1f1;
-  padding: 15px;
   border-radius: 6px;
-  text-align: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
 }
 
-.stat-card h4 {
+.report-filters button:hover {
+  background-color: #2980b9;
+}
+
+.report-filters button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+/* ===========================
+   Error Message
+=========================== */
+.error {
+  color: #e74c3c;
+  font-weight: bold;
   margin-bottom: 10px;
 }
 
-.reports-table {
-  overflow-x: auto;
+/* ===========================
+   Stats
+=========================== */
+.report-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+  padding: 12px;
+  background-color: #ecf0f1;
+  border-radius: 8px;
 }
 
-.reports-table table {
+.report-stats div {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* ===========================
+   Table Container (scrollable)
+=========================== */
+.table-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+/* ===========================
+   Table
+=========================== */
+.report-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 900px; /* ensures horizontal scroll if screen is smaller */
 }
 
-.reports-table th,
-.reports-table td {
-  padding: 10px;
+.report-table th,
+.report-table td {
+  padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid #ddd;
+}
+
+.report-table th {
+  background-color: #3498db;
+  color: white;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.report-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.report-table tr:hover {
+  background-color: #f1f1f1;
+}
+
+.report-table td {
   font-size: 14px;
 }
 
-.reports-table th {
-  background-color: #f5f5f5;
-}
+/* ===========================
+   Responsive
+=========================== */
+@media (max-width: 768px) {
+  .report-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-.loading,
-.error,
-.no-data {
-  text-align: center;
-  padding: 20px;
-  font-size: 16px;
-  color: #555;
-}
+  .report-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
 
-.status.completed {
-  color: green;
-  font-weight: bold;
-}
-
-.status.pending {
-  color: orange;
-}
-
-.status.cancelled,
-.status.failed,
-.status.refunded {
-  color: red;
+  .report-table th,
+  .report-table td {
+    font-size: 12px;
+    padding: 8px;
+  }
 }

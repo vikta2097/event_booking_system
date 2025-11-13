@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "../styles/AuthForm.css";
+import api from "../api"; // ✅ axios instance
 
 const ResetPasswordForm = ({ token, onLoginClick }) => {
   const [password, setPassword] = useState("");
@@ -33,22 +34,17 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3300/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, newPassword: password }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || "Reset failed");
-        return;
-      }
+      const res = await api.post("/auth/reset-password", { token, newPassword: password });
 
       setMessage("Password reset successful! Redirecting to login...");
       setTimeout(() => onLoginClick(), 2000);
     } catch (err) {
-      setError("Network error. Please try again.");
+      console.error("Reset password error:", err);
+      if (err.response && err.response.data) {
+        setError(err.response.data.message || "Reset failed");
+      } else {
+        setError("Network error. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -61,8 +57,7 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
           <h2>Invalid Reset Link</h2>
         </div>
         <div className="error-message">
-          <span>⚠️</span>
-          No reset token provided. Please use the link from your email.
+          <span>⚠️</span> No reset token provided. Please use the link from your email.
         </div>
         <button className="submit-btn" onClick={onLoginClick}>
           Back to Login
@@ -81,15 +76,13 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
       <div className="auth-form">
         {error && (
           <div className="error-message">
-            <span>⚠️</span>
-            {error}
+            <span>⚠️</span> {error}
           </div>
         )}
 
         {message && (
           <div className="success-message">
-            <span>✅</span>
-            {message}
+            <span>✅</span> {message}
           </div>
         )}
 

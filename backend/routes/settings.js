@@ -1,68 +1,36 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer");
-const bcrypt = require("bcrypt");
 const db = require("../db");
 const { verifyToken } = require("../auth");
-const nodemailer = require("nodemailer");
+const bcrypt = require("bcrypt");
+const multer = require("multer");
 const path = require("path");
-require("dotenv").config();
+const fs = require("fs");
 
-// =====================
-// Multer setup for avatar uploads
-// =====================
-const avatarPath = path.join(__dirname, "../uploads/avatars");
+// ============ AVATAR UPLOAD ============
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, avatarPath);
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, "../uploads/avatars");
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
   },
-  filename: function (req, file, cb) {
-    const ext = file.originalname.split(".").pop();
-    cb(null, `${req.user.id}_${Date.now()}.${ext}`);
+  filename: (req, file, cb) => {
+    cb(null, `avatar_${req.params.id}${path.extname(file.originalname)}`);
   },
 });
 const upload = multer({ storage });
 
-// =====================
-// In-memory 2FA OTP store
-// { userId: { otp, expiresAt } }
-// =====================
-const otpStore = {};
-
-// =====================
-// Nodemailer transporter
-// =====================
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: { rejectUnauthorized: false },
-});
-
-// =====================
-// PROFILE ROUTES
-// =====================
+// ============ PROFILE ============
 router.get("/profile/:id", verifyToken, async (req, res) => {
   try {
     const [rows] = await db.promise.query(
-      "SELECT id, fullname, email, phone, role, status, profile_image, theme, privacy, system_preferences FROM usercredentials WHERE id = ?",
+      "SELECT fullname, email, phone, profile_image AS avatar FROM usercredentials WHERE id = ?",
       [req.params.id]
     );
-    if (!rows.length) return res.status(404).json({ message: "User not found" });
-
-    const user = rows[0];
-
-    // Parse JSON fields safely
-    user.privacy = user.privacy ? JSON.parse(user.privacy) : { showOnline: true, showLastLogin: true, analytics: false };
-    user.system_preferences = user.system_preferences ? JSON.parse(user.system_preferences) : { language: "en", timezone: "Africa/Nairobi", dateFormat: "DD/MM/YYYY" };
-    user.avatarUrl = user.profile_image ? `/uploads/avatars/${user.profile_image}` : null;
-
-    res.json(user);
+    res.json(rows[0] || {});
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Error fetching profile" });
   }
 });
 
@@ -76,39 +44,41 @@ router.put("/profile/:id", verifyToken, async (req, res) => {
     res.json({ message: "Profile updated" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to update profile" });
+    res.status(500).json({ message: "Error updating profile" });
   }
 });
 
 router.post("/profile/image/:id", verifyToken, upload.single("avatar"), async (req, res) => {
-  if (!req.file) return res.status(400).json({ message: "No file uploaded" });
   try {
-    const filename = req.file.filename;
-    await db.promise.query(
-      "UPDATE usercredentials SET profile_image = ? WHERE id = ?",
-      [filename, req.params.id]
-    );
-    res.json({ message: "Avatar uploaded", filename, url: `/uploads/avatars/${filename}` });
+    await db.promise.query("UPDATE usercredentials SET profile_image = ? WHERE id = ?", [
+      req.file.filename,
+      req.params.id,
+    ]);
+    res.json({ message: "Avatar updated" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to upload avatar" });
+    res.status(500).json({ message: "Error uploading avatar" });
   }
 });
 
-// =====================
-// PASSWORD
-// =====================
+// ============ PASSWORD ============
 router.put("/password/:id", verifyToken, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
   try {
-    const [rows] = await db.promise.query("SELECT password_hash FROM usercredentials WHERE id = ?", [req.params.id]);
+    const [rows] = await db.promise.query(
+      "SELECT password_hash FROM usercredentials WHERE id = ?",
+      [req.params.id]
+    );
     if (!rows.length) return res.status(404).json({ message: "User not found" });
 
-    const match = await bcrypt.compare(oldPassword, rows[0].password_hash);
-    if (!match) return res.status(400).json({ message: "Old password incorrect" });
+    const valid = await bcrypt.compare(oldPassword, rows[0].password_hash);
+    if (!valid) return res.status(400).json({ message: "Old password incorrect" });
 
     const hashed = await bcrypt.hash(newPassword, 10);
-    await db.promise.query("UPDATE usercredentials SET password_hash = ? WHERE id = ?", [hashed, req.params.id]);
+    await db.promise.query("UPDATE usercredentials SET password_hash = ? WHERE id = ?", [
+      hashed,
+      req.params.id,
+    ]);
     res.json({ message: "Password updated" });
   } catch (err) {
     console.error(err);
@@ -116,109 +86,188 @@ router.put("/password/:id", verifyToken, async (req, res) => {
   }
 });
 
-// =====================
-// 2FA EMAIL OTP
-// =====================
-router.post("/2fa/:id", verifyToken, async (req, res) => {
-  const { enabled } = req.body;
-  const userId = req.params.id;
-
-  if (!enabled) {
-    delete otpStore[userId];
-    return res.json({ enabled: false });
-  }
-
-  const [rows] = await db.promise.query("SELECT email FROM usercredentials WHERE id = ?", [userId]);
-  if (!rows.length) return res.status(404).json({ message: "User not found" });
-
-  const email = rows[0].email;
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 5 * 60 * 1000;
-  otpStore[userId] = { otp, expiresAt };
-
+// ============ USER PREFERENCES ============
+router.get("/preferences/:id", verifyToken, async (req, res) => {
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your 2FA OTP Code",
-      html: `<p>Your OTP code is: <b>${otp}</b></p><p>Valid for 5 minutes.</p>`,
+    // Fetch user preferences from usercredentials
+    const [userPrefs] = await db.promise.query(
+      "SELECT theme, privacy, system_preferences, twoFA FROM usercredentials WHERE id = ?",
+      [req.params.id]
+    );
+
+    // Fetch user settings from user_settings
+    const [settings] = await db.promise.query(
+      "SELECT avatar, show_online, show_last_login, analytics, language, timezone, date_format FROM user_settings WHERE user_id = ?",
+      [req.params.id]
+    );
+
+    const user = userPrefs[0] || {};
+    const pref = settings[0] || {};
+
+    // Safely parse JSON only if it’s a string
+    const safeParse = (value, defaultVal) => {
+      if (!value) return defaultVal;
+      if (typeof value === "string") {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return defaultVal;
+        }
+      }
+      return value; // already an object
+    };
+
+    res.json({
+      theme: user.theme || "system",
+      privacy: safeParse(user.privacy, { showOnline: true, showLastLogin: true }),
+      system_preferences: safeParse(user.system_preferences, {}),
+      twoFA: user.twoFA || 0,
+      avatar: pref.avatar || null,
+      show_online: pref.show_online ?? 1,
+      show_last_login: pref.show_last_login ?? 1,
+      analytics: pref.analytics ?? 1,
+      language: pref.language || "en",
+      timezone: pref.timezone || "Africa/Nairobi",
+      date_format: pref.date_format || "YYYY-MM-DD",
     });
-    res.json({ enabled: true, message: "OTP sent to email" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to send OTP email" });
+    res.status(500).json({ message: "Error fetching preferences" });
   }
 });
 
-router.post("/2fa/verify/:id", verifyToken, (req, res) => {
-  const { otp } = req.body;
-  const record = otpStore[req.params.id];
-  if (!record) return res.status(400).json({ message: "No OTP found" });
-  if (record.expiresAt < Date.now()) return res.status(400).json({ message: "OTP expired" });
-  if (record.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
+router.put("/preferences/:id", verifyToken, async (req, res) => {
+  try {
+    const {
+      theme,
+      privacy,
+      system_preferences,
+      twoFA,
+      avatar,
+      show_online,
+      show_last_login,
+      analytics,
+      language,
+      timezone,
+      date_format,
+    } = req.body;
 
-  delete otpStore[req.params.id];
-  res.json({ message: "OTP verified successfully" });
+    // Utility to safely stringify objects
+    const safeStringify = (value) => {
+      if (typeof value === "object") return JSON.stringify(value);
+      return value ?? "{}";
+    };
+
+    // Update usercredentials table
+    await db.promise.query(
+      "UPDATE usercredentials SET theme=?, privacy=?, system_preferences=?, twoFA=? WHERE id=?",
+      [
+        theme || "system",
+        safeStringify(privacy || { showOnline: true, showLastLogin: true }),
+        safeStringify(system_preferences || {}),
+        twoFA || 0,
+        req.params.id,
+      ]
+    );
+
+    // Check if user_settings exists
+    const [exists] = await db.promise.query(
+      "SELECT id FROM user_settings WHERE user_id=?",
+      [req.params.id]
+    );
+
+    if (exists.length) {
+      // Update existing
+      await db.promise.query(
+        `UPDATE user_settings 
+         SET avatar=?, show_online=?, show_last_login=?, analytics=?, language=?, timezone=?, date_format=? 
+         WHERE user_id=?`,
+        [
+          avatar || null,
+          show_online ?? 1,
+          show_last_login ?? 1,
+          analytics ?? 1,
+          language || "en",
+          timezone || "Africa/Nairobi",
+          date_format || "YYYY-MM-DD",
+          req.params.id,
+        ]
+      );
+    } else {
+      // Insert new
+      await db.promise.query(
+        `INSERT INTO user_settings 
+         (user_id, avatar, show_online, show_last_login, analytics, language, timezone, date_format) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.params.id,
+          avatar || null,
+          show_online ?? 1,
+          show_last_login ?? 1,
+          analytics ?? 1,
+          language || "en",
+          timezone || "Africa/Nairobi",
+          date_format || "YYYY-MM-DD",
+        ]
+      );
+    }
+
+    res.json({ message: "Preferences updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error updating preferences" });
+  }
 });
 
-// =====================
-// THEME, PRIVACY, SYSTEM PREFERENCES
-// =====================
-router.get("/theme/:id", verifyToken, async (req, res) => {
-  const [rows] = await db.promise.query("SELECT theme FROM usercredentials WHERE id = ?", [req.params.id]);
-  res.json({ theme: rows[0]?.theme || "system" });
+// ============ ACCOUNT ============
+router.post("/deactivate/:id", verifyToken, async (req, res) => {
+  try {
+    await db.promise.query("UPDATE usercredentials SET status = 'inactive' WHERE id = ?", [
+      req.params.id,
+    ]);
+    res.json({ message: "Account deactivated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error deactivating account" });
+  }
 });
 
-router.put("/theme/:id", verifyToken, async (req, res) => {
-  await db.promise.query("UPDATE usercredentials SET theme = ? WHERE id = ?", [req.body.theme, req.params.id]);
-  res.json({ message: "Theme updated" });
+router.delete("/account/:id", verifyToken, async (req, res) => {
+  try {
+    await db.promise.query("DELETE FROM usercredentials WHERE id = ?", [req.params.id]);
+    await db.promise.query("DELETE FROM user_settings WHERE user_id = ?", [req.params.id]);
+    res.json({ message: "Account deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error deleting account" });
+  }
 });
 
-router.get("/privacy/:id", verifyToken, async (req, res) => {
-  const [rows] = await db.promise.query("SELECT privacy FROM usercredentials WHERE id = ?", [req.params.id]);
-  res.json(rows[0]?.privacy ? JSON.parse(rows[0].privacy) : { showOnline: true, showLastLogin: true, analytics: false });
-});
-
-router.put("/privacy/:id", verifyToken, async (req, res) => {
-  await db.promise.query("UPDATE usercredentials SET privacy = ? WHERE id = ?", [JSON.stringify(req.body), req.params.id]);
-  res.json({ message: "Privacy updated" });
-});
-
-router.get("/system/:id", verifyToken, async (req, res) => {
-  const [rows] = await db.promise.query("SELECT system_preferences FROM usercredentials WHERE id = ?", [req.params.id]);
-  res.json(rows[0]?.system_preferences ? JSON.parse(rows[0].system_preferences) : { language: "en", timezone: "Africa/Nairobi", dateFormat: "DD/MM/YYYY" });
-});
-
-router.put("/system/:id", verifyToken, async (req, res) => {
-  await db.promise.query("UPDATE usercredentials SET system_preferences = ? WHERE id = ?", [JSON.stringify(req.body), req.params.id]);
-  res.json({ message: "System preferences updated" });
-});
-
-// =====================
-// ADMIN: SYSTEM CONFIG
-// =====================
+// ============ SYSTEM CONFIG ============
 router.get("/system-config", verifyToken, async (req, res) => {
-  if (req.user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
-
-  let [rows] = await db.promise.query("SELECT * FROM system_config LIMIT 1");
-
-  if (!rows.length) {
-    // Insert default config if table empty
-    await db.promise.query("INSERT INTO system_config (id, appName, maintenanceMode, defaultRole) VALUES (1, 'EMS App', 0, 'user')");
-    [rows] = await db.promise.query("SELECT * FROM system_config LIMIT 1");
+  try {
+    const [rows] = await db.promise.query(
+      "SELECT appName, maintenanceMode, defaultRole FROM system_config LIMIT 1"
+    );
+    res.json(rows[0] || { appName: "EMS", maintenanceMode: 0, defaultRole: "user" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching system config" });
   }
-
-  res.json(rows[0]);
 });
 
-router.put("/system-config", verifyToken, async (req, res) => {
-  if (req.user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+router.put("/system-config/:id", verifyToken, async (req, res) => {
   const { appName, maintenanceMode, defaultRole } = req.body;
-  await db.promise.query(
-    "UPDATE system_config SET appName = ?, maintenanceMode = ?, defaultRole = ? WHERE id = 1",
-    [appName, maintenanceMode, defaultRole]
-  );
-  res.json({ message: "System configuration updated" });
+  try {
+    await db.promise.query(
+      "UPDATE system_config SET appName=?, maintenanceMode=?, defaultRole=? WHERE id=?",
+      [appName, maintenanceMode, defaultRole, req.params.id]
+    );
+    res.json({ message: "System configuration updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error updating system config" });
+  }
 });
 
 module.exports = router;

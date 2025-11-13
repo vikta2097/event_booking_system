@@ -4,22 +4,22 @@ const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
 const bcrypt = require("bcrypt");
-const db = require("./db"); // ✅ unified database interface
-const { verifyToken } = require("./auth"); // Auth middleware
+const db = require("./db");
+const { verifyToken } = require("./auth");
 
 // Routes
 const authRoutes = require("./routes/authentification");
 const adminRoutes = require("./routes/admins");
-const bookingsRouter = require("./routes/bookings");
+const bookingsRouter = require("./routes/bookings"); // ✅ Updated with new endpoints
 const userRoutes = require("./routes/users");
-const eventsRouter = require("./routes/events"); // ✅ new
-const categoriesRouter = require("./routes/categories"); // ✅ new
-const dashboardRouter = require("./routes/dashboard"); // ✅ new dynamic stats route
+const eventsRouter = require("./routes/events");
+const categoriesRouter = require("./routes/categories");
+const ticketTypesRouter = require("./routes/ticketTypes"); // ✅ NEW ROUTE
+const dashboardRouter = require("./routes/dashboard");
 const paymentsRouter = require("./routes/payments");
 const reportsRouter = require("./routes/reports");
 const supportRoutes = require("./routes/support");
 const settingsRoutes = require("./routes/settings");
-
 
 const app = express();
 const server = http.createServer(app);
@@ -41,15 +41,14 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingsRouter);
 app.use("/api/users", userRoutes);
-app.use("/api/events", eventsRouter);        // ✅ events route
-app.use("/api/categories", categoriesRouter); // ✅ categories route
-app.use("/api/dashboard", dashboardRouter);   // ✅ new dashboard stats route
+app.use("/api/events", eventsRouter);
+app.use("/api/categories", categoriesRouter);
+app.use("/api", ticketTypesRouter); // ✅ NEW: Ticket types routes
+app.use("/api/dashboard", dashboardRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/support", supportRoutes);
 app.use("/api/settings", settingsRoutes);
-
-
 
 // ✅ Token validation
 app.get("/api/validate-token", verifyToken, (req, res) => {
@@ -58,7 +57,7 @@ app.get("/api/validate-token", verifyToken, (req, res) => {
 
 // ✅ Health check
 app.get("/", (req, res) => {
-  res.send("✅ Auth service running...");
+  res.send("✅ Event Booking System API running...");
 });
 
 // 404 handler
@@ -75,16 +74,16 @@ app.use((err, req, res, next) => {
 // ✅ Ensure default admin account exists
 const ensureDefaultAdmin = async () => {
   try {
-    const [rows] = await db.promise.query(
+    const result = await db.query(
       "SELECT * FROM usercredentials WHERE role = 'admin' LIMIT 1"
     );
 
-    if (!rows || rows.length === 0) {
+    if (!result.rows || result.rows.length === 0) {
       console.log("⚠️ No admin found — creating default admin account...");
 
       const hashedPassword = await bcrypt.hash("Admin@123", 10);
-      await db.promise.query(
-        "INSERT INTO usercredentials (fullname, email, password_hash, role) VALUES (?, ?, ?, ?)",
+      await db.query(
+        "INSERT INTO usercredentials (fullname, email, password_hash, role) VALUES ($1, $2, $3, $4)",
         ["System Admin", "admin@system.com", hashedPassword, "admin"]
       );
 
@@ -102,13 +101,15 @@ const ensureDefaultAdmin = async () => {
 // ✅ Start server only after DB connection check
 const startServer = async () => {
   try {
-    const conn = await db.getConnection();
-    conn.release();
+    const client = await db.pool.connect();
+    client.release();
     console.log("✅ Database connection verified.");
 
     const PORT = process.env.PORT || 3300;
     server.listen(PORT, async () => {
       console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📡 API available at http://localhost:${PORT}`);
+      console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || "http://localhost:3000"}`);
       await ensureDefaultAdmin();
     });
   } catch (err) {

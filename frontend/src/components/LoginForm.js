@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "../styles/AuthForm.css";
+import api from "../api"; // ✅ use axios instance
 
 const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
   const [email, setEmail] = useState("");
@@ -8,8 +9,6 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const BASE_URL = "http://localhost:3300";
-
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
@@ -17,50 +16,36 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
 
     try {
       // Login request
-      const res = await fetch(`${BASE_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await api.post("/auth/login", { email, password });
 
-      const data = await res.json();
-
-      if (!res.ok || !data.token) {
-        setError(data?.message || "Login failed.");
+      if (!res.data.token) {
+        setError(res.data.message || "Login failed.");
         setLoading(false);
         return;
       }
 
-      // Save token
-      localStorage.setItem("token", data.token);
+      const token = res.data.token;
+      localStorage.setItem("token", token);
 
-      // Fetch user profile including isEmployee flag
-      const profileRes = await fetch(`${BASE_URL}/api/auth/me`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${data.token}` },
-      });
+      // Fetch user profile (token automatically sent via interceptor)
+      const profileRes = await api.get("/auth/me");
 
-      const profileData = await profileRes.json();
+      localStorage.setItem("role", profileRes.data.role);
+      if (profileRes.data.id) localStorage.setItem("userId", profileRes.data.id);
 
-      if (!profileRes.ok) {
-        setError(profileData?.message || "Failed to fetch user profile.");
-        setLoading(false);
-        return;
-      }
-
-      // Save role and userId if present
-      localStorage.setItem("role", profileData.role);
-      if (profileData.id) localStorage.setItem("userId", profileData.id);
-
-      // Pass entire profile including isEmployee to parent
+      // Pass entire profile to parent
       onLoginSuccess({
-  token: data.token,
-  role: profileData.role,
-  userId: profileData.id
-});
+        token,
+        role: profileRes.data.role,
+        userId: profileRes.data.id,
+      });
     } catch (err) {
       console.error("Login error:", err);
-      setError("Network error. Please try again.");
+      if (err.response && err.response.data) {
+        setError(err.response.data.message || "Login failed.");
+      } else {
+        setError("Network error. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -76,10 +61,7 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
       <div className="auth-form">
         {error && (
           <div className="error-message">
-            <span role="img" aria-label="Error">
-              ⚠️
-            </span>{" "}
-            {error}
+            <span role="img" aria-label="Error">⚠️</span> {error}
           </div>
         )}
 

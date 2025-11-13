@@ -1,44 +1,35 @@
-const mysql = require("mysql2");
+// db.js
+const { Pool } = require("pg");
 require("dotenv").config();
 
 // ✅ Shared configuration
-const dbConfig = {
+const pool = new Pool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD || process.env.DB_PASS,
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-};
-
-// ✅ Create a connection pool (callback + promise compatible)
-const pool = mysql.createPool(dbConfig);
-const promisePool = pool.promise();
+  port: process.env.DB_PORT || 5432,
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
+});
 
 // ✅ Test connection once at startup
 (async () => {
   try {
-    const conn = await promisePool.getConnection();
-    console.log("✅ Connected to MySQL database!");
-    conn.release();
+    const client = await pool.connect();
+    console.log("✅ Connected to PostgreSQL database!");
+    client.release();
   } catch (err) {
-    console.error("❌ MySQL connection error:", err.message);
+    console.error("❌ PostgreSQL connection error:", err.message);
   }
 })();
 
 // ✅ Export a unified interface
 module.exports = {
-  // For EMS-style routes (callback syntax)
-  query: pool.query.bind(pool),
-  execute: pool.execute.bind(pool),
+  // For query execution with async/await
+  query: (text, params) => pool.query(text, params),
 
-  // For Event Booking and async/await style
-  promise: promisePool,
-
-  // For server startup connection verification
-  getConnection: () => promisePool.getConnection(),
+  // For getting a raw client if needed (transaction support)
+  getClient: () => pool.connect(),
 
   // Optionally export the raw pool
   pool,

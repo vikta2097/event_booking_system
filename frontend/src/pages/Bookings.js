@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api"; // <-- Use your preconfigured Axios instance
 import "../styles/Bookings.css";
 
 const Bookings = () => {
@@ -18,7 +18,7 @@ const Bookings = () => {
     try {
       setLoading(true);
       setError("");
-      const res = await axios.get("http://localhost:3300/api/bookings");
+      const res = await api.get("/bookings"); // ✅ Use api instance
       setBookings(res.data);
     } catch (err) {
       setError("Failed to fetch bookings");
@@ -31,13 +31,9 @@ const Bookings = () => {
   // Update booking status
   const handleStatusChange = async (bookingId, newStatus) => {
     try {
-      await axios.put(`http://localhost:3300/api/bookings/${bookingId}`, {
-        status: newStatus,
-      });
-      
-      // Update local state immediately for better UX
-      setBookings(prevBookings =>
-        prevBookings.map(booking =>
+      await api.put(`/bookings/${bookingId}`, { status: newStatus }); // ✅ Use api instance
+      setBookings((prev) =>
+        prev.map((booking) =>
           booking.id === bookingId
             ? { ...booking, booking_status: newStatus }
             : booking
@@ -46,7 +42,6 @@ const Bookings = () => {
     } catch (err) {
       setError("Failed to update booking status");
       console.error(err);
-      // Refetch to ensure data consistency
       fetchBookings();
     }
   };
@@ -54,16 +49,12 @@ const Bookings = () => {
   // Delete booking
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this booking?")) return;
-    
     try {
-      await axios.delete(`http://localhost:3300/api/bookings/${id}`);
-      
-      // Remove from local state immediately
-      setBookings(prevBookings => prevBookings.filter(booking => booking.id !== id));
+      await api.delete(`/bookings/${id}`); // ✅ Use api instance
+      setBookings((prev) => prev.filter((booking) => booking.id !== id));
     } catch (err) {
       setError("Failed to delete booking");
       console.error(err);
-      // Refetch to ensure data consistency
       fetchBookings();
     }
   };

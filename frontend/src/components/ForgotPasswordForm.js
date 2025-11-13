@@ -1,5 +1,6 @@
 import "../styles/AuthForm.css";
 import React, { useState } from "react";
+import api from "../api"; // ✅ use axios instance
 
 const ForgotPasswordForm = ({ onLoginClick }) => {
   const [email, setEmail] = useState("");
@@ -12,22 +13,17 @@ const ForgotPasswordForm = ({ onLoginClick }) => {
     setError("");
     setMessage("");
     setLoading(true);
+
     try {
-      const res = await fetch("http://localhost:3300/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      
-      if (!res.ok) {
-        setError(data.message || "Failed to send reset link");
-        return;
-      }
-      
-      setMessage("Password reset email sent! Check your inbox.");
+      const res = await api.post("/auth/forgot-password", { email });
+
+      setMessage(res.data.message || "Password reset email sent! Check your inbox.");
     } catch (err) {
-      setError("Network error. Please try again.");
+      if (err.response && err.response.data) {
+        setError(err.response.data.message || "Failed to send reset link");
+      } else {
+        setError("Network error. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -67,7 +63,12 @@ const ForgotPasswordForm = ({ onLoginClick }) => {
           />
         </div>
 
-        <button type="button" className="submit-btn" disabled={loading} onClick={handleForgotSubmit}>
+        <button
+          type="button"
+          className="submit-btn"
+          disabled={loading}
+          onClick={handleForgotSubmit}
+        >
           {loading ? "Sending..." : "Send Reset Link"}
         </button>
 

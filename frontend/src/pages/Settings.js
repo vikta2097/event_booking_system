@@ -1,201 +1,102 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../api";
 import "../styles/Settings.css";
 import { toast } from "react-toastify";
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
-
 const Settings = ({ currentUser }) => {
   // ===========================
-  // SECTION 1: PROFILE SETTINGS
+  // PROFILE + PREFERENCES
   // ===========================
-  const [profile, setProfile] = useState({
+  const [prefs, setPrefs] = useState({
     fullname: "",
     email: "",
     phone: "",
     avatar: "",
+    theme: "system",
+    privacy: { showOnline: true, showLastLogin: true, analytics: true },
+    system_preferences: { language: "en", timezone: "Africa/Nairobi", date_format: "YYYY-MM-DD" },
+    twoFA: 0,
   });
 
-  const fetchUserProfile = async () => {
+  const fetchPreferences = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/settings/profile/${currentUser.id}`);
-      setProfile(res.data);
+      const res = await api.get(`/settings/preferences/${currentUser.id}`);
+      // Ensure privacy and system_preferences are objects
+      setPrefs({
+        ...res.data,
+        privacy: typeof res.data.privacy === "string" ? JSON.parse(res.data.privacy) : res.data.privacy,
+        system_preferences:
+          typeof res.data.system_preferences === "string"
+            ? JSON.parse(res.data.system_preferences)
+            : res.data.system_preferences,
+      });
     } catch (err) {
-      console.error("Error fetching profile:", err);
+      console.error("Error fetching preferences:", err);
+      toast.error("Failed to fetch preferences");
     }
   };
 
-  const updateUserProfile = async () => {
+  const updatePreferences = async () => {
     try {
-      await axios.put(`${API_BASE_URL}/settings/profile/${currentUser.id}`, profile);
-      toast.success("Profile updated successfully!");
+      await api.put(`/settings/preferences/${currentUser.id}`, prefs);
+      toast.success("Preferences updated successfully!");
+      fetchPreferences();
     } catch (err) {
-      toast.error("Failed to update profile");
+      console.error(err);
+      toast.error("Error updating preferences");
     }
   };
 
-  const uploadProfileImage = async (e) => {
+  const uploadAvatar = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const formData = new FormData();
     formData.append("avatar", file);
     try {
-      await axios.post(`${API_BASE_URL}/settings/profile/image/${currentUser.id}`, formData);
-      toast.success("Profile image updated!");
+      await api.post(`/settings/profile/image/${currentUser.id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("Avatar updated!");
+      fetchPreferences();
     } catch (err) {
-      toast.error("Error uploading image");
+      console.error(err);
+      toast.error("Error uploading avatar");
     }
   };
 
   // ===========================
-  // SECTION 2: SECURITY
+  // PASSWORD
   // ===========================
-  const [security, setSecurity] = useState({
-    oldPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-    twoFA: false,
-  });
+  const [security, setSecurity] = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
 
   const updatePassword = async () => {
+    if (security.newPassword !== security.confirmPassword) {
+      toast.error("New password and confirm password do not match");
+      return;
+    }
     try {
-      await axios.put(`${API_BASE_URL}/settings/password/${currentUser.id}`, {
+      await api.put(`/settings/password/${currentUser.id}`, {
         oldPassword: security.oldPassword,
         newPassword: security.newPassword,
       });
-      toast.success("Password updated successfully!");
+      toast.success("Password updated!");
+      setSecurity({ oldPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err) {
-      toast.error("Error updating password");
-    }
-  };
-
-  const toggle2FA = async () => {
-    try {
-      const res = await axios.post(`${API_BASE_URL}/settings/2fa/${currentUser.id}`, {
-        enabled: !security.twoFA,
-      });
-      setSecurity({ ...security, twoFA: res.data.enabled });
-      toast.info(`2FA ${res.data.enabled ? "enabled" : "disabled"}`);
-    } catch (err) {
-      toast.error("Error toggling 2FA");
+      console.error(err);
+      toast.error(err.response?.data?.message || "Error updating password");
     }
   };
 
   // ===========================
-  // SECTION 3: NOTIFICATIONS
-  // ===========================
-  const [notifications, setNotifications] = useState({
-    email: true,
-    inApp: true,
-    sms: false,
-    sound: true,
-  });
-
-  const fetchNotificationSettings = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/settings/notifications/${currentUser.id}`);
-      setNotifications(res.data);
-    } catch (err) {
-      console.error("Error fetching notification settings:", err);
-    }
-  };
-
-  const updateNotificationSettings = async () => {
-    try {
-      await axios.put(`${API_BASE_URL}/settings/notifications/${currentUser.id}`, notifications);
-      toast.success("Notification preferences updated!");
-    } catch (err) {
-      toast.error("Failed to update notification settings");
-    }
-  };
-
-  // ===========================
-  // SECTION 4: THEME & DISPLAY
-  // ===========================
-  const [theme, setTheme] = useState("system");
-
-  const fetchThemePreference = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/settings/theme/${currentUser.id}`);
-      setTheme(res.data.theme);
-    } catch (err) {
-      console.error("Error fetching theme preference:", err);
-    }
-  };
-
-  const updateThemePreference = async (value) => {
-    setTheme(value);
-    try {
-      await axios.put(`${API_BASE_URL}/settings/theme/${currentUser.id}`, { theme: value });
-      toast.info(`Theme changed to ${value}`);
-    } catch (err) {
-      toast.error("Error updating theme preference");
-    }
-  };
-
-  // ===========================
-  // SECTION 5: PRIVACY SETTINGS
-  // ===========================
-  const [privacy, setPrivacy] = useState({
-    showOnline: true,
-    showLastLogin: true,
-    analytics: false,
-  });
-
-  const fetchPrivacySettings = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/settings/privacy/${currentUser.id}`);
-      setPrivacy(res.data);
-    } catch (err) {
-      console.error("Error fetching privacy settings:", err);
-    }
-  };
-
-  const updatePrivacySettings = async () => {
-    try {
-      await axios.put(`${API_BASE_URL}/settings/privacy/${currentUser.id}`, privacy);
-      toast.success("Privacy settings updated!");
-    } catch (err) {
-      toast.error("Error updating privacy settings");
-    }
-  };
-
-  // ===========================
-  // SECTION 6: SYSTEM PREFERENCES
-  // ===========================
-  const [system, setSystem] = useState({
-    language: "en",
-    timezone: "Africa/Nairobi",
-    dateFormat: "DD/MM/YYYY",
-  });
-
-  const fetchSystemPreferences = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/settings/system/${currentUser.id}`);
-      setSystem(res.data);
-    } catch (err) {
-      console.error("Error fetching system preferences:", err);
-    }
-  };
-
-  const updateSystemPreferences = async () => {
-    try {
-      await axios.put(`${API_BASE_URL}/settings/system/${currentUser.id}`, system);
-      toast.success("System preferences saved!");
-    } catch (err) {
-      toast.error("Failed to update system preferences");
-    }
-  };
-
-  // ===========================
-  // SECTION 7: ACCOUNT MANAGEMENT
+  // ACCOUNT MANAGEMENT
   // ===========================
   const deactivateAccount = async () => {
     if (!window.confirm("Are you sure you want to deactivate your account?")) return;
     try {
-      await axios.post(`${API_BASE_URL}/settings/deactivate/${currentUser.id}`);
+      await api.post(`/settings/deactivate/${currentUser.id}`);
       toast.warning("Account deactivated!");
     } catch (err) {
+      console.error(err);
       toast.error("Error deactivating account");
     }
   };
@@ -203,26 +104,23 @@ const Settings = ({ currentUser }) => {
   const deleteAccount = async () => {
     if (!window.confirm("This will permanently delete your account. Proceed?")) return;
     try {
-      await axios.delete(`${API_BASE_URL}/settings/account/${currentUser.id}`);
+      await api.delete(`/settings/account/${currentUser.id}`);
       toast.error("Account deleted!");
     } catch (err) {
+      console.error(err);
       toast.error("Error deleting account");
     }
   };
 
   // ===========================
-  // SECTION 8: ADMIN CONFIG (optional)
+  // ADMIN CONFIG
   // ===========================
-  const [systemConfig, setSystemConfig] = useState({
-    appName: "",
-    maintenanceMode: false,
-    defaultRole: "user",
-  });
+  const [systemConfig, setSystemConfig] = useState({ appName: "", maintenanceMode: false, defaultRole: "user", id: 1 });
 
   const fetchSystemConfig = async () => {
     if (currentUser.role !== "admin") return;
     try {
-      const res = await axios.get(`${API_BASE_URL}/settings/system-config`);
+      const res = await api.get(`/settings/system-config`);
       setSystemConfig(res.data);
     } catch (err) {
       console.error("Error fetching system config:", err);
@@ -231,27 +129,24 @@ const Settings = ({ currentUser }) => {
 
   const updateSystemConfig = async () => {
     try {
-      await axios.put(`${API_BASE_URL}/settings/system-config`, systemConfig);
+      await api.put(`/settings/system-config/${systemConfig.id || 1}`, systemConfig);
       toast.success("System configuration updated!");
     } catch (err) {
+      console.error(err);
       toast.error("Error updating system config");
     }
   };
 
   // ===========================
-  // EFFECT: INITIAL LOAD
+  // INITIAL LOAD
   // ===========================
   useEffect(() => {
-    fetchUserProfile();
-    fetchNotificationSettings();
-    fetchThemePreference();
-    fetchPrivacySettings();
-    fetchSystemPreferences();
+    fetchPreferences();
     fetchSystemConfig();
   }, []);
 
   // ===========================
-  // UI SECTION
+  // UI
   // ===========================
   return (
     <div className="settings-page">
@@ -260,73 +155,95 @@ const Settings = ({ currentUser }) => {
       {/* PROFILE */}
       <section>
         <h3>Profile</h3>
-        <input value={profile.fullname} onChange={(e) => setProfile({ ...profile, fullname: e.target.value })} placeholder="Full Name" />
-        <input value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} placeholder="Email" />
-        <input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} placeholder="Phone" />
-        <input type="file" onChange={uploadProfileImage} />
-        <button onClick={updateUserProfile}>Save Profile</button>
+        <input
+          value={prefs.fullname || ""}
+          onChange={(e) => setPrefs({ ...prefs, fullname: e.target.value })}
+          placeholder="Full Name"
+        />
+        <input
+          value={prefs.email || ""}
+          onChange={(e) => setPrefs({ ...prefs, email: e.target.value })}
+          placeholder="Email"
+        />
+        <input
+          value={prefs.phone || ""}
+          onChange={(e) => setPrefs({ ...prefs, phone: e.target.value })}
+          placeholder="Phone"
+        />
+        <input type="file" onChange={uploadAvatar} />
+        <button onClick={updatePreferences}>Save Profile & Preferences</button>
       </section>
 
       {/* SECURITY */}
       <section>
         <h3>Security</h3>
-        <input type="password" placeholder="Old Password" onChange={(e) => setSecurity({ ...security, oldPassword: e.target.value })} />
-        <input type="password" placeholder="New Password" onChange={(e) => setSecurity({ ...security, newPassword: e.target.value })} />
+        <input
+          type="password"
+          placeholder="Old Password"
+          value={security.oldPassword}
+          onChange={(e) => setSecurity({ ...security, oldPassword: e.target.value })}
+        />
+        <input
+          type="password"
+          placeholder="New Password"
+          value={security.newPassword}
+          onChange={(e) => setSecurity({ ...security, newPassword: e.target.value })}
+        />
+        <input
+          type="password"
+          placeholder="Confirm New Password"
+          value={security.confirmPassword}
+          onChange={(e) => setSecurity({ ...security, confirmPassword: e.target.value })}
+        />
         <button onClick={updatePassword}>Change Password</button>
         <label>
-          <input type="checkbox" checked={security.twoFA} onChange={toggle2FA} /> Enable Two-Factor Authentication
+          <input
+            type="checkbox"
+            checked={!!prefs.twoFA}
+            onChange={() => setPrefs({ ...prefs, twoFA: prefs.twoFA ? 0 : 1 })}
+          />
+          Enable Two-Factor Authentication
         </label>
       </section>
 
-      {/* NOTIFICATIONS */}
+      {/* THEME & PRIVACY */}
       <section>
-        <h3>Notifications</h3>
-        {Object.keys(notifications).map((key) => (
-          <label key={key}>
-            <input
-              type="checkbox"
-              checked={notifications[key]}
-              onChange={(e) => setNotifications({ ...notifications, [key]: e.target.checked })}
-            />
-            {key.toUpperCase()}
-          </label>
-        ))}
-        <button onClick={updateNotificationSettings}>Save Notifications</button>
-      </section>
-
-      {/* THEME */}
-      <section>
-        <h3>Theme</h3>
-        <select value={theme} onChange={(e) => updateThemePreference(e.target.value)}>
+        <h3>Theme & Privacy</h3>
+        <select value={prefs.theme} onChange={(e) => setPrefs({ ...prefs, theme: e.target.value })}>
           <option value="light">Light</option>
           <option value="dark">Dark</option>
           <option value="system">System Default</option>
         </select>
-      </section>
-
-      {/* PRIVACY */}
-      <section>
-        <h3>Privacy</h3>
-        {Object.keys(privacy).map((key) => (
+        {Object.keys(prefs.privacy).map((key) => (
           <label key={key}>
             <input
               type="checkbox"
-              checked={privacy[key]}
-              onChange={(e) => setPrivacy({ ...privacy, [key]: e.target.checked })}
+              checked={prefs.privacy[key]}
+              onChange={(e) => setPrefs({ ...prefs, privacy: { ...prefs.privacy, [key]: e.target.checked } })}
             />
             {key.replace(/([A-Z])/g, " $1")}
           </label>
         ))}
-        <button onClick={updatePrivacySettings}>Save Privacy</button>
       </section>
 
       {/* SYSTEM PREFERENCES */}
       <section>
         <h3>System Preferences</h3>
-        <input value={system.language} onChange={(e) => setSystem({ ...system, language: e.target.value })} placeholder="Language" />
-        <input value={system.timezone} onChange={(e) => setSystem({ ...system, timezone: e.target.value })} placeholder="Timezone" />
-        <input value={system.dateFormat} onChange={(e) => setSystem({ ...system, dateFormat: e.target.value })} placeholder="Date Format" />
-        <button onClick={updateSystemPreferences}>Save Preferences</button>
+        <input
+          value={prefs.system_preferences.language || ""}
+          onChange={(e) => setPrefs({ ...prefs, system_preferences: { ...prefs.system_preferences, language: e.target.value } })}
+          placeholder="Language"
+        />
+        <input
+          value={prefs.system_preferences.timezone || ""}
+          onChange={(e) => setPrefs({ ...prefs, system_preferences: { ...prefs.system_preferences, timezone: e.target.value } })}
+          placeholder="Timezone"
+        />
+        <input
+          value={prefs.system_preferences.date_format || ""}
+          onChange={(e) => setPrefs({ ...prefs, system_preferences: { ...prefs.system_preferences, date_format: e.target.value } })}
+          placeholder="Date Format"
+        />
       </section>
 
       {/* ACCOUNT MANAGEMENT */}
@@ -336,7 +253,7 @@ const Settings = ({ currentUser }) => {
         <button className="danger" onClick={deleteAccount}>Delete Account</button>
       </section>
 
-      {/* ADMIN SETTINGS */}
+      {/* ADMIN CONFIG */}
       {currentUser.role === "admin" && (
         <section>
           <h3>System Configuration</h3>

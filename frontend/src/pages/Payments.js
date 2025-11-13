@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api"; // Use your Axios instance with Authorization header
 import "../styles/Payments.css";
+
 
 const Payments = () => {
   const [payments, setPayments] = useState([]);
@@ -15,45 +16,46 @@ const Payments = () => {
   }, [filter]);
 
   // Fetch payments from backend
-  const fetchPayments = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get("http://localhost:3300/api/payments");
-      let data = res.data || [];
-      if (filter !== "all") {
-        data = data.filter((p) => p.status === filter);
-      }
-      setPayments(data);
-    } catch (err) {
-      console.error("Error fetching payments:", err);
-      setError("Failed to load payments");
-    } finally {
-      setLoading(false);
+const fetchPayments = async () => {
+  try {
+    setLoading(true);
+    const res = await api.get("/payments"); // ✅ use api instead of axios
+    let data = res.data || [];
+    if (filter !== "all") {
+      data = data.filter((p) => p.status === filter);
     }
-  };
+    setPayments(data);
+  } catch (err) {
+    console.error("Error fetching payments:", err);
+    setError("Failed to load payments");
+  } finally {
+    setLoading(false);
+  }
+};
 
-  // Fetch stats summary
-  const fetchStats = async () => {
-    try {
-      const res = await axios.get("http://localhost:3300/api/payments/stats");
-      setStats(res.data);
-    } catch (err) {
-      console.error("Error fetching stats:", err);
-    }
-  };
+// Fetch stats summary
+const fetchStats = async () => {
+  try {
+    const res = await api.get("/payments/stats"); // ✅ use api instead of axios
+    setStats(res.data);
+  } catch (err) {
+    console.error("Error fetching stats:", err);
+  }
+};
 
-  // Mark a payment as refunded
-  const handleRefund = async (id) => {
-    if (!window.confirm("Are you sure you want to mark this as refunded?")) return;
-    try {
-      await axios.put(`http://localhost:3300/api/payments/refund/${id}`);
-      fetchPayments();
-      fetchStats();
-    } catch (err) {
-      console.error("Error refunding payment:", err);
-      alert("Failed to process refund");
-    }
-  };
+// Mark a payment as refunded
+const handleRefund = async (id) => {
+  if (!window.confirm("Are you sure you want to mark this as refunded?")) return;
+  try {
+    await api.put(`/payments/refund/${id}`); // ✅ use api instead of axios
+    fetchPayments();
+    fetchStats();
+  } catch (err) {
+    console.error("Error refunding payment:", err);
+    alert("Failed to process refund");
+  }
+};
+
 
   // ========================
   // Download CSV based on current filter

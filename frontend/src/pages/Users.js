@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useCallback } from "react";
-import '../styles/Users.css';
+import React, { useEffect, useState, useCallback } from "react";
+import axios from "axios";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import "../styles/Users.css";
 
 const roleOptions = [
   { value: "admin", label: "Admin" },
@@ -19,33 +22,23 @@ const Users = () => {
 
   const baseUrl = "http://localhost:3300/api/users";
 
-  const fetchUsers = useCallback(async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.warn("No token found. Skipping user fetch.");
-      return;
-    }
+  // Axios instance with token
+  const axiosInstance = axios.create({
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+  });
 
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(baseUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const contentType = res.headers.get("content-type");
-      if (!res.ok || !contentType?.includes("application/json")) {
-        const errorText = await res.text();
-        throw new Error(`Unexpected response: ${errorText}`);
-      }
-
-      const data = await res.json();
-      setUsers(data);
+      const res = await axiosInstance.get(baseUrl);
+      setUsers(res.data);
     } catch (err) {
       console.error("Error fetching users:", err);
+      toast.error("Failed to fetch users");
     } finally {
       setLoading(false);
     }
-  }, [baseUrl]);
+  }, [axiosInstance]);
 
   useEffect(() => {
     fetchUsers();
@@ -58,43 +51,30 @@ const Users = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem("token");
 
+    // Basic validation
     if (!formData.email || !formData.fullname || !formData.role || (!editUserId && !formData.password)) {
-      alert("Please fill all required fields");
+      toast.error("Please fill all required fields");
       return;
     }
 
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      alert("Invalid email format");
+      toast.error("Invalid email format");
       return;
     }
 
     if (!editUserId && formData.password.length < 6) {
-      alert("Password must be at least 6 characters");
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
-    const url = editUserId ? `${baseUrl}/${editUserId}` : baseUrl;
-    const method = editUserId ? "PUT" : "POST";
-
     try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const contentType = res.headers.get("content-type");
-      const isJson = contentType && contentType.includes("application/json");
-      const result = isJson ? await res.json() : { message: "Unexpected response" };
-
-      if (!res.ok) {
-        alert("Error: " + (result.message || "Unknown"));
-        return;
+      if (editUserId) {
+        await axiosInstance.put(`${baseUrl}/${editUserId}`, formData);
+        toast.success("User updated successfully");
+      } else {
+        await axiosInstance.post(baseUrl, formData);
+        toast.success("User created successfully");
       }
 
       setFormData({ email: "", fullname: "", role: "user", password: "" });
@@ -102,7 +82,8 @@ const Users = () => {
       fetchUsers();
     } catch (err) {
       console.error("Error submitting user:", err);
-      alert("Network error. Please try again.");
+      const msg = err.response?.data?.message || "Network error. Please try again.";
+      toast.error(msg);
     }
   };
 
@@ -122,31 +103,25 @@ const Users = () => {
   };
 
   const deleteUser = async (id) => {
-    const token = localStorage.getItem("token");
     if (!window.confirm("Are you sure you want to delete this user?")) return;
 
     try {
-      const res = await fetch(`${baseUrl}/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        setUsers((prev) => prev.filter((user) => user.id !== id));
-      } else {
-        alert("Failed to delete user");
-      }
+      await axiosInstance.delete(`${baseUrl}/${id}`);
+      setUsers((prev) => prev.filter((user) => user.id !== id));
+      toast.success("User deleted successfully");
     } catch (err) {
       console.error("Error deleting user:", err);
-      alert("Network error. Please try again.");
+      const msg = err.response?.data?.message || "Failed to delete user";
+      toast.error(msg);
     }
   };
 
   return (
     <div className="users-management">
+      <ToastContainer position="top-right" autoClose={3000} />
       <h2>User Management</h2>
 
-      <form onSubmit={handleSubmit} style={{ marginBottom: "1rem" }}>
+      <form onSubmit={handleSubmit} className="user-form">
         <input
           type="email"
           name="email"
@@ -163,16 +138,9 @@ const Users = () => {
           onChange={handleChange}
           required
         />
-        <select
-          name="role"
-          value={formData.role}
-          onChange={handleChange}
-          required
-        >
+        <select name="role" value={formData.role} onChange={handleChange} required>
           {roleOptions.map(({ value, label }) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
+            <option key={value} value={value}>{label}</option>
           ))}
         </select>
         <input
@@ -183,12 +151,10 @@ const Users = () => {
           onChange={handleChange}
           required={!editUserId}
         />
-        <button type="submit">{editUserId ? "Update User" : "Add User"}</button>
-        {editUserId && (
-          <button type="button" onClick={cancelEdit} style={{ marginLeft: "10px" }}>
-            Cancel Edit
-          </button>
-        )}
+        <button type="submit" disabled={loading}>
+          {editUserId ? "Update User" : "Add User"}
+        </button>
+        {editUserId && <button type="button" onClick={cancelEdit} className="cancel-btn">Cancel Edit</button>}
       </form>
 
       {loading ? (
@@ -196,7 +162,7 @@ const Users = () => {
       ) : users.length === 0 ? (
         <p>No users found.</p>
       ) : (
-        <table border="1" cellPadding="8" style={{ width: "100%" }}>
+        <table className="users-table">
           <thead>
             <tr>
               <th>ID</th>

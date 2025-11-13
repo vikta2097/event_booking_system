@@ -1,0 +1,54 @@
+/* PaymentPage.css */
+
+.payment-page {
+  max-width: 500px;
+  margin: 50px auto;
+  padding: 30px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  text-align: center;
+}
+
+.payment-page h2 {
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+  color: #333;
+}
+
+.payment-page p {
+  font-size: 1.1rem;
+  margin: 10px 0;
+  color: #555;
+}
+
+.payment-page .error {
+  color: #d32f2f;
+  background-color: #fddede;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+
+.payment-page button {
+  margin-top: 20px;
+  padding: 12px 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: #007bff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.payment-page button:disabled {
+  background-color: #a0c4ff;
+  cursor: not-allowed;
+}
+
+.payment-page button:hover:not(:disabled) {
+  background-color: #0056b3;
+}

@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import "../styles/AuthForm.css";
-
-// 👉 Local backend (since you're not hosted)
-const BASE_URL = "http://localhost:3300"; // Change if your backend runs on a different port
+import api from "../api"; // ✅ axios instance
 
 const SignupForm = ({ onLoginClick }) => {
   const [name, setName] = useState("");
@@ -36,32 +34,21 @@ const SignupForm = ({ onLoginClick }) => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${BASE_URL}/api/auth/register`, {
-        // 🔹 If your backend route is `/api/register`, change to:
-        // const res = await fetch(`${BASE_URL}/api/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-              name,    // ✅ matches backend expectation
-              email,
-              password,
-            }),
-                  });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || "Signup failed");
-        return;
-      }
+      await api.post("/auth/register", {
+        fullname: name,
+        email,
+        password,
+      });
 
       alert("✅ Signup successful! Please login.");
-      setTimeout(() => {
-        onLoginClick();
-      }, 1500);
+      setTimeout(() => onLoginClick(), 1500);
     } catch (err) {
       console.error("Signup error:", err);
-      setError("Network error. Please ensure your backend is running.");
+      if (err.response && err.response.data) {
+        setError(err.response.data.message || "Signup failed");
+      } else {
+        setError("Network error. Please ensure your backend is running.");
+      }
     } finally {
       setLoading(false);
     }
@@ -149,12 +136,8 @@ const SignupForm = ({ onLoginClick }) => {
               <button
                 type="button"
                 className="password-toggle"
-                onClick={() =>
-                  setShowConfirmPassword(!showConfirmPassword)
-                }
-                aria-label={
-                  showConfirmPassword ? "Hide password" : "Show password"
-                }
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
               >
                 {showConfirmPassword ? "🙈" : "👁️"}
               </button>

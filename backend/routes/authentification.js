@@ -23,10 +23,12 @@ function isValidPassword(password) {
 // REGISTER
 //
 router.post("/register", async (req, res) => {
-  const { email, password, fullname, phone, role } = req.body;
+  const { email, password, fullname, phone } = req.body; // remove role from req.body
 
   if (!email || !password || !fullname) {
-    return res.status(400).json({ message: "Email, password, and fullname are required" });
+    return res
+      .status(400)
+      .json({ message: "Email, password, and fullname are required" });
   }
 
   if (!isValidEmail(email)) {
@@ -40,7 +42,7 @@ router.post("/register", async (req, res) => {
     });
   }
 
-  const userRole = role === "admin" ? "admin" : "user";
+  const userRole = "user"; // force role to 'user'
 
   try {
     // Check existing email
@@ -66,6 +68,7 @@ router.post("/register", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 //
 // LOGIN
