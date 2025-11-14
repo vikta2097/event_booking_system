@@ -8,7 +8,6 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [token, setToken] = useState(null);
-  const [userId, setUserId] = useState(null);
   const logoutTimerRef = useRef(null);
   const SESSION_TIMEOUT = 2 * 60 * 60 * 1000;
 
@@ -18,22 +17,19 @@ function App() {
     setIsAuthenticated(false);
     setUserRole(null);
     setToken(null);
-    setUserId(null);
   };
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
-    const storedUserId = localStorage.getItem("userId");
     const storedLoginTime = localStorage.getItem("loginTime");
 
-    if (storedToken && storedRole && storedUserId && storedLoginTime) {
+    if (storedToken && storedRole && storedLoginTime) {
       const timeElapsed = Date.now() - parseInt(storedLoginTime, 10);
       if (timeElapsed < SESSION_TIMEOUT) {
         setIsAuthenticated(true);
         setUserRole(storedRole);
         setToken(storedToken);
-        setUserId(storedUserId);
 
         const remainingTime = SESSION_TIMEOUT - timeElapsed;
         logoutTimerRef.current = setTimeout(() => {
@@ -48,17 +44,15 @@ function App() {
     };
   }, [SESSION_TIMEOUT]);
 
-  const handleLogin = ({ token, role, userId }) => {
+  const handleLogin = ({ token, role }) => {
     const loginTime = Date.now();
     localStorage.setItem("token", token);
     localStorage.setItem("role", role);
-    localStorage.setItem("userId", userId);
     localStorage.setItem("loginTime", loginTime);
 
     setIsAuthenticated(true);
     setUserRole(role);
     setToken(token);
-    setUserId(userId);
 
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
 
@@ -95,7 +89,7 @@ function App() {
           }
         />
 
-        {/* User Dashboard (public pages inside UserDashboard) */}
+        {/* User Dashboard */}
         <Route
           path="/user/dashboard/*"
           element={<UserDashboard token={token} onLogout={handleLogout} />}

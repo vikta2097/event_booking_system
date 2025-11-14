@@ -8,7 +8,7 @@ const { verifyToken, verifyAdmin } = require("../auth");
 // ======================
 router.get("/", async (req, res) => {
   try {
-    const [events] = await db.promise.query(`
+    const result = await db.query(`
       SELECT 
         e.*,
         c.name AS category_name
@@ -16,7 +16,7 @@ router.get("/", async (req, res) => {
       LEFT JOIN event_categories c ON e.category_id = c.id
       ORDER BY e.event_date DESC, e.start_time ASC
     `);
-    res.json(events);
+    res.json(result.rows);
   } catch (err) {
     console.error("Error fetching events:", err);
     res.status(500).json({ error: "Failed to fetch events" });
@@ -28,23 +28,23 @@ router.get("/", async (req, res) => {
 // ======================
 router.get("/:id", async (req, res) => {
   try {
-    const [events] = await db.promise.query(
+    const result = await db.query(
       `
       SELECT 
         e.*,
         c.name AS category_name
       FROM events e
       LEFT JOIN event_categories c ON e.category_id = c.id
-      WHERE e.id = ?
+      WHERE e.id = $1
     `,
       [req.params.id]
     );
 
-    if (events.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: "Event not found" });
     }
 
-    res.json(events[0]);
+    res.json(result.rows[0]);
   } catch (err) {
     console.error("Error fetching event:", err);
     res.status(500).json({ error: "Failed to fetch event" });
@@ -75,19 +75,20 @@ router.post("/", verifyToken, async (req, res) => {
 
     // Validate category if provided
     if (category_id) {
-      const [cat] = await db.promise.query(
-        "SELECT id FROM event_categories WHERE id = ?",
+      const catResult = await db.query(
+        "SELECT id FROM event_categories WHERE id = $1",
         [category_id]
       );
-      if (cat.length === 0) {
+      if (catResult.rows.length === 0) {
         return res.status(400).json({ error: "Invalid category ID" });
       }
     }
 
-    const [result] = await db.promise.query(
+    const result = await db.query(
       `INSERT INTO events
       (title, description, category_id, location, event_date, start_time, end_time, capacity, price, status, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id`,
       [
         title,
         description || null,
@@ -99,11 +100,14 @@ router.post("/", verifyToken, async (req, res) => {
         capacity || 0,
         price || 0.0,
         status || "upcoming",
-        req.user.id, // ✅ token-driven
+        req.user.id,
       ]
     );
 
-    res.status(201).json({ message: "Event created successfully", event_id: result.insertId });
+    res.status(201).json({ 
+      message: "Event created successfully", 
+      event_id: result.rows[0].id 
+    });
   } catch (err) {
     console.error("Error creating event:", err);
     res.status(500).json({ error: "Failed to create event" });
@@ -129,10 +133,16 @@ router.put("/:id", verifyToken, async (req, res) => {
     } = req.body;
 
     // Check event exists
-    const [existing] = await db.promise.query("SELECT * FROM events WHERE id = ?", [req.params.id]);
-    if (existing.length === 0) return res.status(404).json({ error: "Event not found" });
+    const existingResult = await db.query(
+      "SELECT * FROM events WHERE id = $1", 
+      [req.params.id]
+    );
+    
+    if (existingResult.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
 
-    const event = existing[0];
+    const event = existingResult.rows[0];
 
     // Only creator or admin can update
     if (req.user.id !== event.created_by && req.user.role !== "admin") {
@@ -141,29 +151,80 @@ router.put("/:id", verifyToken, async (req, res) => {
 
     // Validate category
     if (category_id) {
-      const [cat] = await db.promise.query("SELECT id FROM event_categories WHERE id = ?", [category_id]);
-      if (cat.length === 0) return res.status(400).json({ error: "Invalid category ID" });
+      const catResult = await db.query(
+        "SELECT id FROM event_categories WHERE id = $1", 
+        [category_id]
+      );
+      if (catResult.rows.length === 0) {
+        return res.status(400).json({ error: "Invalid category ID" });
+      }
     }
 
     const updateFields = [];
     const values = [];
+    let paramCount = 1;
 
-    if (title) { updateFields.push("title = ?"); values.push(title); }
-    if (description !== undefined) { updateFields.push("description = ?"); values.push(description); }
-    if (category_id !== undefined) { updateFields.push("category_id = ?"); values.push(category_id); }
-    if (location !== undefined) { updateFields.push("location = ?"); values.push(location); }
-    if (event_date) { updateFields.push("event_date = ?"); values.push(event_date); }
-    if (start_time) { updateFields.push("start_time = ?"); values.push(start_time); }
-    if (end_time) { updateFields.push("end_time = ?"); values.push(end_time); }
-    if (capacity !== undefined) { updateFields.push("capacity = ?"); values.push(capacity); }
-    if (price !== undefined) { updateFields.push("price = ?"); values.push(price); }
-    if (status) { updateFields.push("status = ?"); values.push(status); }
+    if (title) { 
+      updateFields.push(`title = $${paramCount}`); 
+      values.push(title); 
+      paramCount++;
+    }
+    if (description !== undefined) { 
+      updateFields.push(`description = $${paramCount}`); 
+      values.push(description); 
+      paramCount++;
+    }
+    if (category_id !== undefined) { 
+      updateFields.push(`category_id = $${paramCount}`); 
+      values.push(category_id); 
+      paramCount++;
+    }
+    if (location !== undefined) { 
+      updateFields.push(`location = $${paramCount}`); 
+      values.push(location); 
+      paramCount++;
+    }
+    if (event_date) { 
+      updateFields.push(`event_date = $${paramCount}`); 
+      values.push(event_date); 
+      paramCount++;
+    }
+    if (start_time) { 
+      updateFields.push(`start_time = $${paramCount}`); 
+      values.push(start_time); 
+      paramCount++;
+    }
+    if (end_time) { 
+      updateFields.push(`end_time = $${paramCount}`); 
+      values.push(end_time); 
+      paramCount++;
+    }
+    if (capacity !== undefined) { 
+      updateFields.push(`capacity = $${paramCount}`); 
+      values.push(capacity); 
+      paramCount++;
+    }
+    if (price !== undefined) { 
+      updateFields.push(`price = $${paramCount}`); 
+      values.push(price); 
+      paramCount++;
+    }
+    if (status) { 
+      updateFields.push(`status = $${paramCount}`); 
+      values.push(status); 
+      paramCount++;
+    }
 
-    if (updateFields.length === 0) return res.status(400).json({ error: "No fields to update" });
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
 
     values.push(req.params.id);
 
-    await db.promise.query(`UPDATE events SET ${updateFields.join(", ")} WHERE id = ?`, values);
+    await db.query(
+      `UPDATE events SET ${updateFields.join(", ")} WHERE id = $${paramCount}`, 
+      values
+    );
 
     res.json({ message: "Event updated successfully" });
   } catch (err) {
@@ -177,17 +238,24 @@ router.put("/:id", verifyToken, async (req, res) => {
 // ======================
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
-    const [existing] = await db.promise.query("SELECT * FROM events WHERE id = ?", [req.params.id]);
-    if (existing.length === 0) return res.status(404).json({ error: "Event not found" });
+    const existingResult = await db.query(
+      "SELECT * FROM events WHERE id = $1", 
+      [req.params.id]
+    );
+    
+    if (existingResult.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
 
-    const event = existing[0];
+    const event = existingResult.rows[0];
 
     // Only creator or admin
     if (req.user.id !== event.created_by && req.user.role !== "admin") {
       return res.status(403).json({ error: "Forbidden: not allowed to delete this event" });
     }
 
-    const [result] = await db.promise.query("DELETE FROM events WHERE id = ?", [req.params.id]);
+    await db.query("DELETE FROM events WHERE id = $1", [req.params.id]);
+    
     res.json({ message: "Event deleted successfully" });
   } catch (err) {
     console.error("Error deleting event:", err);

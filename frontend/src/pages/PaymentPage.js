@@ -1,55 +1,75 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import "../styles/PaymentPage.css";
 
 const PaymentPage = ({ user }) => {
   const { bookingId } = useParams();
+  const navigate = useNavigate();
+
   const [booking, setBooking] = useState(null);
+  const [paymentId, setPaymentId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-  const [paymentId, setPaymentId] = useState(null);
 
-  // Fetch booking details
+  // Load booking details
   useEffect(() => {
-    const fetchBooking = async () => {
+    const loadBooking = async () => {
       try {
         const res = await api.get(`/bookings/${bookingId}`);
         setBooking(res.data);
       } catch (err) {
-        console.error("Error fetching booking:", err);
-        setError("Failed to load booking details.");
+        setError("Failed to load booking details");
       }
     };
-
-    fetchBooking();
+    loadBooking();
   }, [bookingId]);
 
-  // Poll for payment status every 3 seconds
+  // Resume existing pending payment
+  useEffect(() => {
+    const checkExisting = async () => {
+      try {
+        const res = await api.get(`/payments/by-booking/${bookingId}`);
+        if (res.data && res.data.status === "pending") {
+          setPaymentId(res.data.id);
+        }
+      } catch {}
+    };
+    checkExisting();
+  }, [bookingId]);
+
+  // Poll payment status
   useEffect(() => {
     if (!paymentId) return;
-    const interval = setInterval(async () => {
+
+    const poll = setInterval(async () => {
       try {
         const res = await api.get(`/payments/${paymentId}`);
-        const payment = res.data;
+        const p = res.data;
 
-        if (payment.status === "success") {
+        if (p.status === "success") {
           setSuccess(true);
-          clearInterval(interval);
-        } else if (payment.status === "failed") {
+          clearInterval(poll);
+
+          // Redirect after slight delay
+          setTimeout(() => {
+            navigate(`/booking-success/${bookingId}`);
+          }, 1500);
+        }
+
+        if (p.status === "failed") {
           setError("Payment failed. Please try again.");
-          clearInterval(interval);
+          clearInterval(poll);
         }
       } catch (err) {
-        console.error("Error checking payment status:", err);
+        console.error("Polling error:", err);
       }
     }, 3000);
 
-    return () => clearInterval(interval);
-  }, [paymentId]);
+    return () => clearInterval(poll);
+  }, [paymentId, bookingId, navigate]);
 
-  // Trigger M-Pesa STK Push
   const handlePayment = async () => {
     setLoading(true);
     setError("");
@@ -57,20 +77,14 @@ const PaymentPage = ({ user }) => {
     try {
       const res = await api.post("/payments/mpesa", {
         booking_id: bookingId,
-        phone: user.phone, // user's phone for M-Pesa
+        phone: user.phone
       });
 
-      const { payment_id } = res.data;
-      setPaymentId(payment_id);
+      setPaymentId(res.data.payment_id);
 
-      alert(
-        "STK Push sent to your phone. Follow the prompt to complete payment."
-      );
+      alert("STK Push sent to your phone. Follow the prompt to complete payment.");
     } catch (err) {
-      console.error("Payment error:", err);
-      setError(
-        err.response?.data?.error || "Failed to initiate payment. Try again."
-      );
+      setError(err.response?.data?.error || "Payment initiation failed.");
     } finally {
       setLoading(false);
     }
@@ -81,15 +95,15 @@ const PaymentPage = ({ user }) => {
   return (
     <div className="payment-page">
       <h2>Payment for {booking.event_title}</h2>
-      <p>
-        <strong>Total Amount:</strong> KES {booking.total_amount}
-      </p>
+
+      <p><strong>Total:</strong> KES {booking.total_amount}</p>
+
       {error && <p className="error">{error}</p>}
-      {success ? (
-        <p>✅ Payment successful! Check your email for the entry code.</p>
-      ) : (
+      {success && <p className="success">Payment successful! Redirecting…</p>}
+
+      {!success && (
         <button onClick={handlePayment} disabled={loading || paymentId}>
-          {loading ? "Processing..." : "Pay Now via M-Pesa"}
+          {paymentId ? "Waiting for payment…" : loading ? "Processing…" : "Pay Now"}
         </button>
       )}
     </div>

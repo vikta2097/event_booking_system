@@ -7,10 +7,10 @@ const db = require("../db");
 // ===============================
 router.get("/", async (req, res) => {
   try {
-    const [categories] = await db.promise.query(
+    const result = await db.query(
       "SELECT id, name, description, created_at FROM event_categories ORDER BY name"
     );
-    res.json(categories);
+    res.json(result.rows);
   } catch (err) {
     console.error("❌ Error fetching event categories:", err);
     res.status(500).json({ error: "Failed to fetch event categories" });
@@ -22,16 +22,16 @@ router.get("/", async (req, res) => {
 // ===============================
 router.get("/:id", async (req, res) => {
   try {
-    const [category] = await db.promise.query(
-      "SELECT id, name, description, created_at FROM event_categories WHERE id = ?",
+    const result = await db.query(
+      "SELECT id, name, description, created_at FROM event_categories WHERE id = $1",
       [req.params.id]
     );
 
-    if (category.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    res.json(category[0]);
+    res.json(result.rows[0]);
   } catch (err) {
     console.error("❌ Error fetching category by ID:", err);
     res.status(500).json({ error: "Failed to fetch category" });
@@ -50,22 +50,23 @@ router.post("/", async (req, res) => {
     }
 
     // Check if category already exists
-    const [existing] = await db.promise.query(
-      "SELECT id FROM event_categories WHERE name = ?",
+    const existingResult = await db.query(
+      "SELECT id FROM event_categories WHERE name = $1",
       [name.trim()]
     );
-    if (existing.length > 0) {
+    
+    if (existingResult.rows.length > 0) {
       return res.status(409).json({ error: "Category already exists" });
     }
 
-    const [result] = await db.promise.query(
-      "INSERT INTO event_categories (name, description) VALUES (?, ?)",
+    const result = await db.query(
+      "INSERT INTO event_categories (name, description) VALUES ($1, $2) RETURNING id",
       [name.trim(), description || null]
     );
 
     res.status(201).json({
       message: "Category created successfully",
-      category: { id: result.insertId, name, description },
+      category: { id: result.rows[0].id, name, description },
     });
   } catch (err) {
     console.error("❌ Error creating category:", err);
@@ -79,20 +80,23 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { name, description } = req.body;
-    const [existing] = await db.promise.query(
-      "SELECT * FROM event_categories WHERE id = ?",
+    
+    const existingResult = await db.query(
+      "SELECT * FROM event_categories WHERE id = $1",
       [req.params.id]
     );
 
-    if (existing.length === 0) {
+    if (existingResult.rows.length === 0) {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    await db.promise.query(
-      "UPDATE event_categories SET name = ?, description = ? WHERE id = ?",
+    const existing = existingResult.rows[0];
+
+    await db.query(
+      "UPDATE event_categories SET name = $1, description = $2 WHERE id = $3",
       [
-        name || existing[0].name,
-        description || existing[0].description,
+        name || existing.name,
+        description || existing.description,
         req.params.id,
       ]
     );
@@ -109,12 +113,12 @@ router.put("/:id", async (req, res) => {
 // ===============================
 router.delete("/:id", async (req, res) => {
   try {
-    const [result] = await db.promise.query(
-      "DELETE FROM event_categories WHERE id = ?",
+    const result = await db.query(
+      "DELETE FROM event_categories WHERE id = $1",
       [req.params.id]
     );
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: "Category not found" });
     }
 

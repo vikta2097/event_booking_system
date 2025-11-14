@@ -34,7 +34,8 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
     setLoading(true);
 
     try {
-      const res = await api.post("/auth/reset-password", { token, newPassword: password });
+      // Remove unused variable 'res'
+      await api.post("/auth/reset-password", { token, newPassword: password });
 
       setMessage("Password reset successful! Redirecting to login...");
       setTimeout(() => onLoginClick(), 2000);

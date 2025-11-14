@@ -15,14 +15,14 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "subject and description are required" });
     }
 
-    const [result] = await db.promise.query(
-      "INSERT INTO support_tickets (user_id, subject, description, priority) VALUES (?, ?, ?, ?)",
+    const result = await db.query(
+      "INSERT INTO support_tickets (user_id, subject, description, priority) VALUES ($1, $2, $3, $4) RETURNING id",
       [user_id, subject, description, priority || "low"]
     );
 
     res.status(201).json({
       message: "Ticket created",
-      ticket_id: result.insertId,
+      ticket_id: result.rows[0].id,
     });
   } catch (err) {
     console.error("Error creating ticket:", err);
@@ -47,19 +47,23 @@ router.get("/", verifyToken, async (req, res) => {
     `;
     const conditions = [];
     const values = [];
+    let paramCount = 1;
 
     if (!isAdmin) {
-      conditions.push("t.user_id = ?");
+      conditions.push(`t.user_id = $${paramCount}`);
       values.push(userId);
+      paramCount++;
     }
 
     if (status) {
-      conditions.push("t.status = ?");
+      conditions.push(`t.status = $${paramCount}`);
       values.push(status);
+      paramCount++;
     }
     if (priority) {
-      conditions.push("t.priority = ?");
+      conditions.push(`t.priority = $${paramCount}`);
       values.push(priority);
+      paramCount++;
     }
 
     if (conditions.length > 0) {
@@ -67,8 +71,8 @@ router.get("/", verifyToken, async (req, res) => {
     }
     query += " ORDER BY t.created_at DESC";
 
-    const [tickets] = await db.promise.query(query, values);
-    res.json(tickets);
+    const result = await db.query(query, values);
+    res.json(result.rows);
   } catch (err) {
     console.error("Error fetching tickets:", err);
     res.status(500).json({ error: "Failed to fetch tickets" });
@@ -84,17 +88,19 @@ router.get("/:id", verifyToken, async (req, res) => {
     const isAdmin = req.user.role === "admin";
     const userId = req.user.id;
 
-    const [tickets] = await db.promise.query(
+    const ticketResult = await db.query(
       `SELECT t.*, u.fullname AS user_name, u.email AS user_email
        FROM support_tickets t
        JOIN usercredentials u ON t.user_id = u.id
-       WHERE t.id = ?`,
+       WHERE t.id = $1`,
       [ticketId]
     );
 
-    if (tickets.length === 0) return res.status(404).json({ error: "Ticket not found" });
+    if (ticketResult.rows.length === 0) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
 
-    const ticket = tickets[0];
+    const ticket = ticketResult.rows[0];
 
     // Check access for regular users
     if (!isAdmin && ticket.user_id !== userId) {
@@ -102,16 +108,16 @@ router.get("/:id", verifyToken, async (req, res) => {
     }
 
     // Fetch replies
-    const [replies] = await db.promise.query(
+    const repliesResult = await db.query(
       `SELECT r.*, u.fullname AS sender_name
        FROM support_replies r
        JOIN usercredentials u ON r.sender_id = u.id
-       WHERE r.ticket_id = ?
+       WHERE r.ticket_id = $1
        ORDER BY r.created_at ASC`,
       [ticketId]
     );
 
-    ticket.replies = replies;
+    ticket.replies = repliesResult.rows;
     res.json(ticket);
   } catch (err) {
     console.error("Error fetching ticket:", err);
@@ -129,23 +135,27 @@ router.post("/:id/reply", verifyToken, async (req, res) => {
     const sender_role = req.user.role;
     const { message } = req.body;
 
-    if (!message) return res.status(400).json({ error: "message required" });
+    if (!message) {
+      return res.status(400).json({ error: "message required" });
+    }
 
     // Check ticket exists
-    const [tickets] = await db.promise.query(
-      "SELECT * FROM support_tickets WHERE id = ?", 
+    const ticketResult = await db.query(
+      "SELECT * FROM support_tickets WHERE id = $1", 
       [ticketId]
     );
     
-    if (tickets.length === 0) return res.status(404).json({ error: "Ticket not found" });
+    if (ticketResult.rows.length === 0) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
 
     // Regular users can only reply to their own ticket
-    if (sender_role !== "admin" && tickets[0].user_id !== sender_id) {
+    if (sender_role !== "admin" && ticketResult.rows[0].user_id !== sender_id) {
       return res.status(403).json({ error: "Forbidden. Cannot reply to others' tickets." });
     }
 
-    await db.promise.query(
-      "INSERT INTO support_replies (ticket_id, sender_id, sender_role, message) VALUES (?, ?, ?, ?)",
+    await db.query(
+      "INSERT INTO support_replies (ticket_id, sender_id, sender_role, message) VALUES ($1, $2, $3, $4)",
       [ticketId, sender_id, sender_role, message]
     );
 
@@ -164,19 +174,23 @@ router.put("/:id/status", verifyToken, verifyAdmin, async (req, res) => {
     const ticketId = req.params.id;
     const { status } = req.body;
 
-    if (!status) return res.status(400).json({ error: "Status required" });
+    if (!status) {
+      return res.status(400).json({ error: "Status required" });
+    }
 
     const validStatus = ["open", "in_progress", "resolved", "closed"];
     if (!validStatus.includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
 
-    const [result] = await db.promise.query(
-      "UPDATE support_tickets SET status = ? WHERE id = ?",
+    const result = await db.query(
+      "UPDATE support_tickets SET status = $1 WHERE id = $2",
       [status, ticketId]
     );
 
-    if (result.affectedRows === 0) return res.status(404).json({ error: "Ticket not found" });
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
 
     res.json({ message: "Status updated" });
   } catch (err) {
@@ -192,12 +206,14 @@ router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const ticketId = req.params.id;
     
-    const [result] = await db.promise.query(
-      "DELETE FROM support_tickets WHERE id = ?", 
+    const result = await db.query(
+      "DELETE FROM support_tickets WHERE id = $1", 
       [ticketId]
     );
 
-    if (result.affectedRows === 0) return res.status(404).json({ error: "Ticket not found" });
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
 
     res.json({ message: "Ticket deleted" });
   } catch (err) {

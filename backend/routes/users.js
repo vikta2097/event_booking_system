@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const db = require('../db'); // ✅ unified db
+const db = require('../db');
 const { verifyToken, verifyAdmin } = require('../auth');
 
 // ✅ Protect all routes
@@ -11,10 +11,10 @@ router.use(verifyAdmin);
 // ✅ Get all users
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await db.promise.query(
+    const result = await db.query(
       'SELECT id, email, fullname, role FROM usercredentials'
     );
-    res.json(rows);
+    res.json(result.rows);
   } catch (err) {
     console.error('❌ Error fetching users:', err);
     res.status(500).json({ message: 'Error fetching users' });
@@ -32,14 +32,15 @@ router.post('/', async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await db.promise.query(
-      'INSERT INTO usercredentials (email, password_hash, fullname, role) VALUES (?, ?, ?, ?)',
+    await db.query(
+      'INSERT INTO usercredentials (email, password_hash, fullname, role) VALUES ($1, $2, $3, $4)',
       [email, hashedPassword, fullname, role]
     );
 
     res.status(201).json({ message: 'User created successfully!' });
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
+    // PostgreSQL unique violation error code
+    if (err.code === '23505') {
       return res.status(400).json({ message: 'Email already registered' });
     }
     console.error('❌ Error creating user:', err);
@@ -58,20 +59,22 @@ router.put('/:id', async (req, res) => {
 
   try {
     const fields = [email, fullname, role];
-    let query = 'UPDATE usercredentials SET email = ?, fullname = ?, role = ?';
+    let query = 'UPDATE usercredentials SET email = $1, fullname = $2, role = $3';
+    let paramCount = 4;
 
     if (password && password.trim() !== '') {
       const hashedPassword = await bcrypt.hash(password, 10);
-      query += ', password_hash = ?';
+      query += `, password_hash = $${paramCount}`;
       fields.push(hashedPassword);
+      paramCount++;
     }
 
-    query += ' WHERE id = ?';
+    query += ` WHERE id = $${paramCount}`;
     fields.push(id);
 
-    const [result] = await db.promise.query(query, fields);
+    const result = await db.query(query, fields);
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -87,12 +90,12 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await db.promise.query(
-      'DELETE FROM usercredentials WHERE id = ?',
+    const result = await db.query(
+      'DELETE FROM usercredentials WHERE id = $1',
       [id]
     );
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 

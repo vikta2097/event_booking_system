@@ -14,28 +14,34 @@ router.get("/", verifyToken, async (req, res) => {
 
     const filters = [];
     const values = [];
+    let paramCount = 1;
 
     if (startDate) {
-      filters.push("b.booking_date >= ?");
+      filters.push(`b.booking_date >= $${paramCount}`);
       values.push(startDate);
+      paramCount++;
     }
     if (endDate) {
-      filters.push("b.booking_date <= ?");
+      filters.push(`b.booking_date <= $${paramCount}`);
       values.push(endDate);
+      paramCount++;
     }
     if (eventId) {
-      filters.push("e.id = ?");
+      filters.push(`e.id = $${paramCount}`);
       values.push(eventId);
+      paramCount++;
     }
     if (paymentStatus) {
-      filters.push("p.status = ?");
+      filters.push(`p.status = $${paramCount}`);
       values.push(paymentStatus);
+      paramCount++;
     }
 
     // Regular users only see their own bookings
     if (!isAdmin) {
-      filters.push("b.user_id = ?");
+      filters.push(`b.user_id = $${paramCount}`);
       values.push(userId);
+      paramCount++;
     }
 
     const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
@@ -66,10 +72,11 @@ router.get("/", verifyToken, async (req, res) => {
       ORDER BY b.booking_date DESC, e.event_date ASC
     `;
 
-    const [reports] = await db.promise.query(query, values);
+    const result = await db.query(query, values);
+    const reports = result.rows;
 
     // Aggregated stats
-    const totalRevenue = reports.reduce((sum, r) => sum + (r.payment_amount || 0), 0);
+    const totalRevenue = reports.reduce((sum, r) => sum + (parseFloat(r.payment_amount) || 0), 0);
     const totalBookings = reports.length;
     const totalEvents = new Set(reports.map(r => r.event_id)).size;
 

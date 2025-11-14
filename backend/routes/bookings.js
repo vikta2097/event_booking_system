@@ -35,17 +35,18 @@ router.get("/", verifyToken, async (req, res) => {
       INNER JOIN usercredentials u ON b.user_id = u.id
     `;
 
+    const params = [];
+
     if (!isAdmin) {
-      query += " WHERE b.user_id = ?";
+      query += " WHERE b.user_id = $1";
+      params.push(userId);
     }
 
     query += " ORDER BY b.booking_date DESC";
 
-    const [bookings] = isAdmin
-      ? await db.promise.query(query)
-      : await db.promise.query(query, [userId]);
+    const result = await db.query(query, params);
 
-    res.json(bookings);
+    res.json(result.rows);
   } catch (error) {
     console.error("Error fetching bookings:", error);
     res.status(500).json({ error: "Failed to fetch bookings" });
@@ -73,20 +74,20 @@ router.get("/:id", verifyToken, async (req, res) => {
       FROM bookings b
       INNER JOIN events e ON b.event_id = e.id
       INNER JOIN usercredentials u ON b.user_id = u.id
-      WHERE b.id = ?
+      WHERE b.id = $1
     `;
 
-    const [bookings] = await db.promise.query(query, [bookingId]);
+    const result = await db.query(query, [bookingId]);
 
-    if (bookings.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: "Booking not found" });
     }
 
-    if (!isAdmin && bookings[0].user_id !== userId) {
+    if (!isAdmin && result.rows[0].user_id !== userId) {
       return res.status(403).json({ error: "Forbidden. Access denied." });
     }
 
-    res.json(bookings[0]);
+    res.json(result.rows[0]);
   } catch (error) {
     console.error("Error fetching booking:", error);
     res.status(500).json({ error: "Failed to fetch booking" });
@@ -98,7 +99,7 @@ router.get("/:id", verifyToken, async (req, res) => {
 // ======================
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const { event_id, seats, total_amount, status } = req.body;
+    const { event_id, seats, total_amount } = req.body;
     const user_id = req.user.id;
 
     if (!event_id || !seats) {
@@ -106,22 +107,22 @@ router.post("/", verifyToken, async (req, res) => {
     }
 
     // Check event capacity
-    const [events] = await db.promise.query(
-      "SELECT capacity FROM events WHERE id = ?",
+    const eventResult = await db.query(
+      "SELECT capacity FROM events WHERE id = $1",
       [event_id]
     );
 
-    if (events.length === 0) {
+    if (eventResult.rows.length === 0) {
       return res.status(404).json({ error: "Event not found" });
     }
 
-    const [currentBookings] = await db.promise.query(
-      'SELECT SUM(seats) as total_seats FROM bookings WHERE event_id = ? AND status != "cancelled"',
+    const currentBookingsResult = await db.query(
+      "SELECT SUM(seats) as total_seats FROM bookings WHERE event_id = $1 AND status != 'cancelled'",
       [event_id]
     );
 
-    const bookedSeats = currentBookings[0].total_seats || 0;
-    const availableSeats = events[0].capacity - bookedSeats;
+    const bookedSeats = currentBookingsResult.rows[0].total_seats || 0;
+    const availableSeats = eventResult.rows[0].capacity - bookedSeats;
 
     if (seats > availableSeats) {
       return res
@@ -129,15 +130,20 @@ router.post("/", verifyToken, async (req, res) => {
         .json({ error: `Only ${availableSeats} seats available` });
     }
 
-    const [result] = await db.promise.query(
-      `INSERT INTO bookings (user_id, event_id, seats, total_amount, status)
-       VALUES (?, ?, ?, ?, ?)`,
-      [user_id, event_id, seats, total_amount || 0, status || "pending"]
+    // Generate booking reference
+    const reference = 'BK-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+
+    const result = await db.query(
+      `INSERT INTO bookings (user_id, event_id, seats, total_amount, status, reference)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [user_id, event_id, seats, total_amount || 0, "pending", reference]
     );
 
     res.status(201).json({
       message: "Booking created successfully",
-      booking_id: result.insertId,
+      booking_id: result.rows[0].id,
+      reference: reference
     });
   } catch (error) {
     console.error("Error creating booking:", error);
@@ -154,29 +160,33 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
     const { status, seats, total_amount } = req.body;
     const bookingId = req.params.id;
 
-    const [existing] = await db.promise.query(
-      "SELECT * FROM bookings WHERE id = ?",
+    const existingResult = await db.query(
+      "SELECT * FROM bookings WHERE id = $1",
       [bookingId]
     );
 
-    if (existing.length === 0) {
+    if (existingResult.rows.length === 0) {
       return res.status(404).json({ error: "Booking not found" });
     }
 
     const updateFields = [];
     const values = [];
+    let paramCount = 1;
 
     if (status) {
-      updateFields.push("status = ?");
+      updateFields.push(`status = $${paramCount}`);
       values.push(status);
+      paramCount++;
     }
     if (seats !== undefined) {
-      updateFields.push("seats = ?");
+      updateFields.push(`seats = $${paramCount}`);
       values.push(seats);
+      paramCount++;
     }
     if (total_amount !== undefined) {
-      updateFields.push("total_amount = ?");
+      updateFields.push(`total_amount = $${paramCount}`);
       values.push(total_amount);
+      paramCount++;
     }
 
     if (updateFields.length === 0) {
@@ -185,8 +195,8 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
 
     values.push(bookingId);
 
-    await db.promise.query(
-      `UPDATE bookings SET ${updateFields.join(", ")} WHERE id = ?`,
+    await db.query(
+      `UPDATE bookings SET ${updateFields.join(", ")} WHERE id = $${paramCount}`,
       values
     );
 
@@ -205,12 +215,12 @@ router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const bookingId = req.params.id;
 
-    const [result] = await db.promise.query(
-      "DELETE FROM bookings WHERE id = ?",
+    const result = await db.query(
+      "DELETE FROM bookings WHERE id = $1",
       [bookingId]
     );
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: "Booking not found" });
     }
 

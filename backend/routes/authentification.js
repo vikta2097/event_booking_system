@@ -23,7 +23,7 @@ function isValidPassword(password) {
 // REGISTER
 //
 router.post("/register", async (req, res) => {
-  const { email, password, fullname, phone } = req.body; // remove role from req.body
+  const { email, password, fullname, phone } = req.body;
 
   if (!email || !password || !fullname) {
     return res
@@ -46,19 +46,19 @@ router.post("/register", async (req, res) => {
 
   try {
     // Check existing email
-    const [existing] = await db.promise.query(
-      "SELECT id FROM usercredentials WHERE email = ?",
+    const existingResult = await db.query(
+      "SELECT id FROM usercredentials WHERE email = $1",
       [email]
     );
 
-    if (existing.length > 0) {
+    if (existingResult.rows.length > 0) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await db.promise.query(
-      "INSERT INTO usercredentials (fullname, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?)",
+    await db.query(
+      "INSERT INTO usercredentials (fullname, email, password_hash, phone, role) VALUES ($1, $2, $3, $4, $5)",
       [fullname, email, hashedPassword, phone || null, userRole]
     );
 
@@ -69,30 +69,32 @@ router.post("/register", async (req, res) => {
   }
 });
 
-
 //
 // LOGIN
 //
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password)
+  if (!email || !password) {
     return res.status(400).json({ message: "Email and password are required" });
+  }
 
   try {
-    const [rows] = await db.promise.query(
-      "SELECT * FROM usercredentials WHERE email = ?",
+    const result = await db.query(
+      "SELECT * FROM usercredentials WHERE email = $1",
       [email]
     );
 
-    if (rows.length === 0)
+    if (result.rows.length === 0) {
       return res.status(401).json({ message: "Invalid credentials" });
+    }
 
-    const user = rows[0];
+    const user = result.rows[0];
     const isMatch = await bcrypt.compare(password, user.password_hash);
 
-    if (!isMatch)
+    if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
+    }
 
     const token = jwt.sign(
       {
@@ -130,17 +132,19 @@ router.post("/login", async (req, res) => {
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
 
-  if (!email)
+  if (!email) {
     return res.status(400).json({ message: "Email is required" });
+  }
 
   try {
-    const [users] = await db.promise.query(
-      "SELECT id FROM usercredentials WHERE email = ?",
+    const result = await db.query(
+      "SELECT id FROM usercredentials WHERE email = $1",
       [email]
     );
 
-    if (users.length === 0)
+    if (result.rows.length === 0) {
       return res.status(404).json({ message: "Email not found" });
+    }
 
     const token = jwt.sign({ email }, process.env.JWT_SECRET, {
       expiresIn: "15m",
@@ -196,8 +200,8 @@ router.post("/reset-password/:token", async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await db.promise.query(
-      "UPDATE usercredentials SET password_hash = ? WHERE email = ?",
+    await db.query(
+      "UPDATE usercredentials SET password_hash = $1 WHERE email = $2",
       [hashedPassword, decoded.email]
     );
 
@@ -215,15 +219,16 @@ router.get("/me", verifyToken, async (req, res) => {
   const { id } = req.user;
 
   try {
-    const [rows] = await db.promise.query(
-      "SELECT id, fullname, email, role, phone, profile_image, status FROM usercredentials WHERE id = ?",
+    const result = await db.query(
+      "SELECT id, fullname, email, role, phone, profile_image, status FROM usercredentials WHERE id = $1",
       [id]
     );
 
-    if (rows.length === 0)
+    if (result.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
+    }
 
-    res.json(rows[0]);
+    res.json(result.rows[0]);
   } catch (err) {
     console.error("❌ Fetch current user error:", err);
     res.status(500).json({ message: "Server error" });

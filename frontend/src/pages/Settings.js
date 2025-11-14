@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import api from "../api";
 import "../styles/Settings.css";
 import { toast } from "react-toastify";
@@ -18,10 +18,9 @@ const Settings = ({ currentUser }) => {
     twoFA: 0,
   });
 
-  const fetchPreferences = async () => {
+  const fetchPreferences = useCallback(async () => {
     try {
       const res = await api.get(`/settings/preferences/${currentUser.id}`);
-      // Ensure privacy and system_preferences are objects
       setPrefs({
         ...res.data,
         privacy: typeof res.data.privacy === "string" ? JSON.parse(res.data.privacy) : res.data.privacy,
@@ -34,9 +33,9 @@ const Settings = ({ currentUser }) => {
       console.error("Error fetching preferences:", err);
       toast.error("Failed to fetch preferences");
     }
-  };
+  }, [currentUser.id]);
 
-  const updatePreferences = async () => {
+  const updatePreferences = useCallback(async () => {
     try {
       await api.put(`/settings/preferences/${currentUser.id}`, prefs);
       toast.success("Preferences updated successfully!");
@@ -45,7 +44,7 @@ const Settings = ({ currentUser }) => {
       console.error(err);
       toast.error("Error updating preferences");
     }
-  };
+  }, [prefs, currentUser.id, fetchPreferences]);
 
   const uploadAvatar = async (e) => {
     const file = e.target.files[0];
@@ -117,7 +116,7 @@ const Settings = ({ currentUser }) => {
   // ===========================
   const [systemConfig, setSystemConfig] = useState({ appName: "", maintenanceMode: false, defaultRole: "user", id: 1 });
 
-  const fetchSystemConfig = async () => {
+  const fetchSystemConfig = useCallback(async () => {
     if (currentUser.role !== "admin") return;
     try {
       const res = await api.get(`/settings/system-config`);
@@ -125,7 +124,7 @@ const Settings = ({ currentUser }) => {
     } catch (err) {
       console.error("Error fetching system config:", err);
     }
-  };
+  }, [currentUser.role]);
 
   const updateSystemConfig = async () => {
     try {
@@ -143,7 +142,7 @@ const Settings = ({ currentUser }) => {
   useEffect(() => {
     fetchPreferences();
     fetchSystemConfig();
-  }, []);
+  }, [fetchPreferences, fetchSystemConfig]);
 
   // ===========================
   // UI

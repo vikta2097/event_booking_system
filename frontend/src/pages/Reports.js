@@ -9,29 +9,24 @@ const Reports = ({ currentUser }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchReports = async () => {
-    try {
+  useEffect(() => {
+    const fetchData = async () => {
       setLoading(true);
       setError("");
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("Authentication token missing. Please log in again.");
-
-      const params = { ...filters };
-      const res = await api.get("/reports", { headers: { Authorization: `Bearer ${token}` }, params });
-
-      setReports(res.data?.reports || []);
-      setStats(res.data?.stats || { totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
-    } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.error || "Failed to load reports.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchReports();
-  }, []);
+      try {
+        const res = await api.get("/reports", { params: filters });
+        setReports(res.data?.reports || []);
+        setStats(res.data?.stats || { totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
+      } catch (err) {
+        console.error(err);
+        setError(err.response?.data?.error || "Failed to load reports.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -40,7 +35,22 @@ const Reports = ({ currentUser }) => {
 
   const handleFilterSubmit = (e) => {
     e.preventDefault();
-    fetchReports();
+    // Re-fetch reports with new filters
+    const fetchFilteredReports = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await api.get("/reports", { params: filters });
+        setReports(res.data?.reports || []);
+        setStats(res.data?.stats || { totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
+      } catch (err) {
+        console.error(err);
+        setError(err.response?.data?.error || "Failed to load reports.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFilteredReports();
   };
 
   return (

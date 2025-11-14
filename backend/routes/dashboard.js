@@ -10,88 +10,109 @@ router.get("/", verifyToken, async (req, res) => {
     const userId = req.user.id;
 
     // Total events
-    const [events] = await db.promise.query(
-      isAdmin 
-        ? "SELECT COUNT(*) AS total FROM events" 
-        : "SELECT COUNT(*) AS total FROM events WHERE created_by = ?",
-      isAdmin ? [] : [userId]
-    );
-    const totalEvents = events[0].total;
+    let eventsQuery = "SELECT COUNT(*) AS total FROM events";
+    let eventsParams = [];
+    
+    if (!isAdmin) {
+      eventsQuery += " WHERE created_by = $1";
+      eventsParams = [userId];
+    }
+    
+    const eventsResult = await db.query(eventsQuery, eventsParams);
+    const totalEvents = parseInt(eventsResult.rows[0].total);
 
     // Total bookings
-    const [bookings] = await db.promise.query(
-      isAdmin 
-        ? "SELECT COUNT(*) AS total FROM bookings" 
-        : "SELECT COUNT(*) AS total FROM bookings WHERE user_id = ?",
-      isAdmin ? [] : [userId]
-    );
-    const totalBookings = bookings[0].total;
+    let bookingsQuery = "SELECT COUNT(*) AS total FROM bookings";
+    let bookingsParams = [];
+    
+    if (!isAdmin) {
+      bookingsQuery += " WHERE user_id = $1";
+      bookingsParams = [userId];
+    }
+    
+    const bookingsResult = await db.query(bookingsQuery, bookingsParams);
+    const totalBookings = parseInt(bookingsResult.rows[0].total);
 
     // Total revenue (sum of completed payments)
-    const [payments] = await db.promise.query(
-      isAdmin
-        ? "SELECT IFNULL(SUM(amount),0) AS total FROM payments WHERE status='completed'"
-        : "SELECT IFNULL(SUM(amount),0) AS total FROM payments WHERE status='completed' AND user_id = ?",
-      isAdmin ? [] : [userId]
-    );
-    const totalRevenue = parseFloat(payments[0].total);
+    let paymentsQuery = "SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE status='completed'";
+    let paymentsParams = [];
+    
+    if (!isAdmin) {
+      paymentsQuery += " AND user_id = $1";
+      paymentsParams = [userId];
+    }
+    
+    const paymentsResult = await db.query(paymentsQuery, paymentsParams);
+    const totalRevenue = parseFloat(paymentsResult.rows[0].total);
 
     // Recent events: last 5 events
-    const [recentEvents] = await db.promise.query(
-      isAdmin
-        ? "SELECT id, title, created_at FROM events ORDER BY created_at DESC LIMIT 5"
-        : "SELECT id, title, created_at FROM events WHERE created_by = ? ORDER BY created_at DESC LIMIT 5",
-      isAdmin ? [] : [userId]
-    );
+    let recentEventsQuery = "SELECT id, title, created_at FROM events";
+    let recentEventsParams = [];
+    
+    if (!isAdmin) {
+      recentEventsQuery += " WHERE created_by = $1";
+      recentEventsParams = [userId];
+    }
+    
+    recentEventsQuery += " ORDER BY created_at DESC LIMIT 5";
+    
+    const recentEventsResult = await db.query(recentEventsQuery, recentEventsParams);
 
     // Recent bookings: last 5 confirmed
-    const [recentBookings] = await db.promise.query(
-      isAdmin
-        ? "SELECT id, event_id, booking_date FROM bookings WHERE status='confirmed' ORDER BY booking_date DESC LIMIT 5"
-        : "SELECT id, event_id, booking_date FROM bookings WHERE status='confirmed' AND user_id = ? ORDER BY booking_date DESC LIMIT 5",
-      isAdmin ? [] : [userId]
-    );
+    let recentBookingsQuery = "SELECT id, event_id, booking_date FROM bookings WHERE status='confirmed'";
+    let recentBookingsParams = [];
+    
+    if (!isAdmin) {
+      recentBookingsQuery += " AND user_id = $1";
+      recentBookingsParams = [userId];
+    }
+    
+    recentBookingsQuery += " ORDER BY booking_date DESC LIMIT 5";
+    
+    const recentBookingsResult = await db.query(recentBookingsQuery, recentBookingsParams);
 
     // Upcoming events: next 5 upcoming
-    const [upcomingEvents] = await db.promise.query(
-      isAdmin
-        ? `SELECT id, title, event_date, start_time
-           FROM events
-           WHERE event_date >= CURDATE() AND status='upcoming'
-           ORDER BY event_date ASC, start_time ASC
-           LIMIT 5`
-        : `SELECT id, title, event_date, start_time
-           FROM events
-           WHERE event_date >= CURDATE() AND status='upcoming' AND created_by = ?
-           ORDER BY event_date ASC, start_time ASC
-           LIMIT 5`,
-      isAdmin ? [] : [userId]
-    );
+    let upcomingQuery = `
+      SELECT id, title, event_date, start_time
+      FROM events
+      WHERE event_date >= CURRENT_DATE AND status='upcoming'
+    `;
+    let upcomingParams = [];
+    
+    if (!isAdmin) {
+      upcomingQuery += " AND created_by = $1";
+      upcomingParams = [userId];
+    }
+    
+    upcomingQuery += " ORDER BY event_date ASC, start_time ASC LIMIT 5";
+    
+    const upcomingEventsResult = await db.query(upcomingQuery, upcomingParams);
 
     // Recent revenue transactions: last 5 completed payments
-    const [recentPayments] = await db.promise.query(
-      isAdmin
-        ? `SELECT id, booking_id, amount, method, paid_at 
-           FROM payments 
-           WHERE status='completed'
-           ORDER BY paid_at DESC
-           LIMIT 5`
-        : `SELECT id, booking_id, amount, method, paid_at 
-           FROM payments 
-           WHERE status='completed' AND user_id = ?
-           ORDER BY paid_at DESC
-           LIMIT 5`,
-      isAdmin ? [] : [userId]
-    );
+    let recentPaymentsQuery = `
+      SELECT id, booking_id, amount, method, paid_at 
+      FROM payments 
+      WHERE status='completed'
+    `;
+    let recentPaymentsParams = [];
+    
+    if (!isAdmin) {
+      recentPaymentsQuery += " AND user_id = $1";
+      recentPaymentsParams = [userId];
+    }
+    
+    recentPaymentsQuery += " ORDER BY paid_at DESC LIMIT 5";
+    
+    const recentPaymentsResult = await db.query(recentPaymentsQuery, recentPaymentsParams);
 
     res.json({
       totals: { totalEvents, totalBookings, totalRevenue },
       recentActivity: {
-        events: recentEvents,
-        bookings: recentBookings,
+        events: recentEventsResult.rows,
+        bookings: recentBookingsResult.rows,
       },
-      upcomingEvents,
-      recentPayments,
+      upcomingEvents: upcomingEventsResult.rows,
+      recentPayments: recentPaymentsResult.rows,
     });
   } catch (err) {
     console.error("Error fetching dashboard data:", err);
