@@ -4,32 +4,48 @@ import AuthForm from "./components/AuthForm";
 import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
 
+const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
+
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState(null);
+  const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const logoutTimerRef = useRef(null);
-  const SESSION_TIMEOUT = 2 * 60 * 60 * 1000;
 
   const handleLogout = () => {
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
     localStorage.clear();
-    setIsAuthenticated(false);
-    setUserRole(null);
+    setUser(null);
     setToken(null);
+  };
+
+  const handleLogin = ({ token, role, user }) => {
+    const loginTime = Date.now();
+    localStorage.setItem("token", token);
+    localStorage.setItem("role", role);
+    localStorage.setItem("loginTime", loginTime);
+    localStorage.setItem("user", JSON.stringify(user));
+
+    setToken(token);
+    setUser({ ...user, role });
+
+    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+    logoutTimerRef.current = setTimeout(() => {
+      handleLogout();
+      alert("Session expired. Please log in again.");
+    }, SESSION_TIMEOUT);
   };
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
+    const storedUser = localStorage.getItem("user");
     const storedLoginTime = localStorage.getItem("loginTime");
 
-    if (storedToken && storedRole && storedLoginTime) {
+    if (storedToken && storedRole && storedUser && storedLoginTime) {
       const timeElapsed = Date.now() - parseInt(storedLoginTime, 10);
       if (timeElapsed < SESSION_TIMEOUT) {
-        setIsAuthenticated(true);
-        setUserRole(storedRole);
         setToken(storedToken);
+        setUser({ ...JSON.parse(storedUser), role: storedRole });
 
         const remainingTime = SESSION_TIMEOUT - timeElapsed;
         logoutTimerRef.current = setTimeout(() => {
@@ -42,46 +58,28 @@ function App() {
     return () => {
       if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
     };
-  }, [SESSION_TIMEOUT]);
+  }, []);
 
-  const handleLogin = ({ token, role }) => {
-    const loginTime = Date.now();
-    localStorage.setItem("token", token);
-    localStorage.setItem("role", role);
-    localStorage.setItem("loginTime", loginTime);
-
-    setIsAuthenticated(true);
-    setUserRole(role);
-    setToken(token);
-
-    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-
-    logoutTimerRef.current = setTimeout(() => {
-      handleLogout();
-      alert("Session expired. Please log in again.");
-    }, SESSION_TIMEOUT);
-  };
+  const isAuthenticated = !!token;
 
   return (
     <Router>
       <Routes>
-        {/* Login / Auth */}
         <Route
           path="/login"
           element={
             isAuthenticated ? (
-              <Navigate to={userRole === "admin" ? "/admin/dashboard" : "/user/dashboard"} replace />
+              <Navigate to={user && user.role === "admin" ? "/admin/dashboard" : "/dashboard"} replace />
             ) : (
               <AuthForm onLoginSuccess={handleLogin} />
             )
           }
         />
 
-        {/* Admin Dashboard */}
         <Route
           path="/admin/dashboard/*"
           element={
-            isAuthenticated && userRole === "admin" ? (
+            isAuthenticated && user && user.role === "admin" ? (
               <AdminDashboard token={token} onLogout={handleLogout} />
             ) : (
               <Navigate to="/login" replace />
@@ -89,14 +87,24 @@ function App() {
           }
         />
 
-        {/* User Dashboard */}
         <Route
-          path="/user/dashboard/*"
-          element={<UserDashboard token={token} onLogout={handleLogout} />}
+          path="/dashboard/*"
+          element={<UserDashboard user={user} token={token} onLogout={handleLogout} />}
         />
 
-        {/* Default */}
-        <Route path="*" element={<Navigate to="/user/dashboard" replace />} />
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to={
+                isAuthenticated && user
+                  ? user.role === "admin" ? "/admin/dashboard" : "/dashboard"
+                  : "/dashboard"
+              }
+              replace
+            />
+          }
+        />
       </Routes>
     </Router>
   );

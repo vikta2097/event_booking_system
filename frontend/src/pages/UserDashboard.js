@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// UserDashboard.js
+import React from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 // Pages
@@ -12,76 +13,81 @@ import UserBookings from "./UserBookings";
 import LoginForm from "../components/LoginForm";
 import SignupForm from "../components/SignupForm";
 
-const UserDashboard = () => {
-  const [user, setUser] = useState(null);
+const UserDashboard = ({ user, token, onLogout }) => {
   const location = useLocation();
-
-  // Track where the user tried to go (for redirect after login)
-  const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
-
-  useEffect(() => {
-    const loggedInUser = JSON.parse(localStorage.getItem("user"));
-    setUser(loggedInUser);
-  }, []);
-
-  const requireAuth = (component) => {
-    if (!user) {
-      setRedirectAfterLogin(location.pathname);
-      return <Navigate to="/login" />;
-    }
-    return component;
-  };
-
-  const handleLoginSuccess = (loggedUser) => {
-    setUser(loggedUser);
-    localStorage.setItem("user", JSON.stringify(loggedUser));
-
-    if (redirectAfterLogin) {
-      window.location.href = redirectAfterLogin; // redirect to the page user wanted
-      setRedirectAfterLogin(null);
-    }
-  };
 
   return (
     <Routes>
-      {/* Public home */}
+      {/* Public home - EVERYONE can view */}
       <Route path="/" element={<UserDashboardHome user={user} />} />
 
-      {/* Auth */}
+      {/* Auth routes */}
       <Route
         path="/login"
-        element={user ? (
-          <Navigate to="/" />
-        ) : (
-          <LoginForm onLoginSuccess={handleLoginSuccess} />
-        )}
+        element={
+          user ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <LoginForm />
+          )
+        }
       />
       <Route
         path="/register"
-        element={user ? (
-          <Navigate to="/" />
-        ) : (
-          <SignupForm onLoginSuccess={handleLoginSuccess} />
-        )}
+        element={
+          user ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <SignupForm />
+          )
+        }
       />
 
-      {/* Event details (public) */}
+      {/* Event details - PUBLIC (everyone can view) */}
       <Route path="/events/:id" element={<EventDetails user={user} />} />
 
-      {/* Protected booking/payment */}
+      {/* PROTECTED ROUTES - Login required */}
       <Route
         path="/book/:id"
-        element={requireAuth(<BookingForm user={user} />)}
+        element={
+          user ? (
+            <BookingForm user={user} />
+          ) : (
+            <Navigate 
+              to="/dashboard/login" 
+              state={{ from: location.pathname }} 
+              replace 
+            />
+          )
+        }
       />
       <Route
         path="/payment/:bookingId"
-        element={requireAuth(<PaymentPage user={user} />)}
+        element={
+          user ? (
+            <PaymentPage user={user} />
+          ) : (
+            <Navigate 
+              to="/dashboard/login" 
+              state={{ from: location.pathname }} 
+              replace 
+            />
+          )
+        }
       />
-
-      {/* User bookings */}
       <Route
         path="/my-bookings"
-        element={requireAuth(<UserBookings user={user} />)}
+        element={
+          user ? (
+            <UserBookings user={user} />
+          ) : (
+            <Navigate 
+              to="/dashboard/login" 
+              state={{ from: location.pathname }} 
+              replace 
+            />
+          )
+        }
       />
     </Routes>
   );

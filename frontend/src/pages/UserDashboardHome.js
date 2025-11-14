@@ -3,14 +3,16 @@ import "../styles/UserDashboardHome.css";
 import EventCard from "./EventCard";
 import EventFilters from "./EventFilters";
 import api from "../api";
+import { useNavigate } from "react-router-dom";
 
 const UserDashboardHome = ({ user }) => {
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-  // Fetch events from backend using axios
+  // Fetch events from backend
   const fetchEvents = async () => {
     setLoading(true);
     setError("");
@@ -65,6 +67,22 @@ const UserDashboardHome = ({ user }) => {
       <h2 className="welcome-title">
         {user ? `Welcome back, ${user.fullname}!` : "Welcome to EventBooking!"}
       </h2>
+
+      {/* Prompt for guests to login */}
+      {!user && (
+        <div className="guest-notice">
+          <p className="guest-note">
+            Browse our events below! To book an event, please{" "}
+            <span onClick={() => navigate("/dashboard/login")} className="login-link">
+              log in
+            </span>{" "}
+            or{" "}
+            <span onClick={() => navigate("/dashboard/register")} className="register-link">
+              register
+            </span>.
+          </p>
+        </div>
+      )}
 
       <EventFilters onFilter={handleFilter} />
 
