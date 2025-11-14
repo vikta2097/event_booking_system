@@ -2,6 +2,7 @@ const axios = require("axios");
 require("dotenv").config();
 const moment = require("moment");
 
+// Get M-Pesa access token
 const getAccessToken = async () => {
   const { MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_ENV } = process.env;
   const url =
@@ -18,10 +19,11 @@ const getAccessToken = async () => {
   return res.data.access_token;
 };
 
-const stkPush = async ({ amount, phone, accountRef, callbackUrl }) => {
+// Trigger STK Push
+const stkPush = async ({ amount, phone, accountRef }) => {
   const token = await getAccessToken();
   const timestamp = moment().format("YYYYMMDDHHmmss");
-  const { MPESA_SHORTCODE, MPESA_PASSKEY, MPESA_ENV } = process.env;
+  const { MPESA_SHORTCODE, MPESA_PASSKEY, MPESA_ENV, MPESA_CALLBACK_URL } = process.env;
 
   const password = Buffer.from(MPESA_SHORTCODE + MPESA_PASSKEY + timestamp).toString("base64");
 
@@ -39,7 +41,7 @@ const stkPush = async ({ amount, phone, accountRef, callbackUrl }) => {
     PartyA: phone,
     PartyB: MPESA_SHORTCODE,
     PhoneNumber: phone,
-    CallBackURL: callbackUrl,
+    CallBackURL: MPESA_CALLBACK_URL,
     AccountReference: accountRef,
     TransactionDesc: "Event booking payment",
   };
