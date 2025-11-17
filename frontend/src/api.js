@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: https://event-booking-system-u1z3.onrender.com || "http://localhost:3300/api",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:3300/api",
 });
 
 api.interceptors.request.use((config) => {

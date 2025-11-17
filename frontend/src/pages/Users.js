@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api"; // Global axios instance with token
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../styles/Users.css";
@@ -20,17 +20,13 @@ const Users = () => {
   const [editUserId, setEditUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const baseUrl = "http://localhost:3300/api/users";
-
-  // Axios instance with token
-  const axiosInstance = axios.create({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-  });
+  // Use environment variable
+  const baseUrl = `${process.env.REACT_APP_API_URL}/users`;
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get(baseUrl);
+      const res = await api.get(baseUrl);
       setUsers(res.data);
     } catch (err) {
       console.error("Error fetching users:", err);
@@ -38,7 +34,7 @@ const Users = () => {
     } finally {
       setLoading(false);
     }
-  }, [axiosInstance]);
+  }, [baseUrl]);
 
   useEffect(() => {
     fetchUsers();
@@ -52,7 +48,6 @@ const Users = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Basic validation
     if (!formData.email || !formData.fullname || !formData.role || (!editUserId && !formData.password)) {
       toast.error("Please fill all required fields");
       return;
@@ -70,10 +65,10 @@ const Users = () => {
 
     try {
       if (editUserId) {
-        await axiosInstance.put(`${baseUrl}/${editUserId}`, formData);
+        await api.put(`${baseUrl}/${editUserId}`, formData);
         toast.success("User updated successfully");
       } else {
-        await axiosInstance.post(baseUrl, formData);
+        await api.post(baseUrl, formData);
         toast.success("User created successfully");
       }
 
@@ -106,7 +101,7 @@ const Users = () => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
 
     try {
-      await axiosInstance.delete(`${baseUrl}/${id}`);
+      await api.delete(`${baseUrl}/${id}`);
       setUsers((prev) => prev.filter((user) => user.id !== id));
       toast.success("User deleted successfully");
     } catch (err) {
