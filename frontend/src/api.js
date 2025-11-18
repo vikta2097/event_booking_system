@@ -1,7 +1,11 @@
 import axios from "axios";
 
+const isProduction = window.location.hostname !== "localhost";
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:3300/api",
+  baseURL: isProduction
+    ? "https://event-booking-system-u1z3.onrender.com/api"
+    : "http://localhost:3300/api",
 });
 
 api.interceptors.request.use((config) => {
