@@ -27,20 +27,18 @@ const server = http.createServer(app);
 // ✅ CORS middleware
 // =======================
 const allowedOrigins = [
-  "http://localhost:3000",           // Local development
-  "https://eventhyper.netlify.app"   // Production frontend
+  "http://localhost:3000",          // Local dev
+  "https://eventhyper.netlify.app"  // Production frontend
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (curl, Postman, mobile apps)
-      if (!origin) return callback(null, true);
-
+      if (!origin) return callback(null, true); // Allow curl/Postman
       if (allowedOrigins.includes(origin)) {
-        callback(null, true);
+        return callback(null, true);
       } else {
-        callback(new Error(`CORS policy: origin ${origin} not allowed`));
+        return callback(new Error(`CORS policy: origin ${origin} not allowed`));
       }
     },
     credentials: true,
