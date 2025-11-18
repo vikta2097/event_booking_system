@@ -2,7 +2,6 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const path = require("path");
-require("dotenv").config();
 const bcrypt = require("bcrypt");
 const db = require("./db");
 const { verifyToken } = require("./auth");
@@ -10,11 +9,11 @@ const { verifyToken } = require("./auth");
 // Routes
 const authRoutes = require("./routes/authentification");
 const adminRoutes = require("./routes/admins");
-const bookingsRouter = require("./routes/bookings"); // ✅ Updated with new endpoints
+const bookingsRouter = require("./routes/bookings");
 const userRoutes = require("./routes/users");
 const eventsRouter = require("./routes/events");
 const categoriesRouter = require("./routes/categories");
-const ticketTypesRouter = require("./routes/ticketTypes"); // ✅ NEW ROUTE
+const ticketTypesRouter = require("./routes/ticketTypes");
 const dashboardRouter = require("./routes/dashboard");
 const paymentsRouter = require("./routes/payments");
 const reportsRouter = require("./routes/reports");
@@ -24,54 +23,87 @@ const settingsRoutes = require("./routes/settings");
 const app = express();
 const server = http.createServer(app);
 
-// ✅ Middleware
+// =======================
+// ✅ CORS middleware
+// =======================
+const allowedOrigins = [
+  "http://localhost:3000",           // Local development
+  "https://eventhyper.netlify.app"   // Production frontend
+];
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: function (origin, callback) {
+      // Allow requests with no origin (curl, Postman, mobile apps)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS policy: origin ${origin} not allowed`));
+      }
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
+// =======================
+// ✅ Body parser & static files
+// =======================
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/uploads/avatars", express.static(path.join(__dirname, "uploads/avatars")));
 
+// =======================
 // ✅ Routes
+// =======================
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingsRouter);
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventsRouter);
 app.use("/api/categories", categoriesRouter);
-app.use("/api", ticketTypesRouter); // ✅ NEW: Ticket types routes
+app.use("/api", ticketTypesRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/support", supportRoutes);
 app.use("/api/settings", settingsRoutes);
 
+// =======================
 // ✅ Token validation
+// =======================
 app.get("/api/validate-token", verifyToken, (req, res) => {
   res.json({ valid: true, user: req.user });
 });
 
+// =======================
 // ✅ Health check
+// =======================
 app.get("/", (req, res) => {
   res.send("✅ Event Booking System API running...");
 });
 
+// =======================
 // 404 handler
+// =======================
 app.use((req, res) => {
   res.status(404).json({ message: "Endpoint not found" });
 });
 
+// =======================
 // Global error handler
+// =======================
 app.use((err, req, res, next) => {
   console.error("❌ Unhandled error:", err);
   res.status(500).json({ message: "Internal server error" });
 });
 
+// =======================
 // ✅ Ensure default admin account exists
+// =======================
 const ensureDefaultAdmin = async () => {
   try {
     const result = await db.query(
@@ -98,7 +130,9 @@ const ensureDefaultAdmin = async () => {
   }
 };
 
-// ✅ Start server only after DB connection check
+// =======================
+// ✅ Start server after DB connection check
+// =======================
 const startServer = async () => {
   try {
     const client = await db.pool.connect();
@@ -108,8 +142,7 @@ const startServer = async () => {
     const PORT = process.env.PORT || 3300;
     server.listen(PORT, async () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📡 API available at http://localhost:${PORT}`);
-      console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || "http://localhost:3000"}`);
+      console.log(`🌐 CORS enabled for: ${allowedOrigins.join(", ")}`);
       await ensureDefaultAdmin();
     });
   } catch (err) {
