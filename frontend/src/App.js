@@ -13,7 +13,10 @@ function App() {
 
   const handleLogout = () => {
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-    localStorage.clear();
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("user");
+    localStorage.removeItem("loginTime");
     setUser(null);
     setToken(null);
   };
@@ -42,10 +45,19 @@ function App() {
     const storedLoginTime = localStorage.getItem("loginTime");
 
     if (storedToken && storedRole && storedUser && storedLoginTime) {
+      let userObj = null;
+      try {
+        userObj = JSON.parse(storedUser);
+      } catch (err) {
+        console.warn("Stored user corrupted, clearing session");
+        handleLogout();
+        return;
+      }
+
       const timeElapsed = Date.now() - parseInt(storedLoginTime, 10);
-      if (timeElapsed < SESSION_TIMEOUT) {
+      if (timeElapsed < SESSION_TIMEOUT && userObj) {
         setToken(storedToken);
-        setUser({ ...JSON.parse(storedUser), role: storedRole });
+        setUser({ ...userObj, role: storedRole });
 
         const remainingTime = SESSION_TIMEOUT - timeElapsed;
         logoutTimerRef.current = setTimeout(() => {
@@ -65,21 +77,26 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Login */}
         <Route
           path="/login"
           element={
             isAuthenticated ? (
-              <Navigate to={user && user.role === "admin" ? "/admin/dashboard" : "/dashboard"} replace />
+              <Navigate
+                to={user?.role === "admin" ? "/admin/dashboard" : "/dashboard"}
+                replace
+              />
             ) : (
               <AuthForm onLoginSuccess={handleLogin} />
             )
           }
         />
 
+        {/* Admin dashboard */}
         <Route
           path="/admin/dashboard/*"
           element={
-            isAuthenticated && user && user.role === "admin" ? (
+            isAuthenticated && user?.role === "admin" ? (
               <AdminDashboard token={token} onLogout={handleLogout} />
             ) : (
               <Navigate to="/login" replace />
@@ -87,18 +104,22 @@ function App() {
           }
         />
 
+        {/* User dashboard */}
         <Route
           path="/dashboard/*"
           element={<UserDashboard user={user} token={token} onLogout={handleLogout} />}
         />
 
+        {/* Catch-all redirect */}
         <Route
           path="*"
           element={
             <Navigate
               to={
                 isAuthenticated && user
-                  ? user.role === "admin" ? "/admin/dashboard" : "/dashboard"
+                  ? user.role === "admin"
+                    ? "/admin/dashboard"
+                    : "/dashboard"
                   : "/dashboard"
               }
               replace
