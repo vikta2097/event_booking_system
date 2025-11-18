@@ -16,10 +16,12 @@ router.get("/", verifyToken, async (req, res) => {
     let query = `
       SELECT 
         b.id,
+        b.reference,
         b.booking_date,
         b.seats,
         b.total_amount,
         b.status AS booking_status,
+        b.created_at,
         e.id AS event_id,
         e.title AS event_title,
         e.event_date,
@@ -46,7 +48,24 @@ router.get("/", verifyToken, async (req, res) => {
 
     const result = await db.query(query, params);
 
-    res.json(result.rows);
+    // Fetch ticket details for each booking
+    const bookingsWithTickets = await Promise.all(
+      result.rows.map(async (booking) => {
+        const ticketsResult = await db.query(
+          `SELECT bt.*, tt.name as ticket_name
+           FROM booking_tickets bt
+           JOIN ticket_types tt ON bt.ticket_type_id = tt.id
+           WHERE bt.booking_id = $1`,
+          [booking.id]
+        );
+        return {
+          ...booking,
+          tickets: ticketsResult.rows
+        };
+      })
+    );
+
+    res.json(bookingsWithTickets);
   } catch (error) {
     console.error("Error fetching bookings:", error);
     res.status(500).json({ error: "Failed to fetch bookings" });
@@ -68,6 +87,9 @@ router.get("/:id", verifyToken, async (req, res) => {
         e.title AS event_title,
         e.event_date,
         e.location,
+        e.venue,
+        e.start_time,
+        e.end_time,
         u.fullname AS user_name,
         u.email AS user_email,
         u.phone AS user_phone
@@ -83,11 +105,24 @@ router.get("/:id", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Booking not found" });
     }
 
-    if (!isAdmin && result.rows[0].user_id !== userId) {
+    const booking = result.rows[0];
+
+    if (!isAdmin && booking.user_id !== userId) {
       return res.status(403).json({ error: "Forbidden. Access denied." });
     }
 
-    res.json(result.rows[0]);
+    // Get ticket details
+    const ticketsResult = await db.query(
+      `SELECT bt.*, tt.name as ticket_name, tt.description
+       FROM booking_tickets bt
+       JOIN ticket_types tt ON bt.ticket_type_id = tt.id
+       WHERE bt.booking_id = $1`,
+      [bookingId]
+    );
+
+    booking.tickets = ticketsResult.rows;
+
+    res.json(booking);
   } catch (error) {
     console.error("Error fetching booking:", error);
     res.status(500).json({ error: "Failed to fetch booking" });
@@ -95,59 +130,158 @@ router.get("/:id", verifyToken, async (req, res) => {
 });
 
 // ======================
-// POST create new booking
+// POST create new booking with ticket types
 // ======================
 router.post("/", verifyToken, async (req, res) => {
+  const client = await db.connect();
+  
   try {
-    const { event_id, seats, total_amount } = req.body;
+    const { event_id, tickets } = req.body;
     const user_id = req.user.id;
 
-    if (!event_id || !seats) {
-      return res.status(400).json({ error: "Missing required fields" });
+    // Validate input
+    if (!event_id) {
+      return res.status(400).json({ error: "Event ID is required" });
     }
 
-    // Check event capacity
-    const eventResult = await db.query(
-      "SELECT capacity FROM events WHERE id = $1",
+    if (!tickets || !Array.isArray(tickets) || tickets.length === 0) {
+      return res.status(400).json({ error: "At least one ticket type must be selected" });
+    }
+
+    await client.query('BEGIN');
+
+    // Verify event exists and is bookable
+    const eventResult = await client.query(
+      `SELECT id, capacity, status, event_date 
+       FROM events 
+       WHERE id = $1 FOR UPDATE`,
       [event_id]
     );
 
     if (eventResult.rows.length === 0) {
-      return res.status(404).json({ error: "Event not found" });
+      throw new Error("Event not found");
     }
 
-    const currentBookingsResult = await db.query(
-      "SELECT SUM(seats) as total_seats FROM bookings WHERE event_id = $1 AND status != 'cancelled'",
+    const event = eventResult.rows[0];
+
+    if (event.status === 'cancelled') {
+      throw new Error("This event has been cancelled");
+    }
+
+    // Check if event is in the past
+    if (new Date(event.event_date) < new Date()) {
+      throw new Error("Cannot book tickets for past events");
+    }
+
+    // Calculate total seats and amount
+    let totalSeats = 0;
+    let totalAmount = 0;
+    const ticketDetails = [];
+
+    for (const ticket of tickets) {
+      const { ticket_type_id, quantity } = ticket;
+      
+      if (!ticket_type_id || !quantity || quantity <= 0) {
+        throw new Error("Invalid ticket data");
+      }
+
+      // Get ticket type with lock
+      const ticketResult = await client.query(
+        `SELECT id, price, quantity_available, quantity_sold, name
+         FROM ticket_types 
+         WHERE id = $1 AND event_id = $2 
+         FOR UPDATE`,
+        [ticket_type_id, event_id]
+      );
+
+      if (ticketResult.rows.length === 0) {
+        throw new Error(`Ticket type not found`);
+      }
+
+      const ticketType = ticketResult.rows[0];
+      const available = ticketType.quantity_available - ticketType.quantity_sold;
+
+      if (quantity > available) {
+        throw new Error(`Only ${available} tickets available for ${ticketType.name}`);
+      }
+
+      totalSeats += quantity;
+      totalAmount += ticketType.price * quantity;
+      ticketDetails.push({
+        ticket_type_id,
+        quantity,
+        price: ticketType.price,
+        name: ticketType.name
+      });
+    }
+
+    // Check overall event capacity
+    const bookedResult = await client.query(
+      `SELECT COALESCE(SUM(seats), 0) as total_seats 
+       FROM bookings 
+       WHERE event_id = $1 AND status != 'cancelled'`,
       [event_id]
     );
 
-    const bookedSeats = currentBookingsResult.rows[0].total_seats || 0;
-    const availableSeats = eventResult.rows[0].capacity - bookedSeats;
+    const bookedSeats = parseInt(bookedResult.rows[0].total_seats);
+    const availableSeats = event.capacity - bookedSeats;
 
-    if (seats > availableSeats) {
-      return res
-        .status(400)
-        .json({ error: `Only ${availableSeats} seats available` });
+    if (totalSeats > availableSeats) {
+      throw new Error(`Only ${availableSeats} seats available for this event`);
     }
 
-    // Generate booking reference
-    const reference = 'BK-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    // Generate unique booking reference
+    const reference = 'BK-' + Date.now() + '-' + 
+                     Math.random().toString(36).substr(2, 6).toUpperCase();
 
-    const result = await db.query(
+    // Create booking
+    const bookingResult = await client.query(
       `INSERT INTO bookings (user_id, event_id, seats, total_amount, status, reference)
        VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id`,
-      [user_id, event_id, seats, total_amount || 0, "pending", reference]
+       RETURNING id, reference`,
+      [user_id, event_id, totalSeats, totalAmount, "pending", reference]
     );
+
+    const bookingId = bookingResult.rows[0].id;
+    const bookingReference = bookingResult.rows[0].reference;
+
+    // Create booking_tickets entries and update quantities
+    for (const ticket of ticketDetails) {
+      // Insert booking ticket
+      await client.query(
+        `INSERT INTO booking_tickets (booking_id, ticket_type_id, quantity, price)
+         VALUES ($1, $2, $3, $4)`,
+        [bookingId, ticket.ticket_type_id, ticket.quantity, ticket.price]
+      );
+
+      // Update ticket type quantity_sold
+      await client.query(
+        `UPDATE ticket_types 
+         SET quantity_sold = quantity_sold + $1
+         WHERE id = $2`,
+        [ticket.quantity, ticket.ticket_type_id]
+      );
+    }
+
+    await client.query('COMMIT');
 
     res.status(201).json({
       message: "Booking created successfully",
-      booking_id: result.rows[0].id,
-      reference: reference
+      booking_id: bookingId,
+      reference: bookingReference,
+      total_amount: totalAmount,
+      total_seats: totalSeats,
+      tickets: ticketDetails
     });
+
   } catch (error) {
-    console.error("Error creating booking:", error);
-    res.status(500).json({ error: "Failed to create booking" });
+    await client.query('ROLLBACK');
+    console.error("Booking creation error:", error);
+    res.status(500).json({ 
+      error: error.message || "Failed to create booking" 
+    });
+  } finally {
+    client.release();
   }
 });
 
@@ -208,26 +342,120 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // ======================
-// DELETE booking
-// Admin only
+// DELETE booking (Admin only)
 // ======================
 router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
+  const client = await db.connect();
+  
   try {
     const bookingId = req.params.id;
 
-    const result = await db.query(
+    await client.query('BEGIN');
+
+    // Get booking tickets to restore quantities
+    const ticketsResult = await client.query(
+      `SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1`,
+      [bookingId]
+    );
+
+    // Restore ticket quantities
+    for (const ticket of ticketsResult.rows) {
+      await client.query(
+        `UPDATE ticket_types 
+         SET quantity_sold = quantity_sold - $1
+         WHERE id = $2`,
+        [ticket.quantity, ticket.ticket_type_id]
+      );
+    }
+
+    // Delete booking (cascade will delete booking_tickets)
+    const result = await client.query(
       "DELETE FROM bookings WHERE id = $1",
       [bookingId]
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Booking not found" });
+      throw new Error("Booking not found");
     }
+
+    await client.query('COMMIT');
 
     res.json({ message: "Booking deleted successfully" });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error("Error deleting booking:", error);
-    res.status(500).json({ error: "Failed to delete booking" });
+    res.status(500).json({ error: error.message || "Failed to delete booking" });
+  } finally {
+    client.release();
+  }
+});
+
+// ======================
+// Cancel booking (User can cancel their own)
+// ======================
+router.put("/:id/cancel", verifyToken, async (req, res) => {
+  const client = await db.connect();
+  
+  try {
+    const bookingId = req.params.id;
+    const userId = req.user.id;
+    const isAdmin = req.user.role === "admin";
+
+    await client.query('BEGIN');
+
+    const bookingResult = await client.query(
+      "SELECT * FROM bookings WHERE id = $1 FOR UPDATE",
+      [bookingId]
+    );
+
+    if (bookingResult.rows.length === 0) {
+      throw new Error("Booking not found");
+    }
+
+    const booking = bookingResult.rows[0];
+
+    if (!isAdmin && booking.user_id !== userId) {
+      throw new Error("You can only cancel your own bookings");
+    }
+
+    if (booking.status === 'cancelled') {
+      throw new Error("Booking is already cancelled");
+    }
+
+    if (booking.status === 'confirmed') {
+      throw new Error("Confirmed bookings cannot be cancelled. Please contact support.");
+    }
+
+    // Restore ticket quantities
+    const ticketsResult = await client.query(
+      `SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1`,
+      [bookingId]
+    );
+
+    for (const ticket of ticketsResult.rows) {
+      await client.query(
+        `UPDATE ticket_types 
+         SET quantity_sold = quantity_sold - $1
+         WHERE id = $2`,
+        [ticket.quantity, ticket.ticket_type_id]
+      );
+    }
+
+    // Update booking status
+    await client.query(
+      "UPDATE bookings SET status = 'cancelled' WHERE id = $1",
+      [bookingId]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({ message: "Booking cancelled successfully" });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error("Error cancelling booking:", error);
+    res.status(500).json({ error: error.message || "Failed to cancel booking" });
+  } finally {
+    client.release();
   }
 });
 

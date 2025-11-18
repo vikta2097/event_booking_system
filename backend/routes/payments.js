@@ -3,6 +3,43 @@ const router = express.Router();
 const db = require("../db");
 const { verifyToken, verifyAdmin } = require("../auth");
 const { stkPush } = require("./mpesa");
+const crypto = require("crypto");
+
+// Generate a unique transaction reference
+const generateTransactionRef = () => {
+  return 'PAY-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+};
+
+// Validate Kenyan phone number
+const validatePhoneNumber = (phone) => {
+  // Remove spaces and special characters
+  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  
+  // Check if it matches Kenyan format
+  // Accepts: 254xxxxxxxxx, 07xxxxxxxx, 01xxxxxxxx, +254xxxxxxxxx
+  const patterns = [
+    /^254[17]\d{8}$/,           // 254712345678
+    /^0[17]\d{8}$/,             // 0712345678
+    /^\+254[17]\d{8}$/          // +254712345678
+  ];
+  
+  return patterns.some(pattern => pattern.test(cleaned));
+};
+
+// Format phone number to M-Pesa format (254xxxxxxxxx)
+const formatPhoneNumber = (phone) => {
+  const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
+  
+  if (cleaned.startsWith('254')) {
+    return cleaned;
+  } else if (cleaned.startsWith('0')) {
+    return '254' + cleaned.substring(1);
+  } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
+    return '254' + cleaned;
+  }
+  
+  return cleaned;
+};
 
 // ======================
 // POST /payments/mpesa
@@ -13,7 +50,25 @@ router.post("/mpesa", verifyToken, async (req, res) => {
     const { booking_id, phone } = req.body;
     const user_id = req.user.id;
 
-    // Verify booking exists
+    if (!booking_id) {
+      return res.status(400).json({ error: "Booking ID is required" });
+    }
+
+    if (!phone) {
+      return res.status(400).json({ error: "Phone number is required" });
+    }
+
+    // Validate phone number
+    if (!validatePhoneNumber(phone)) {
+      return res.status(400).json({ 
+        error: "Invalid phone number. Use format: 0712345678 or 254712345678" 
+      });
+    }
+
+    // Format phone number
+    const formattedPhone = formatPhoneNumber(phone);
+
+    // Verify booking exists and belongs to user
     const bookingResult = await db.query(
       "SELECT * FROM bookings WHERE id = $1",
       [booking_id]
@@ -29,32 +84,81 @@ router.post("/mpesa", verifyToken, async (req, res) => {
       return res.status(403).json({ error: "Cannot pay for others' bookings" });
     }
 
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ error: "Cannot pay for cancelled booking" });
+    }
+
+    if (booking.status === 'confirmed') {
+      return res.status(400).json({ error: "Booking already paid" });
+    }
+
+    // Check if there's already a pending payment
+    const existingPayment = await db.query(
+      `SELECT id, status FROM payments 
+       WHERE booking_id = $1 AND status = 'pending'
+       ORDER BY created_at DESC LIMIT 1`,
+      [booking_id]
+    );
+
+    if (existingPayment.rows.length > 0) {
+      return res.status(400).json({ 
+        error: "Payment already in progress",
+        payment_id: existingPayment.rows[0].id
+      });
+    }
+
+    // Round amount to nearest integer (M-Pesa doesn't accept decimals)
+    const amount = Math.ceil(parseFloat(booking.total_amount));
+
+    if (amount < 1) {
+      return res.status(400).json({ error: "Invalid payment amount" });
+    }
+
     // Trigger STK Push
-    const callbackUrl = process.env.MPESA_CALLBACK_URL;
+    const accountRef = booking.reference || `Booking${booking_id}`;
+    
     const stkRes = await stkPush({
-      amount: booking.total_amount,
-      phone,
-      accountRef: `Booking${booking_id}`,
-      callbackUrl,
+      amount,
+      phone: formattedPhone,
+      accountRef,
     });
 
-    // Save payment record as pending, store CheckoutRequestID for callback
+    if (!stkRes.CheckoutRequestID) {
+      throw new Error("M-Pesa STK Push failed");
+    }
+
+    // Save payment record as pending
+    const transactionRef = generateTransactionRef();
+    
     const result = await db.query(
       `INSERT INTO payments 
-       (booking_id, user_id, amount, method, status, checkout_request_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id`,
-      [booking_id, user_id, booking.total_amount, 'mpesa', 'pending', stkRes.CheckoutRequestID]
+       (booking_id, user_id, amount, method, status, checkout_request_id, transaction_ref)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, transaction_ref`,
+      [
+        booking_id, 
+        user_id, 
+        amount, 
+        'mpesa', 
+        'pending', 
+        stkRes.CheckoutRequestID,
+        transactionRef
+      ]
     );
 
     res.json({
-      message: "STK Push initiated",
-      data: stkRes,
+      message: "STK Push sent successfully. Check your phone to complete payment.",
       payment_id: result.rows[0].id,
+      transaction_ref: result.rows[0].transaction_ref,
+      checkout_request_id: stkRes.CheckoutRequestID,
+      merchant_request_id: stkRes.MerchantRequestID
     });
+
   } catch (err) {
     console.error("M-Pesa payment error:", err);
-    res.status(500).json({ error: "M-Pesa payment failed" });
+    res.status(500).json({ 
+      error: err.message || "M-Pesa payment failed. Please try again." 
+    });
   }
 });
 
@@ -63,12 +167,16 @@ router.post("/mpesa", verifyToken, async (req, res) => {
 // ======================
 router.post("/mpesa/callback", async (req, res) => {
   try {
+    console.log("M-Pesa Callback received:", JSON.stringify(req.body, null, 2));
+
     const stkCallback = req.body?.Body?.stkCallback;
+    
     if (!stkCallback || !stkCallback.CheckoutRequestID) {
-      return res.status(400).end();
+      console.error("Invalid callback format");
+      return res.status(400).json({ error: "Invalid callback" });
     }
 
-    const { ResultCode, CheckoutRequestID } = stkCallback;
+    const { ResultCode, ResultDesc, CheckoutRequestID, CallbackMetadata } = stkCallback;
 
     // Find the payment record using CheckoutRequestID
     const paymentResult = await db.query(
@@ -77,16 +185,32 @@ router.post("/mpesa/callback", async (req, res) => {
     );
 
     if (paymentResult.rows.length === 0) {
-      return res.status(404).end();
+      console.error("Payment not found for CheckoutRequestID:", CheckoutRequestID);
+      return res.status(404).json({ error: "Payment not found" });
     }
 
     const payment = paymentResult.rows[0];
 
+    // Extract metadata if available
+    let mpesaReceiptNumber = null;
+    let phoneNumber = null;
+    
+    if (CallbackMetadata && CallbackMetadata.Item) {
+      const items = CallbackMetadata.Item;
+      const receiptItem = items.find(item => item.Name === 'MpesaReceiptNumber');
+      const phoneItem = items.find(item => item.Name === 'PhoneNumber');
+      
+      if (receiptItem) mpesaReceiptNumber = receiptItem.Value;
+      if (phoneItem) phoneNumber = phoneItem.Value;
+    }
+
     if (ResultCode === 0) {
       // Payment successful
       await db.query(
-        "UPDATE payments SET status = $1, paid_at = NOW() WHERE id = $2",
-        ['success', payment.id]
+        `UPDATE payments 
+         SET status = $1, paid_at = NOW(), mpesa_receipt = $2, phone_number = $3
+         WHERE id = $4`,
+        ['success', mpesaReceiptNumber, phoneNumber, payment.id]
       );
       
       // Update booking status to confirmed
@@ -94,67 +218,88 @@ router.post("/mpesa/callback", async (req, res) => {
         "UPDATE bookings SET status = $1 WHERE id = $2",
         ['confirmed', payment.booking_id]
       );
+
+      console.log(`Payment ${payment.id} successful. Booking ${payment.booking_id} confirmed.`);
     } else {
-      // Payment failed or canceled
+      // Payment failed or cancelled
       await db.query(
-        "UPDATE payments SET status = $1 WHERE id = $2",
-        ['failed', payment.id]
+        `UPDATE payments 
+         SET status = $1, failure_reason = $2
+         WHERE id = $3`,
+        ['failed', ResultDesc, payment.id]
       );
+
+      console.log(`Payment ${payment.id} failed. Reason: ${ResultDesc}`);
     }
 
-    res.json({ message: "Callback processed successfully" });
+    res.json({ 
+      ResultCode: 0,
+      ResultDesc: "Callback processed successfully" 
+    });
+
   } catch (err) {
     console.error("Daraja callback error:", err);
-    res.status(500).end();
+    res.status(500).json({ 
+      ResultCode: 1,
+      ResultDesc: "Callback processing failed" 
+    });
   }
 });
 
 // ======================
-// GET all payments (Admin only)
+// GET payment by booking ID
 // ======================
-router.get("/", verifyToken, verifyAdmin, async (req, res) => {
+router.get("/by-booking/:booking_id", verifyToken, async (req, res) => {
   try {
-    const result = await db.query(`
-      SELECT 
-        p.*, 
-        b.id AS booking_id, 
-        b.user_id, 
-        b.event_id, 
-        u.fullname AS user_name, 
-        e.title AS event_title
-      FROM payments p
-      JOIN bookings b ON p.booking_id = b.id
-      JOIN usercredentials u ON b.user_id = u.id
-      JOIN events e ON b.event_id = e.id
-      ORDER BY p.paid_at DESC
-    `);
-    res.json(result.rows);
+    const { booking_id } = req.params;
+
+    const result = await db.query(
+      `SELECT p.* FROM payments p
+       JOIN bookings b ON p.booking_id = b.id
+       WHERE p.booking_id = $1
+       ORDER BY p.created_at DESC
+       LIMIT 1`,
+      [booking_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json(null);
+    }
+
+    const payment = result.rows[0];
+
+    // Users can only see their own payments
+    if (payment.user_id !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    res.json(payment);
   } catch (err) {
-    console.error("Error fetching payments:", err);
-    res.status(500).json({ error: "Failed to fetch payments" });
+    console.error("Error fetching payment:", err);
+    res.status(500).json({ error: "Failed to fetch payment" });
   }
 });
 
 // ======================
-// GET single payment by ID (User can check their own, Admin can check any)
+// GET single payment by ID
 // ======================
 router.get("/:id", verifyToken, async (req, res) => {
   try {
     const result = await db.query(
-      `
-      SELECT 
+      `SELECT 
         p.*, 
         b.id AS booking_id, 
+        b.reference AS booking_reference,
         b.user_id, 
         b.event_id, 
-        u.fullname AS user_name, 
+        u.fullname AS user_name,
+        u.email AS user_email,
         e.title AS event_title
       FROM payments p
       JOIN bookings b ON p.booking_id = b.id
       JOIN usercredentials u ON b.user_id = u.id
       JOIN events e ON b.event_id = e.id
-      WHERE p.id = $1
-      `,
+      WHERE p.id = $1`,
       [req.params.id]
     );
 
@@ -177,6 +322,34 @@ router.get("/:id", verifyToken, async (req, res) => {
 });
 
 // ======================
+// GET all payments (Admin only)
+// ======================
+router.get("/", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        p.*, 
+        b.id AS booking_id,
+        b.reference AS booking_reference,
+        b.user_id, 
+        b.event_id, 
+        u.fullname AS user_name,
+        u.email AS user_email,
+        e.title AS event_title
+      FROM payments p
+      JOIN bookings b ON p.booking_id = b.id
+      JOIN usercredentials u ON b.user_id = u.id
+      JOIN events e ON b.event_id = e.id
+      ORDER BY p.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching payments:", err);
+    res.status(500).json({ error: "Failed to fetch payments" });
+  }
+});
+
+// ======================
 // Payment stats (Admin only)
 // ======================
 router.get("/stats/summary", verifyToken, verifyAdmin, async (req, res) => {
@@ -184,87 +357,24 @@ router.get("/stats/summary", verifyToken, verifyAdmin, async (req, res) => {
     const result = await db.query("SELECT * FROM payments");
     const all = result.rows;
     
-    const total = all.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const totalRevenue = all
+      .filter(p => p.status === "success")
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    
     const pending = all.filter(p => p.status === "pending").length;
-    const failed = all.filter(p => p.status === "failed" || p.status === "refunded").length;
+    const successful = all.filter(p => p.status === "success").length;
+    const failed = all.filter(p => p.status === "failed").length;
     
-    res.json({ total, pending, failed });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch stats" });
-  }
-});
-
-// ======================
-// Refund payment (Admin only)
-// ======================
-router.put("/refund/:id", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const existingResult = await db.query(
-      "SELECT * FROM payments WHERE id = $1", 
-      [req.params.id]
-    );
-    
-    if (existingResult.rows.length === 0) {
-      return res.status(404).json({ error: "Payment not found" });
-    }
-    
-    if (existingResult.rows[0].status !== "success") {
-      return res.status(400).json({ error: "Only successful payments can be refunded" });
-    }
-
-    await db.query(
-      "UPDATE payments SET status = $1 WHERE id = $2", 
-      ['refunded', req.params.id]
-    );
-    
-    res.json({ message: "Payment refunded successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to refund payment" });
-  }
-});
-
-// ======================
-// Create payment (Admin or user for their own booking)
-// ======================
-router.post("/", verifyToken, async (req, res) => {
-  try {
-    const { booking_id, amount, method, status } = req.body;
-    const user_id = req.user.id;
-    const user_role = req.user.role;
-
-    if (!booking_id || !amount || !method) {
-      return res.status(400).json({ error: "booking_id, amount, and method are required" });
-    }
-
-    const bookingResult = await db.query(
-      "SELECT * FROM bookings WHERE id = $1", 
-      [booking_id]
-    );
-    
-    if (bookingResult.rows.length === 0) {
-      return res.status(404).json({ error: "Booking not found" });
-    }
-
-    const booking = bookingResult.rows[0];
-    
-    if (user_role !== "admin" && booking.user_id !== user_id) {
-      return res.status(403).json({ error: "Forbidden. Cannot pay for others' bookings." });
-    }
-
-    const result = await db.query(
-      "INSERT INTO payments (booking_id, user_id, amount, method, status) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-      [booking_id, user_id, amount, method, status || "pending"]
-    );
-    
-    res.status(201).json({ 
-      message: "Payment created", 
-      payment_id: result.rows[0].id 
+    res.json({ 
+      totalRevenue,
+      totalPayments: all.length,
+      successful,
+      pending,
+      failed
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to create payment" });
+    console.error("Error fetching stats:", err);
+    res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
 
@@ -273,8 +383,12 @@ router.post("/", verifyToken, async (req, res) => {
 // ======================
 router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { amount, method, status } = req.body;
+    const { status } = req.body;
     
+    if (!status) {
+      return res.status(400).json({ error: "Status is required" });
+    }
+
     const existingResult = await db.query(
       "SELECT * FROM payments WHERE id = $1", 
       [req.params.id]
@@ -284,92 +398,24 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
       return res.status(404).json({ error: "Payment not found" });
     }
 
-    const updateFields = [];
-    const values = [];
-    let paramCount = 1;
-
-    if (amount !== undefined) { 
-      updateFields.push(`amount = $${paramCount}`); 
-      values.push(amount); 
-      paramCount++;
-    }
-    if (method) { 
-      updateFields.push(`method = $${paramCount}`); 
-      values.push(method); 
-      paramCount++;
-    }
-    if (status) { 
-      updateFields.push(`status = $${paramCount}`); 
-      values.push(status); 
-      paramCount++;
-    }
-    
-    if (updateFields.length === 0) {
-      return res.status(400).json({ error: "No fields to update" });
-    }
-
-    values.push(req.params.id);
-    
     await db.query(
-      `UPDATE payments SET ${updateFields.join(", ")} WHERE id = $${paramCount}`, 
-      values
+      "UPDATE payments SET status = $1 WHERE id = $2", 
+      [status, req.params.id]
     );
+
+    // If marking as success, update booking
+    if (status === 'success') {
+      const payment = existingResult.rows[0];
+      await db.query(
+        "UPDATE bookings SET status = 'confirmed' WHERE id = $1",
+        [payment.booking_id]
+      );
+    }
     
-    res.json({ message: "Payment updated" });
+    res.json({ message: "Payment updated successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("Error updating payment:", err);
     res.status(500).json({ error: "Failed to update payment" });
-  }
-});
-
-// Get the most recent payment for a booking (user only)
-router.get("/by-booking/:booking_id", verifyToken, async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT * FROM payments 
-       WHERE booking_id = $1
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [req.params.booking_id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.json(null);
-    }
-
-    const payment = result.rows[0];
-
-    // Users can only see their own payment
-    if (payment.user_id !== req.user.id && req.user.role !== "admin") {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    res.json(payment);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch payment" });
-  }
-});
-
-
-// ======================
-// Delete payment (Admin only)
-// ======================
-router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const result = await db.query(
-      "DELETE FROM payments WHERE id = $1", 
-      [req.params.id]
-    );
-    
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Payment not found" });
-    }
-    
-    res.json({ message: "Payment deleted" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to delete payment" });
   }
 });
 
