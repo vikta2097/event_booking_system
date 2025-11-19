@@ -75,13 +75,15 @@ router.get("/", verifyToken, async (req, res) => {
 // ======================
 // GET single booking by ID
 // ======================
+// GET single booking by ID (with ticket types and generated tickets)
 router.get("/:id", verifyToken, async (req, res) => {
-  try {
-    const bookingId = req.params.id;
-    const isAdmin = req.user.role === "admin";
-    const userId = req.user.id;
+  const bookingId = req.params.id;
+  const isAdmin = req.user.role === "admin";
+  const userId = req.user.id;
 
-    const query = `
+  try {
+    // --- Fetch booking info ---
+    const bookingResult = await db.query(`
       SELECT 
         b.*,
         e.title AS event_title,
@@ -97,30 +99,43 @@ router.get("/:id", verifyToken, async (req, res) => {
       INNER JOIN events e ON b.event_id = e.id
       INNER JOIN usercredentials u ON b.user_id = u.id
       WHERE b.id = $1
-    `;
+    `, [bookingId]);
 
-    const result = await db.query(query, [bookingId]);
-
-    if (result.rows.length === 0) {
+    if (bookingResult.rows.length === 0) {
       return res.status(404).json({ error: "Booking not found" });
     }
 
-    const booking = result.rows[0];
+    const booking = bookingResult.rows[0];
 
+    // --- Access control ---
     if (!isAdmin && booking.user_id !== userId) {
       return res.status(403).json({ error: "Forbidden. Access denied." });
     }
 
-    // Get ticket details
-    const ticketsResult = await db.query(
-      `SELECT bt.*, tt.name as ticket_name, tt.description
-       FROM booking_tickets bt
-       JOIN ticket_types tt ON bt.ticket_type_id = tt.id
-       WHERE bt.booking_id = $1`,
-      [bookingId]
-    );
+    // --- Fetch ticket types ---
+    const ticketTypesResult = await db.query(`
+      SELECT 
+        bt.id AS booking_ticket_id,
+        bt.ticket_type_id,
+        bt.quantity,
+        bt.price,
+        tt.name AS ticket_name,
+        tt.description AS ticket_description
+      FROM booking_tickets bt
+      JOIN ticket_types tt ON bt.ticket_type_id = tt.id
+      WHERE bt.booking_id = $1
+    `, [bookingId]);
 
-    booking.tickets = ticketsResult.rows;
+    booking.tickets = ticketTypesResult.rows;
+
+    // --- Fetch generated tickets (QR codes) if any ---
+    const generatedTicketsResult = await db.query(`
+      SELECT id AS ticket_id, ticket_type_id, qr_code
+      FROM tickets
+      WHERE booking_id = $1
+    `, [bookingId]);
+
+    booking.generatedTickets = generatedTicketsResult.rows;
 
     res.json(booking);
   } catch (error) {

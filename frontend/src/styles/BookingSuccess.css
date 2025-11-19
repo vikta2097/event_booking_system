@@ -69,3 +69,47 @@
   font-weight: bold;
   font-size: 18px;
 }
+
+.tickets-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ticket-item {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 15px;
+  flex: 1 1 200px;
+  max-width: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #fafafa;
+}
+
+.ticket-qr {
+  margin: 10px 0;
+}
+
+.btn-download-ticket {
+  margin-top: 5px;
+  padding: 5px 10px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-download-ticket:hover {
+  background-color: #45a049;
+}
+
+.tickets-section h4 {
+  margin-bottom: 10px;
+}

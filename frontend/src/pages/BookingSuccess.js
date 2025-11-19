@@ -14,19 +14,22 @@ const BookingSuccess = ({ user }) => {
   useEffect(() => {
     const fetchBooking = async () => {
       try {
+        // Fetch booking details
         const response = await api.get(`/bookings/${bookingId}`);
         const bookingData = response.data;
-        
-        // Check if booking is confirmed
+
+        // If booking not confirmed, redirect to payment
         if (bookingData.booking_status !== 'confirmed') {
           setError("This booking has not been confirmed yet. Please complete payment.");
-          setTimeout(() => {
-            navigate(`/payment/${bookingId}`);
-          }, 3000);
+          setTimeout(() => navigate(`/payment/${bookingId}`), 3000);
           return;
         }
-        
-        setBooking(bookingData);
+
+        // Fetch tickets for this booking
+        const ticketsRes = await api.get(`/tickets/by-booking/${bookingData.id}`);
+        const ticketsData = ticketsRes.data;
+
+        setBooking({ ...bookingData, tickets: ticketsData });
       } catch (err) {
         console.error("Error fetching booking:", err);
         setError("Failed to load booking details.");
@@ -38,36 +41,28 @@ const BookingSuccess = ({ user }) => {
     fetchBooking();
   }, [bookingId, navigate]);
 
-  const handleDownloadTicket = () => {
+  const handleDownloadTicket = (ticket) => {
     try {
-      // Get the SVG element
-      const svg = document.querySelector("#booking-qr svg");
-      if (!svg) {
-        alert("QR code not found");
-        return;
-      }
-
-      // Create a canvas
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
-      
-      // Get SVG data
+
+      const svg = document.querySelector(`#ticket-${ticket.id} svg`);
+      if (!svg) return alert("QR code not found");
+
       const svgData = new XMLSerializer().serializeToString(svg);
       const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(svgBlob);
-      
-      // Create an image from SVG
+
       const img = new Image();
-      img.onload = function() {
+      img.onload = function () {
         canvas.width = img.width;
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
-        
-        // Download as PNG
-        canvas.toBlob(function(blob) {
+
+        canvas.toBlob(function (blob) {
           const link = document.createElement("a");
           link.href = URL.createObjectURL(blob);
-          link.download = `Ticket-${booking.reference}.png`;
+          link.download = `Ticket-${ticket.ticket_type_name || "Ticket"}-${booking.reference}.png`;
           link.click();
           URL.revokeObjectURL(url);
         });
@@ -79,20 +74,17 @@ const BookingSuccess = ({ user }) => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
-  if (loading) {
+  if (loading)
     return (
       <div className="booking-success">
         <div className="loading-spinner"></div>
         <p>Loading booking details...</p>
       </div>
     );
-  }
 
-  if (error) {
+  if (error)
     return (
       <div className="booking-success error-container">
         <div className="error-icon">⚠️</div>
@@ -103,9 +95,8 @@ const BookingSuccess = ({ user }) => {
         </button>
       </div>
     );
-  }
 
-  if (!booking) {
+  if (!booking)
     return (
       <div className="booking-success error-container">
         <h2>Booking Not Found</h2>
@@ -115,7 +106,6 @@ const BookingSuccess = ({ user }) => {
         </button>
       </div>
     );
-  }
 
   return (
     <div className="booking-success">
@@ -141,23 +131,20 @@ const BookingSuccess = ({ user }) => {
                 weekday: "long",
                 year: "numeric",
                 month: "long",
-                day: "numeric"
+                day: "numeric",
               })}
             </span>
           </div>
-
           <div className="detail-row">
             <span className="label">Time:</span>
             <span className="value">
               {booking.start_time} - {booking.end_time}
             </span>
           </div>
-
           <div className="detail-row">
             <span className="label">Venue:</span>
             <span className="value">{booking.location}</span>
           </div>
-
           <div className="detail-row">
             <span className="label">Total Paid:</span>
             <span className="value amount">
@@ -170,48 +157,35 @@ const BookingSuccess = ({ user }) => {
           <div className="tickets-section">
             <h4>Your Tickets</h4>
             <ul className="tickets-list">
-              {booking.tickets.map((ticket, index) => (
-                <li key={index} className="ticket-item">
-                  <span className="ticket-type">{ticket.ticket_name}</span>
-                  <span className="ticket-quantity">x {ticket.quantity}</span>
-                  <span className="ticket-price">
-                    KES {(ticket.price * ticket.quantity).toLocaleString()}
-                  </span>
+              {booking.tickets.map((ticket) => (
+                <li key={ticket.id} className="ticket-item">
+                  <span className="ticket-type">{ticket.ticket_type_name || "General Ticket"}</span>
+                  <span className="ticket-quantity">x {ticket.quantity || 1}</span>
+                  {ticket.price && (
+                    <span className="ticket-price">
+                      KES {(ticket.price * (ticket.quantity || 1)).toLocaleString()}
+                    </span>
+                  )}
+                  <div id={`ticket-${ticket.id}`} className="ticket-qr">
+                    <QRCodeSVG value={ticket.qr_code} size={150} level="H" includeMargin={true} />
+                  </div>
+                  <button
+                    onClick={() => handleDownloadTicket(ticket)}
+                    className="btn-download-ticket"
+                  >
+                    📥 Download Ticket
+                  </button>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        <div className="qr-code-section">
-          <h4>Entry QR Code</h4>
-          <p className="qr-instruction">
-            Show this QR code at the venue entrance
-          </p>
-          <div id="booking-qr" className="qr-code">
-            <QRCodeSVG 
-              value={booking.reference} 
-              size={200}
-              level="H"
-              includeMargin={true}
-            />
-          </div>
-          <p className="booking-reference">
-            Reference: <strong>{booking.reference}</strong>
-          </p>
-        </div>
-
         <div className="actions">
-          <button onClick={handleDownloadTicket} className="btn-download">
-            📥 Download Ticket
-          </button>
           <button onClick={handlePrint} className="btn-print">
-            🖨️ Print Ticket
+            🖨️ Print All Tickets
           </button>
-          <button 
-            onClick={() => navigate("/user/bookings")} 
-            className="btn-secondary"
-          >
+          <button onClick={() => navigate("/user/bookings")} className="btn-secondary">
             View My Bookings
           </button>
           <button onClick={() => navigate("/")} className="btn-home">
@@ -226,7 +200,7 @@ const BookingSuccess = ({ user }) => {
           <li>Please arrive at least 30 minutes before the event starts</li>
           <li>Bring a valid ID for verification</li>
           <li>This ticket is non-transferable</li>
-          <li>Save or screenshot this QR code for entry</li>
+          <li>Save or screenshot the QR codes for entry</li>
           <li>Check your email for full booking details</li>
         </ul>
       </div>

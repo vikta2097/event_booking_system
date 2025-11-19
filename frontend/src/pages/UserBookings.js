@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import api from "../api";
 import "../styles/UserBookings.css";
 
 const UserBookings = ({ user }) => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -13,6 +17,7 @@ const UserBookings = ({ user }) => {
         setBookings(res.data);
       } catch (err) {
         console.error("Error fetching bookings:", err);
+        setError("Failed to load bookings. Try again later.");
       } finally {
         setLoading(false);
       }
@@ -21,7 +26,19 @@ const UserBookings = ({ user }) => {
     fetchBookings();
   }, []);
 
-  if (loading) return <p className="loading-text">Loading your bookings...</p>;
+  if (loading)
+    return <p className="loading-text">Loading your bookings...</p>;
+
+  if (error)
+    return (
+      <div className="error-container">
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()} className="btn-retry">
+          Retry
+        </button>
+      </div>
+    );
+
   if (!bookings.length)
     return <p className="no-bookings">You have no bookings yet.</p>;
 
@@ -34,19 +51,60 @@ const UserBookings = ({ user }) => {
             <h3>{b.event_title}</h3>
             <p>
               <strong>Date:</strong>{" "}
-              {new Date(b.event_date).toLocaleDateString()}
+              {new Date(b.event_date).toLocaleDateString("en-GB", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
             </p>
             <p>
               <strong>Tickets:</strong> {b.seats}
             </p>
             <p>
-              <strong>Total Amount:</strong> KES {b.total_amount}
+              <strong>Total Amount:</strong> KES {parseFloat(b.total_amount).toLocaleString()}
             </p>
             <p>
               <strong>Status:</strong> {b.booking_status}
             </p>
+
+            {/* Action buttons */}
             {b.booking_status === "pending" && (
-              <p className="payment-note">Payment pending</p>
+              <button
+                className="btn-action"
+                onClick={() => navigate(`/payment/${b.id}`)}
+              >
+                💳 Complete Payment
+              </button>
+            )}
+
+            {b.booking_status === "confirmed" && (
+              <>
+                <button
+                  className="btn-action"
+                  onClick={() => navigate(`/booking-success/${b.id}`)}
+                >
+                  🎟️ View Tickets
+                </button>
+
+                {/* Quick QR preview (optional) */}
+                {b.tickets?.length > 0 && (
+                  <div className="tickets-preview">
+                    {b.tickets.map((ticket) => (
+                      <QRCodeSVG
+                        key={ticket.id}
+                        value={ticket.qr_code}
+                        size={60}
+                        level="H"
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {b.booking_status === "cancelled" && (
+              <p className="cancelled-note">Booking cancelled</p>
             )}
           </div>
         ))}
