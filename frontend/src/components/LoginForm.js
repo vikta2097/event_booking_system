@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "../styles/AuthForm.css";
-import api from "../api";
+import api from "../api"; // ✅ use axios instance
 
 const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
   const [email, setEmail] = useState("");
@@ -33,11 +33,11 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
       localStorage.setItem("role", profileRes.data.role);
       if (profileRes.data.id) localStorage.setItem("userId", profileRes.data.id);
 
-      // ✅ FIXED: Pass the entire user object with all properties
+      // Pass entire profile to parent
       onLoginSuccess({
         token,
         role: profileRes.data.role,
-        user: profileRes.data, // ← This is the fix! Now includes name, email, etc.
+        userId: profileRes.data.id,
       });
     } catch (err) {
       console.error("Login error:", err);
