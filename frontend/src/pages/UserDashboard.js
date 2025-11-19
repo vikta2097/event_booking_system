@@ -5,10 +5,10 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 // Pages
 import UserDashboardHome from "./UserDashboardHome";
 import EventDetails from "./EventDetails";
-import TicketSelectionPage from "./TicketSelectionPage"; // NEW - We'll create this next
+import TicketSelection from "./TicketSelection"; 
 import BookingForm from "./BookingForm";
 import PaymentPage from "./PaymentPage";
-import BookingSuccess from "./BookingSuccess"; // NEW - Added this
+import BookingSuccess from "./BookingSuccess"; 
 import UserBookings from "./UserBookings";
 
 // Auth components
@@ -55,7 +55,7 @@ const UserDashboard = ({ user, token, onLogout }) => {
         path="/events/:id/tickets"
         element={
           user ? (
-            <TicketSelectionPage user={user} />
+            <TicketSelection user={user} />
           ) : (
             <Navigate 
               to="/dashboard/login" 

@@ -62,10 +62,36 @@ const UserDashboardHome = ({ user }) => {
     setFilteredEvents(filtered);
   };
 
+  // ✅ FIXED: Helper function to get user's display name
+  const getUserDisplayName = () => {
+    if (!user) return null;
+    
+    // Try different possible property names from backend
+    return user.fullname || 
+           user.full_name || 
+           user.name || 
+           user.username || 
+           user.email?.split('@')[0] || 
+           "User";
+  };
+
+  const displayName = getUserDisplayName();
+
+  // Debug: Log user object to console (remove after testing)
+  useEffect(() => {
+    if (user) {
+      console.log("=== USER DEBUG ===");
+      console.log("User object:", user);
+      console.log("User properties:", Object.keys(user));
+      console.log("Display name:", displayName);
+      console.log("==================");
+    }
+  }, [user, displayName]);
+
   return (
     <div className="dashboard-home">
       <h2 className="welcome-title">
-        {user ? `Welcome back, ${user.fullname}!` : "Welcome to EventBooking!"}
+        {user ? `Welcome back, ${displayName}!` : "Welcome to EventBooking!"}
       </h2>
 
       {/* Prompt for guests to login */}

@@ -49,7 +49,7 @@ const BookingForm = ({ user }) => {
 
     if (!user) {
       setError("Please log in to complete booking");
-      navigate("/dashboard/login");
+      navigate("/login");
       return;
     }
 
