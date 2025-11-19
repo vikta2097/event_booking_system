@@ -5,7 +5,7 @@ import EventFilters from "./EventFilters";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
 
-const UserDashboardHome = ({ user }) => {
+const UserDashboardHome = ({ user, onLogout }) => {
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +38,9 @@ const UserDashboardHome = ({ user }) => {
 
     if (filters.category) {
       filtered = filtered.filter((e) =>
-        (e.category_name || "").toLowerCase().includes(filters.category.toLowerCase())
+        (e.category_name || "")
+          .toLowerCase()
+          .includes(filters.category.toLowerCase())
       );
     }
     if (filters.venue) {
@@ -53,59 +55,70 @@ const UserDashboardHome = ({ user }) => {
       filtered = filtered.filter((e) => e.price <= parseFloat(filters.maxPrice));
     }
     if (filters.startDate) {
-      filtered = filtered.filter((e) => new Date(e.event_date) >= new Date(filters.startDate));
+      filtered = filtered.filter(
+        (e) => new Date(e.event_date) >= new Date(filters.startDate)
+      );
     }
     if (filters.endDate) {
-      filtered = filtered.filter((e) => new Date(e.event_date) <= new Date(filters.endDate));
+      filtered = filtered.filter(
+        (e) => new Date(e.event_date) <= new Date(filters.endDate)
+      );
     }
 
     setFilteredEvents(filtered);
   };
 
-  // ✅ FIXED: Helper function to get user's display name
+  // Get user's display name
   const getUserDisplayName = () => {
     if (!user) return null;
-    
-    // Try different possible property names from backend
-    return user.fullname || 
-           user.full_name || 
-           user.name || 
-           user.username || 
-           user.email?.split('@')[0] || 
-           "User";
+    return (
+      user.fullname ||
+      user.full_name ||
+      user.name ||
+      user.username ||
+      user.email?.split("@")[0] ||
+      "User"
+    );
   };
 
   const displayName = getUserDisplayName();
 
-  // Debug: Log user object to console (remove after testing)
-  useEffect(() => {
-    if (user) {
-      console.log("=== USER DEBUG ===");
-      console.log("User object:", user);
-      console.log("User properties:", Object.keys(user));
-      console.log("Display name:", displayName);
-      console.log("==================");
-    }
-  }, [user, displayName]);
-
   return (
     <div className="dashboard-home">
-      <h2 className="welcome-title">
-        {user ? `Welcome back, ${displayName}!` : "Welcome to EventBooking!"}
-      </h2>
+      {/* Fixed header with welcome + buttons */}
+      {user && (
+        <div className="dashboard-header">
+          <h2 className="welcome-title">Welcome back, {displayName}!</h2>
+          <div className="dashboard-actions">
+            <button onClick={() => navigate("/dashboard/my-bookings")}>
+              🎟️ My Bookings
+            </button>
+            <button onClick={onLogout} className="logout-btn">
+              🚪 Logout
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* Prompt for guests to login */}
+      {/* Prompt for guests */}
       {!user && (
         <div className="guest-notice">
           <p className="guest-note">
             Browse our events below! To book an event, please{" "}
-            <span onClick={() => navigate("/dashboard/login")} className="login-link">
+            <span
+              onClick={() => navigate("/dashboard/login")}
+              className="login-link"
+            >
               log in
             </span>{" "}
             or{" "}
-            <span onClick={() => navigate("/dashboard/register")} className="register-link">
+            <span
+              onClick={() => navigate("/dashboard/register")}
+              className="register-link"
+            >
               register
-            </span>.
+            </span>
+            .
           </p>
         </div>
       )}

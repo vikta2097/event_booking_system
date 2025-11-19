@@ -4,13 +4,52 @@
   margin: 0 auto;
 }
 
-.welcome-title {
-  text-align: center;
-  font-size: 28px;
+/* Header for welcome + buttons */
+.dashboard-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 20px;
-  color: #1a1a1a;
 }
 
+.welcome-title {
+  font-size: 28px;
+  margin: 0;
+  text-align: center;
+  color: #0077ff;
+}
+
+.dashboard-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.dashboard-actions button {
+  background-color: #0077ff;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.dashboard-actions button:hover {
+  background-color: #005fcc;
+}
+
+.logout-btn {
+  background-color: #ff4d4f;
+}
+
+.logout-btn:hover {
+  background-color: #cc0000;
+}
+
+/* Loading / error / no events */
 .loading-text,
 .error-text,
 .no-events {
@@ -24,9 +63,33 @@
   color: #e74c3c;
 }
 
+/* Event grid */
 .event-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
   margin-top: 20px;
+}
+
+/* Guest notice */
+.guest-notice {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.guest-note {
+  font-size: 16px;
+  color: #555;
+}
+
+.login-link,
+.register-link {
+  color: #0077ff;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.login-link:hover,
+.register-link:hover {
+  color: #005fcc;
 }
