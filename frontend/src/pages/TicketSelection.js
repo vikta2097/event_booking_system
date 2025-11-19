@@ -71,7 +71,7 @@ const TicketSelection = ({ user }) => {
 
     // Store selection in localStorage for next step
     const selection = {
-      eventId: id,
+      eventId: parseInt(id),
       tickets: ticketTypes
         .filter(ticket => selectedTickets[ticket.id] > 0)
         .map(ticket => ({
@@ -86,7 +86,9 @@ const TicketSelection = ({ user }) => {
     };
 
     localStorage.setItem("ticketSelection", JSON.stringify(selection));
-    navigate(`/events/${id}/book`);
+    
+    // ✅ FIXED: Navigate to the correct booking path
+    navigate(`/dashboard/book/${id}`);
   };
 
   if (loading) return <div className="loading">Loading tickets...</div>;
@@ -100,7 +102,7 @@ const TicketSelection = ({ user }) => {
     <div className="ticket-selection">
       {/* Event Header */}
       <div className="event-header">
-        <button onClick={() => navigate(`/events/${id}`)} className="back-btn">
+        <button onClick={() => navigate(`/dashboard/events/${id}`)} className="back-btn">
           ← Back to Event
         </button>
         <h1>{event.title}</h1>

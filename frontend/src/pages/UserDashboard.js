@@ -5,8 +5,10 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 // Pages
 import UserDashboardHome from "./UserDashboardHome";
 import EventDetails from "./EventDetails";
+import TicketSelectionPage from "./TicketSelectionPage"; // NEW - We'll create this next
 import BookingForm from "./BookingForm";
 import PaymentPage from "./PaymentPage";
+import BookingSuccess from "./BookingSuccess"; // NEW - Added this
 import UserBookings from "./UserBookings";
 
 // Auth components
@@ -47,6 +49,24 @@ const UserDashboard = ({ user, token, onLogout }) => {
       <Route path="/events/:id" element={<EventDetails user={user} />} />
 
       {/* PROTECTED ROUTES - Login required */}
+      
+      {/* Step 1: Ticket Selection */}
+      <Route
+        path="/events/:id/tickets"
+        element={
+          user ? (
+            <TicketSelectionPage user={user} />
+          ) : (
+            <Navigate 
+              to="/dashboard/login" 
+              state={{ from: location.pathname }} 
+              replace 
+            />
+          )
+        }
+      />
+
+      {/* Step 2: Booking Confirmation */}
       <Route
         path="/book/:id"
         element={
@@ -61,6 +81,8 @@ const UserDashboard = ({ user, token, onLogout }) => {
           )
         }
       />
+
+      {/* Step 3: Payment */}
       <Route
         path="/payment/:bookingId"
         element={
@@ -75,6 +97,24 @@ const UserDashboard = ({ user, token, onLogout }) => {
           )
         }
       />
+
+      {/* Step 4: Success Page */}
+      <Route
+        path="/booking-success/:bookingId"
+        element={
+          user ? (
+            <BookingSuccess user={user} />
+          ) : (
+            <Navigate 
+              to="/dashboard/login" 
+              state={{ from: location.pathname }} 
+              replace 
+            />
+          )
+        }
+      />
+
+      {/* User's booking history */}
       <Route
         path="/my-bookings"
         element={

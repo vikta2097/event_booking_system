@@ -7,9 +7,10 @@ const EventCard = ({ event, user }) => {
 
   const handleBookNow = () => {
     if (!user) {
-      navigate("/login"); // Redirect to login if not authenticated
+      navigate("/dashboard/login"); // Redirect to login if not authenticated
     } else {
-      navigate(`/dashboard/book/${event.id}`); // Correct booking path
+      // ✅ FIXED: Navigate to ticket selection page first
+      navigate(`/dashboard/events/${event.id}/tickets`);
     }
   };
 
@@ -25,8 +26,8 @@ const EventCard = ({ event, user }) => {
   };
 
   const formatPrice = (price) => {
-    if (!price || isNaN(price)) return "KES 0";
-    return `KES ${Number(price).toLocaleString()}`;
+    if (!price || isNaN(price)) return "From KES 0";
+    return `From KES ${Number(price).toLocaleString()}`;
   };
 
   return (

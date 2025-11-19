@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api"; // ✅ import axios instance
+import api from "../api";
 import "../styles/EventDetails.css";
 
 const EventDetails = ({ user }) => {
@@ -30,8 +30,27 @@ const EventDetails = ({ user }) => {
   if (!event) return <p className="no-event">Event not found.</p>;
 
   const handleBookNow = () => {
-    if (!user) navigate("/login");
-    else navigate(`/book/${event.id}`);
+    if (!user) {
+      // ✅ FIXED: Navigate to dashboard login
+      navigate("/dashboard/login");
+    } else {
+      // ✅ FIXED: Navigate to ticket selection page
+      navigate(`/dashboard/events/${event.id}/tickets`);
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+  };
+
+  const formatPrice = (price) => {
+    if (!price || isNaN(price)) return "Free";
+    return `From KES ${Number(price).toLocaleString()}`;
   };
 
   return (
@@ -41,9 +60,11 @@ const EventDetails = ({ user }) => {
         <h2>{event.title}</h2>
         <p className="event-description">{event.description}</p>
         <p><strong>Venue:</strong> {event.location}</p>
-        <p><strong>Date:</strong> {new Date(event.event_date).toLocaleDateString()}</p>
-        <p><strong>Price:</strong> ${event.price}</p>
-        <button onClick={handleBookNow}>{user ? "Book Now" : "Login to Book"}</button>
+        <p><strong>Date:</strong> {formatDate(event.event_date)}</p>
+        <p><strong>Price:</strong> {formatPrice(event.price)}</p>
+        <button onClick={handleBookNow}>
+          {user ? "Book Now" : "Login to Book"}
+        </button>
       </div>
     </div>
   );
