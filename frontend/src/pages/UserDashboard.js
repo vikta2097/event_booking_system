@@ -1,4 +1,3 @@
-// UserDashboard.js
 import React from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
@@ -15,22 +14,22 @@ import UserBookings from "./UserBookings";
 import LoginForm from "../components/LoginForm";
 import SignupForm from "../components/SignupForm";
 
-const UserDashboard = ({ user, token, onLogout }) => {
+const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   const location = useLocation();
 
   return (
     <Routes>
-      {/* Public home - EVERYONE can view */}
+      {/* Public home */}
       <Route path="/" element={<UserDashboardHome user={user} />} />
 
-      {/* Auth routes */}
+      {/* Login/Register */}
       <Route
         path="/login"
         element={
           user ? (
             <Navigate to="/dashboard" replace />
           ) : (
-            <LoginForm />
+            <LoginForm onLoginSuccess={onLoginSuccess} /> // <- pass callback
           )
         }
       />
@@ -40,91 +39,81 @@ const UserDashboard = ({ user, token, onLogout }) => {
           user ? (
             <Navigate to="/dashboard" replace />
           ) : (
-            <SignupForm />
+            <SignupForm onLoginSuccess={onLoginSuccess} /> // <- optional
           )
         }
       />
 
-      {/* Event details - PUBLIC (everyone can view) */}
+      {/* Event details - public */}
       <Route path="/events/:id" element={<EventDetails user={user} />} />
 
-      {/* PROTECTED ROUTES - Login required */}
-      
-      {/* Step 1: Ticket Selection */}
+      {/* Protected routes */}
       <Route
         path="/events/:id/tickets"
         element={
           user ? (
             <TicketSelection user={user} />
           ) : (
-            <Navigate 
-              to="/dashboard/login" 
-              state={{ from: location.pathname }} 
-              replace 
+            <Navigate
+              to="/dashboard/login"
+              state={{ from: location.pathname }}
+              replace
             />
           )
         }
       />
-
-      {/* Step 2: Booking Confirmation */}
       <Route
         path="/book/:id"
         element={
           user ? (
             <BookingForm user={user} />
           ) : (
-            <Navigate 
-              to="/dashboard/login" 
-              state={{ from: location.pathname }} 
-              replace 
+            <Navigate
+              to="/dashboard/login"
+              state={{ from: location.pathname }}
+              replace
             />
           )
         }
       />
-
-      {/* Step 3: Payment */}
       <Route
         path="/payment/:bookingId"
         element={
           user ? (
             <PaymentPage user={user} />
           ) : (
-            <Navigate 
-              to="/dashboard/login" 
-              state={{ from: location.pathname }} 
-              replace 
+            <Navigate
+              to="/dashboard/login"
+              state={{ from: location.pathname }}
+              replace
             />
           )
         }
       />
-
-      {/* Step 4: Success Page */}
       <Route
         path="/booking-success/:bookingId"
         element={
           user ? (
             <BookingSuccess user={user} />
           ) : (
-            <Navigate 
-              to="/dashboard/login" 
-              state={{ from: location.pathname }} 
-              replace 
+            <Navigate
+              to="/dashboard/login"
+              state={{ from: location.pathname }}
+              replace
             />
           )
         }
       />
-
-      {/* User's booking history */}
       <Route
         path="/my-bookings"
         element={
           user ? (
             <UserBookings user={user} />
           ) : (
-            <Navigate 
-              to="/dashboard/login" 
-              state={{ from: location.pathname }} 
-              replace 
+            <Navigate
+              to="/dashboard/login"
+              state={{ from: location.pathname }}
+              replace
             />
           )
         }

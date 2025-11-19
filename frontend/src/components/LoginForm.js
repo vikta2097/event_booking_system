@@ -1,6 +1,7 @@
 import React, { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import "../styles/AuthForm.css";
-import api from "../api"; // ✅ use axios instance
+import api from "../api";
 
 const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
   const [email, setEmail] = useState("");
@@ -8,6 +9,10 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || ("/dashboard"); // redirect back to original page
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -33,12 +38,15 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
       localStorage.setItem("role", profileRes.data.role);
       if (profileRes.data.id) localStorage.setItem("userId", profileRes.data.id);
 
-      // Pass entire profile to parent
+      // Pass the full user object to parent
       onLoginSuccess({
         token,
         role: profileRes.data.role,
-        userId: profileRes.data.id,
+        user: profileRes.data,
       });
+
+      // Redirect to the original page or dashboard
+      navigate(from, { replace: true });
     } catch (err) {
       console.error("Login error:", err);
       if (err.response && err.response.data) {

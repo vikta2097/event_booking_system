@@ -49,7 +49,6 @@ function App() {
       try {
         userObj = JSON.parse(storedUser);
       } catch (err) {
-        console.warn("Stored user corrupted, clearing session");
         handleLogout();
         return;
       }
@@ -87,7 +86,7 @@ function App() {
                 replace
               />
             ) : (
-              <AuthForm onLoginSuccess={handleLogin} />
+              <AuthForm onLoginSuccess={handleLogin} /> // <- pass handleLogin
             )
           }
         />
@@ -107,7 +106,14 @@ function App() {
         {/* User dashboard */}
         <Route
           path="/dashboard/*"
-          element={<UserDashboard user={user} token={token} onLogout={handleLogout} />}
+          element={
+            <UserDashboard
+              user={user}
+              token={token}
+              onLogout={handleLogout}
+              onLoginSuccess={handleLogin} // <- forward to UserDashboard
+            />
+          }
         />
 
         {/* Catch-all redirect */}
