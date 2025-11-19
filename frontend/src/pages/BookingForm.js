@@ -6,43 +6,53 @@ import "../styles/BookingForm.css";
 const BookingForm = ({ user }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [event, setEvent] = useState(null);
-  const [ticketSelection, setTicketSelection] = useState(null);
+  const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
+  // Fetch event details
   useEffect(() => {
-    const fetchEvent = async () => {
+    const fetchEventAndTickets = async () => {
       try {
-        const res = await api.get(`/events/${id}`);
-        setEvent(res.data);
+        const eventRes = await api.get(`/events/${id}`);
+        setEvent(eventRes.data);
+
+        const ticketsRes = await api.get(`/events/${id}/ticket-types`);
+        const availableTickets = ticketsRes.data.map((t) => ({
+          ...t,
+          quantity: 0,
+          subtotal: 0,
+        }));
+        setTickets(availableTickets);
+
+        if (user?.phone) {
+          setPhoneNumber(user.phone);
+        }
       } catch (err) {
-        console.error("Error fetching event:", err);
-        setError("Failed to load event details");
+        console.error("Error fetching event or tickets:", err);
+        setError("Failed to load event or tickets");
       }
     };
 
-    // Load ticket selection from localStorage
-    const storedSelection = localStorage.getItem("ticketSelection");
-    if (storedSelection) {
-      const selection = JSON.parse(storedSelection);
+    fetchEventAndTickets();
+  }, [id, user]);
 
-      if (selection.eventId === parseInt(id)) {
-        setTicketSelection(selection);
-      } else {
-        navigate(`/dashboard/events/${id}/tickets`);
+  // Handle quantity change
+  const handleQuantityChange = (ticketId, qty) => {
+    const updatedTickets = tickets.map((t) => {
+      if (t.id === ticketId) {
+        const quantity = Math.max(0, Math.min(qty, t.quantity_available - t.quantity_sold));
+        return { ...t, quantity, subtotal: quantity * t.price };
       }
-    } else {
-      navigate(`/dashboard/events/${id}/tickets`);
-    }
+      return t;
+    });
+    setTickets(updatedTickets);
+  };
 
-    fetchEvent();
-
-    if (user && user.phone) {
-      setPhoneNumber(user.phone);
-    }
-  }, [id, navigate, user]);
+  const totalAmount = tickets.reduce((sum, t) => sum + t.subtotal, 0);
 
   const handleBooking = async (e) => {
     e.preventDefault();
@@ -67,21 +77,26 @@ const BookingForm = ({ user }) => {
       return;
     }
 
+    const selectedTickets = tickets.filter((t) => t.quantity > 0);
+
+    if (selectedTickets.length === 0) {
+      setError("Please select at least one ticket to book");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      const tickets = ticketSelection.tickets.map((ticket) => ({
-        ticket_type_id: ticket.ticketTypeId,
-        quantity: ticket.quantity,
+      const payload = selectedTickets.map((t) => ({
+        ticket_type_id: t.id,
+        quantity: t.quantity,
       }));
 
       const res = await api.post("/bookings", {
         event_id: id,
-        tickets: tickets,
+        tickets: payload,
       });
-
-      localStorage.removeItem("ticketSelection");
 
       navigate(`/dashboard/payment/${res.data.booking_id}`);
     } catch (err) {
@@ -92,7 +107,7 @@ const BookingForm = ({ user }) => {
     }
   };
 
-  if (!event || !ticketSelection) {
+  if (!event || tickets.length === 0) {
     return <p className="loading-text">Loading booking details...</p>;
   }
 
@@ -114,20 +129,22 @@ const BookingForm = ({ user }) => {
       </div>
 
       <div className="ticket-summary">
-        <h4>Selected Tickets</h4>
-        {ticketSelection.tickets.map((ticket, index) => (
-          <div key={index} className="ticket-item">
-            <span className="ticket-name">
-              {ticket.name} x {ticket.quantity}
-            </span>
-            <span className="ticket-price">
-              KES {ticket.subtotal.toLocaleString()}
-            </span>
+        <h4>Select Your Tickets</h4>
+        {tickets.map((ticket) => (
+          <div key={ticket.id} className="ticket-item">
+            <span className="ticket-name">{ticket.name} (KES {ticket.price})</span>
+            <input
+              type="number"
+              min={0}
+              max={ticket.quantity_available - ticket.quantity_sold}
+              value={ticket.quantity}
+              onChange={(e) => handleQuantityChange(ticket.id, parseInt(e.target.value))}
+            />
+            <span className="ticket-subtotal">Subtotal: KES {ticket.subtotal.toLocaleString()}</span>
           </div>
         ))}
         <div className="total-amount">
-          <strong>Total Amount:</strong>
-          <strong>KES {ticketSelection.totalAmount.toLocaleString()}</strong>
+          <strong>Total Amount: KES {totalAmount.toLocaleString()}</strong>
         </div>
       </div>
 
@@ -166,16 +183,6 @@ const BookingForm = ({ user }) => {
           </button>
         </div>
       </form>
-
-      <div className="payment-info">
-        <h4>Payment Information</h4>
-        <ul>
-          <li>You will receive an M-Pesa STK push on your phone</li>
-          <li>Enter your M-Pesa PIN to complete payment</li>
-          <li>You will receive a confirmation SMS</li>
-          <li>Your tickets will be available immediately after payment</li>
-        </ul>
-      </div>
     </div>
   );
 };
