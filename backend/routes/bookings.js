@@ -132,25 +132,23 @@ router.get("/:id", verifyToken, async (req, res) => {
 // ======================
 // POST create new booking with ticket types
 // ======================
+// POST create new booking with ticket types
 router.post("/", verifyToken, async (req, res) => {
   const client = await db.connect();
-  
+
   try {
     const { event_id, tickets } = req.body;
     const user_id = req.user.id;
 
-    // Validate input
-    if (!event_id) {
-      return res.status(400).json({ error: "Event ID is required" });
-    }
-
+    // === Basic validation ===
+    if (!event_id) return res.status(400).json({ error: "Event ID is required" });
     if (!tickets || !Array.isArray(tickets) || tickets.length === 0) {
       return res.status(400).json({ error: "At least one ticket type must be selected" });
     }
 
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
-    // Verify event exists and is bookable
+    // === Fetch event with lock ===
     const eventResult = await client.query(
       `SELECT id, capacity, status, event_date 
        FROM events 
@@ -158,51 +156,43 @@ router.post("/", verifyToken, async (req, res) => {
       [event_id]
     );
 
-    if (eventResult.rows.length === 0) {
-      throw new Error("Event not found");
-    }
+    if (eventResult.rows.length === 0) throw new Error("Event not found");
 
     const event = eventResult.rows[0];
 
-    if (event.status === 'cancelled') {
-      throw new Error("This event has been cancelled");
-    }
+    if (event.status === "cancelled") throw new Error("This event has been cancelled");
 
-    // Check if event is in the past
-    if (new Date(event.event_date) < new Date()) {
-      throw new Error("Cannot book tickets for past events");
-    }
+    const eventEndOfDay = new Date(event.event_date + "T23:59:59");
+    if (eventEndOfDay < new Date()) throw new Error("Cannot book tickets for past events");
 
-    // Calculate total seats and amount
+    // === Process tickets ===
     let totalSeats = 0;
     let totalAmount = 0;
     const ticketDetails = [];
 
     for (const ticket of tickets) {
       const { ticket_type_id, quantity } = ticket;
-      
+
       if (!ticket_type_id || !quantity || quantity <= 0) {
-        throw new Error("Invalid ticket data");
+        throw new Error("Invalid ticket data: quantity must be greater than 0");
       }
 
-      // Get ticket type with lock
+      // Lock the ticket type row
       const ticketResult = await client.query(
         `SELECT id, price, quantity_available, quantity_sold, name
          FROM ticket_types 
-         WHERE id = $1 AND event_id = $2 
+         WHERE id = $1 AND event_id = $2
          FOR UPDATE`,
         [ticket_type_id, event_id]
       );
 
-      if (ticketResult.rows.length === 0) {
-        throw new Error(`Ticket type not found`);
-      }
+      if (ticketResult.rows.length === 0) throw new Error(`Ticket type not found`);
 
       const ticketType = ticketResult.rows[0];
       const available = ticketType.quantity_available - ticketType.quantity_sold;
 
       if (quantity > available) {
-        throw new Error(`Only ${available} tickets available for ${ticketType.name}`);
+        throw new Error(`Only ${available} tickets available for "${ticketType.name}"`);
       }
 
       totalSeats += quantity;
@@ -211,30 +201,29 @@ router.post("/", verifyToken, async (req, res) => {
         ticket_type_id,
         quantity,
         price: ticketType.price,
-        name: ticketType.name
+        name: ticketType.name,
       });
     }
 
-    // Check overall event capacity
+    // === Check overall event capacity ===
     const bookedResult = await client.query(
-      `SELECT COALESCE(SUM(seats), 0) as total_seats 
-       FROM bookings 
+      `SELECT COALESCE(SUM(seats), 0) AS total_seats
+       FROM bookings
        WHERE event_id = $1 AND status != 'cancelled'`,
       [event_id]
     );
 
-    const bookedSeats = parseInt(bookedResult.rows[0].total_seats);
+    const bookedSeats = parseInt(bookedResult.rows[0].total_seats, 10);
     const availableSeats = event.capacity - bookedSeats;
 
     if (totalSeats > availableSeats) {
       throw new Error(`Only ${availableSeats} seats available for this event`);
     }
 
-    // Generate unique booking reference
-    const reference = 'BK-' + Date.now() + '-' + 
-                     Math.random().toString(36).substr(2, 6).toUpperCase();
+    // === Generate booking reference ===
+    const reference = `BK-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
-    // Create booking
+    // === Insert booking ===
     const bookingResult = await client.query(
       `INSERT INTO bookings (user_id, event_id, seats, total_amount, status, reference)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -243,43 +232,40 @@ router.post("/", verifyToken, async (req, res) => {
     );
 
     const bookingId = bookingResult.rows[0].id;
-    const bookingReference = bookingResult.rows[0].reference;
 
-    // Create booking_tickets entries and update quantities
+    // === Insert booking tickets and update sold quantities ===
     for (const ticket of ticketDetails) {
-      // Insert booking ticket
       await client.query(
         `INSERT INTO booking_tickets (booking_id, ticket_type_id, quantity, price)
          VALUES ($1, $2, $3, $4)`,
         [bookingId, ticket.ticket_type_id, ticket.quantity, ticket.price]
       );
 
-      // Update ticket type quantity_sold
       await client.query(
-        `UPDATE ticket_types 
+        `UPDATE ticket_types
          SET quantity_sold = quantity_sold + $1
          WHERE id = $2`,
         [ticket.quantity, ticket.ticket_type_id]
       );
     }
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
 
     res.status(201).json({
       message: "Booking created successfully",
       booking_id: bookingId,
-      reference: bookingReference,
+      reference,
       total_amount: totalAmount,
       total_seats: totalSeats,
-      tickets: ticketDetails
+      tickets: ticketDetails,
     });
 
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     console.error("Booking creation error:", error);
-    res.status(500).json({ 
-      error: error.message || "Failed to create booking" 
-    });
+
+    // Send user-friendly message
+    res.status(400).json({ error: error.message || "Failed to create booking" });
   } finally {
     client.release();
   }
