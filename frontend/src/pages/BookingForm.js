@@ -57,8 +57,9 @@ const BookingForm = ({ user }) => {
       setError("Phone number is required for M-Pesa payment");
       return;
     }
-
+    // eslint-disable-next-line
     const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
+    // eslint-disable-next-line
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
 
     if (!phoneRegex.test(cleanPhone)) {

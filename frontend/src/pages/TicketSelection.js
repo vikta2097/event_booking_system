@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import "../styles/TicketSelection.css";
@@ -12,39 +12,42 @@ const TicketSelection = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchEventAndTickets();
-  }, [id]);
-
-  const fetchEventAndTickets = async () => {
+  // Fetch event details and ticket types
+  const fetchEventAndTickets = useCallback(async () => {
     try {
       setLoading(true);
+
       const [eventRes, ticketsRes] = await Promise.all([
         api.get(`/events/${id}`),
         api.get(`/events/${id}/ticket-types`)
       ]);
-      
+
       setEvent(eventRes.data);
       setTicketTypes(ticketsRes.data);
-      
+
       // Initialize selected tickets
       const initial = {};
       ticketsRes.data.forEach(ticket => {
         initial[ticket.id] = 0;
       });
       setSelectedTickets(initial);
+
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("Failed to load ticket information");
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchEventAndTickets();
+  }, [fetchEventAndTickets]);
 
   const handleQuantityChange = (ticketTypeId, quantity) => {
     const ticketType = ticketTypes.find(t => t.id === ticketTypeId);
     const newQuantity = Math.max(0, Math.min(quantity, ticketType.quantity_available));
-    
+
     setSelectedTickets(prev => ({
       ...prev,
       [ticketTypeId]: newQuantity
@@ -63,13 +66,12 @@ const TicketSelection = ({ user }) => {
 
   const handleContinue = () => {
     const totalTickets = getTotalTickets();
-    
+
     if (totalTickets === 0) {
       setError("Please select at least one ticket");
       return;
     }
 
-    // Store selection in localStorage for next step
     const selection = {
       eventId: parseInt(id),
       tickets: ticketTypes
@@ -86,8 +88,6 @@ const TicketSelection = ({ user }) => {
     };
 
     localStorage.setItem("ticketSelection", JSON.stringify(selection));
-    
-    // ✅ FIXED: Navigate to the correct booking path
     navigate(`/dashboard/book/${id}`);
   };
 
@@ -122,7 +122,7 @@ const TicketSelection = ({ user }) => {
       {/* Ticket Types */}
       <div className="ticket-types-container">
         <h2>Select Your Tickets</h2>
-        
+
         {ticketTypes.length === 0 ? (
           <div className="no-tickets">
             <p>No tickets available for this event</p>
