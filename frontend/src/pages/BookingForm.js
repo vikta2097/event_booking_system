@@ -23,24 +23,22 @@ const BookingForm = ({ user }) => {
       }
     };
 
-    // Get ticket selection from localStorage (set by TicketSelection component)
+    // Load ticket selection from localStorage
     const storedSelection = localStorage.getItem("ticketSelection");
     if (storedSelection) {
       const selection = JSON.parse(storedSelection);
+
       if (selection.eventId === parseInt(id)) {
         setTicketSelection(selection);
       } else {
-        // Wrong event, redirect back
-        navigate(`/events/${id}/tickets`);
+        navigate(`/dashboard/events/${id}/tickets`);
       }
     } else {
-      // No selection, redirect to ticket selection
-      navigate(`/events/${id}/tickets`);
+      navigate(`/dashboard/events/${id}/tickets`);
     }
 
     fetchEvent();
 
-    // Pre-fill phone number if user has one
     if (user && user.phone) {
       setPhoneNumber(user.phone);
     }
@@ -48,23 +46,21 @@ const BookingForm = ({ user }) => {
 
   const handleBooking = async (e) => {
     e.preventDefault();
-    
+
     if (!user) {
       setError("Please log in to complete booking");
       navigate("/dashboard/login");
       return;
     }
 
-    if (!phoneNumber || phoneNumber.trim() === "") {
+    if (!phoneNumber.trim()) {
       setError("Phone number is required for M-Pesa payment");
       return;
     }
 
-    // Validate phone number format
-    // eslint-disable-next-line no-useless-escape
     const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
-    // eslint-disable-next-line no-useless-escape
-    const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+
     if (!phoneRegex.test(cleanPhone)) {
       setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
       return;
@@ -74,28 +70,22 @@ const BookingForm = ({ user }) => {
     setError("");
 
     try {
-      // Prepare ticket data for backend
-      const tickets = ticketSelection.tickets.map(ticket => ({
+      const tickets = ticketSelection.tickets.map((ticket) => ({
         ticket_type_id: ticket.ticketTypeId,
-        quantity: ticket.quantity
+        quantity: ticket.quantity,
       }));
 
-      // Create booking
       const res = await api.post("/bookings", {
         event_id: id,
-        tickets: tickets
+        tickets: tickets,
       });
 
-      // Clear localStorage
       localStorage.removeItem("ticketSelection");
 
-      // Navigate to payment page
-      navigate(`/payment/${res.data.booking_id}`);
+      navigate(`/dashboard/payment/${res.data.booking_id}`);
     } catch (err) {
       console.error("Booking error:", err);
-      setError(
-        err.response?.data?.error || "Booking failed. Please try again."
-      );
+      setError(err.response?.data?.error || "Booking failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -108,7 +98,7 @@ const BookingForm = ({ user }) => {
   return (
     <div className="booking-form">
       <h2>Confirm Your Booking</h2>
-      
+
       <div className="booking-summary">
         <h3>{event.title}</h3>
         <p className="event-date">
@@ -116,7 +106,7 @@ const BookingForm = ({ user }) => {
             weekday: "long",
             year: "numeric",
             month: "long",
-            day: "numeric"
+            day: "numeric",
           })}
         </p>
         <p className="event-location">{event.location || event.venue}</p>
@@ -163,12 +153,13 @@ const BookingForm = ({ user }) => {
         <div className="form-actions">
           <button
             type="button"
-            onClick={() => navigate(`/events/${id}/tickets`)}
+            onClick={() => navigate(`/dashboard/events/${id}/tickets`)}
             className="btn-secondary"
             disabled={loading}
           >
             Back to Tickets
           </button>
+
           <button type="submit" disabled={loading} className="btn-primary">
             {loading ? "Processing..." : "Proceed to Payment"}
           </button>
