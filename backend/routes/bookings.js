@@ -134,7 +134,7 @@ router.get("/:id", verifyToken, async (req, res) => {
 // ======================
 // POST create new booking with ticket types
 router.post("/", verifyToken, async (req, res) => {
-  const client = await db.connect();
+  const client = await db.getClient();
 
   try {
     const { event_id, tickets } = req.body;
@@ -331,7 +331,7 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
 // DELETE booking (Admin only)
 // ======================
 router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
-  const client = await db.connect();
+  const client = await db.getClient();
   
   try {
     const bookingId = req.params.id;
@@ -380,7 +380,7 @@ router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
 // Cancel booking (User can cancel their own)
 // ======================
 router.put("/:id/cancel", verifyToken, async (req, res) => {
-  const client = await db.connect();
+  const client = await db.getClient();
   
   try {
     const bookingId = req.params.id;
