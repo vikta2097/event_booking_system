@@ -1,3 +1,4 @@
+/* Main Container */
 .events-container {
   background: #fff;
   padding: 20px;
@@ -5,6 +6,7 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
+/* Header */
 .events-header {
   display: flex;
   justify-content: space-between;
@@ -30,9 +32,11 @@
   background-color: #0056b3;
 }
 
+/* Table */
 .events-table {
   width: 100%;
   border-collapse: collapse;
+  margin-top: 10px;
 }
 
 .events-table th,
@@ -63,6 +67,7 @@
   color: orange;
 }
 
+/* Buttons */
 .edit-btn,
 .delete-btn {
   border: none;
@@ -90,7 +95,7 @@
   background-color: #c82333;
 }
 
-/* Modal Styling */
+/* Modal Overlay */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -101,8 +106,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 1000;
 }
 
+/* Modal Box */
 .modal {
   background: #fff;
   width: 500px;
@@ -110,6 +117,8 @@
   padding: 20px;
   border-radius: 10px;
   animation: fadeIn 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal h3 {
@@ -128,6 +137,7 @@
   margin-bottom: 12px;
   border: 1px solid #ccc;
   border-radius: 6px;
+  font-size: 14px;
 }
 
 .modal textarea {
@@ -172,11 +182,18 @@
   background-color: #5a6268;
 }
 
+/* Status & Messages */
 .loading,
 .error,
 .no-data {
   text-align: center;
   margin-top: 20px;
+  font-size: 16px;
+  color: #555;
+}
+
+.error {
+  color: red;
 }
 
 @keyframes fadeIn {
@@ -190,7 +207,7 @@
   }
 }
 
-/* Category card */
+/* Category Card */
 .category-card {
   background-color: #f9f9f9;
   border: 1px solid #ddd;
@@ -247,4 +264,84 @@
 .category-card .error {
   color: red;
   margin-top: 5px;
+}
+
+/* Ticket Modal */
+.ticket-modal {
+  background: #fff;
+  width: 500px;
+  max-width: 90%;
+  padding: 20px;
+  border-radius: 10px;
+  animation: fadeIn 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.ticket-modal h3 {
+  margin-bottom: 15px;
+}
+
+.ticket-modal form {
+  display: flex;
+  flex-direction: column;
+}
+
+.ticket-modal input,
+.ticket-modal textarea {
+  padding: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.ticket-modal textarea {
+  resize: vertical;
+}
+
+.ticket-modal ul {
+  list-style: none;
+  padding: 0;
+  margin-top: 15px;
+}
+
+.ticket-modal ul li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.ticket-modal ul li button {
+  margin-left: 5px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.ticket-modal .save-btn {
+  margin-top: 5px;
+}
+
+.ticket-modal .cancel-btn {
+  margin-top: 5px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .date-group,
+  .row-group {
+    flex-direction: column;
+  }
+  .events-table th,
+  .events-table td {
+    font-size: 12px;
+  }
+  .modal, .ticket-modal {
+    width: 95%;
+    padding: 15px;
+  }
 }
