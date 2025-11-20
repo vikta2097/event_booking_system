@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import "../styles/BookingForm.css";
@@ -9,78 +9,69 @@ const BookingForm = ({ user }) => {
 
   const [event, setEvent] = useState(null);
   const [tickets, setTickets] = useState([]);
+  const [selectedTickets, setSelectedTickets] = useState({});
+  const [phoneNumber, setPhoneNumber] = useState(user?.phone || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
 
-  // Fetch event details
-  useEffect(() => {
-    const fetchEventAndTickets = async () => {
-      try {
-        const eventRes = await api.get(`/events/${id}`);
-        setEvent(eventRes.data);
+  // Fetch event and ticket types
+  const fetchEventAndTickets = useCallback(async () => {
+    try {
+      const [eventRes, ticketsRes] = await Promise.all([
+        api.get(`/events/${id}`),
+        api.get(`/events/${id}/ticket-types`)
+      ]);
 
-        const ticketsRes = await api.get(`/events/${id}/ticket-types`);
-        const availableTickets = ticketsRes.data.map((t) => ({
-          ...t,
-          quantity: 0,
-          subtotal: 0,
-        }));
-        setTickets(availableTickets);
+      setEvent(eventRes.data);
+      setTickets(ticketsRes.data);
 
-        if (user?.phone) {
-          setPhoneNumber(user.phone);
-        }
-      } catch (err) {
-        console.error("Error fetching event or tickets:", err);
-        setError("Failed to load event or tickets");
-      }
-    };
+      // Initialize ticket selection
+      const initial = {};
+      ticketsRes.data.forEach(t => { initial[t.id] = 0; });
+      setSelectedTickets(initial);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load event or tickets");
+    }
+  }, [id]);
 
-    fetchEventAndTickets();
-  }, [id, user]);
+  useEffect(() => { fetchEventAndTickets(); }, [fetchEventAndTickets]);
 
-  // Handle quantity change
   const handleQuantityChange = (ticketId, qty) => {
-    const updatedTickets = tickets.map((t) => {
-      if (t.id === ticketId) {
-        const quantity = Math.max(0, Math.min(qty, t.quantity_available - t.quantity_sold));
-        return { ...t, quantity, subtotal: quantity * t.price };
-      }
-      return t;
-    });
-    setTickets(updatedTickets);
+    const ticket = tickets.find(t => t.id === ticketId);
+    const quantity = Math.max(0, Math.min(qty, ticket.quantity_available - ticket.quantity_sold));
+    setSelectedTickets(prev => ({ ...prev, [ticketId]: quantity }));
   };
 
-  const totalAmount = tickets.reduce((sum, t) => sum + t.subtotal, 0);
+  const totalAmount = tickets.reduce(
+    (sum, t) => sum + (t.price * (selectedTickets[t.id] || 0)), 0
+  );
+  const totalTickets = Object.values(selectedTickets).reduce((sum, q) => sum + q, 0);
 
   const handleBooking = async (e) => {
     e.preventDefault();
-
     if (!user) {
       setError("Please log in to complete booking");
       navigate("/login");
       return;
     }
-
     if (!phoneNumber.trim()) {
       setError("Phone number is required for M-Pesa payment");
       return;
     }
-    // eslint-disable-next-line
-    const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
-    // eslint-disable-next-line
-    const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
 
+    // Validate Kenyan phone number
+    // eslint-disable-next-line no-useless-escape
+    const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
+    // eslint-disable-next-line no-useless-escape
+    const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
     if (!phoneRegex.test(cleanPhone)) {
       setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
       return;
     }
 
-    const selectedTickets = tickets.filter((t) => t.quantity > 0);
-
-    if (selectedTickets.length === 0) {
-      setError("Please select at least one ticket to book");
+    if (totalTickets === 0) {
+      setError("Please select at least one ticket");
       return;
     }
 
@@ -88,100 +79,78 @@ const BookingForm = ({ user }) => {
     setError("");
 
     try {
-      const payload = selectedTickets.map((t) => ({
-        ticket_type_id: t.id,
-        quantity: t.quantity,
-      }));
+      const payload = tickets
+        .filter(t => selectedTickets[t.id] > 0)
+        .map(t => ({
+          ticket_type_id: t.id,
+          quantity: selectedTickets[t.id]
+        }));
 
       const res = await api.post("/bookings", {
         event_id: id,
-        tickets: payload,
+        tickets: payload
       });
 
       navigate(`/dashboard/payment/${res.data.booking_id}`);
     } catch (err) {
-      console.error("Booking error:", err);
+      console.error(err);
       setError(err.response?.data?.error || "Booking failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!event || tickets.length === 0) {
-    return <p className="loading-text">Loading booking details...</p>;
-  }
+  if (!event) return <p className="loading-text">{error || "Loading booking details..."}</p>;
 
   return (
     <div className="booking-form">
-      <h2>Confirm Your Booking</h2>
+      <h2>Book Tickets for {event.title}</h2>
+      <p className="event-date">
+        {new Date(event.event_date).toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+      </p>
+      <p className="event-location">{event.venue || event.location}</p>
 
-      <div className="booking-summary">
-        <h3>{event.title}</h3>
-        <p className="event-date">
-          {new Date(event.event_date).toLocaleDateString("en-GB", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-        <p className="event-location">{event.location || event.venue}</p>
-      </div>
-
-      <div className="ticket-summary">
-        <h4>Select Your Tickets</h4>
-        {tickets.map((ticket) => (
+      <div className="ticket-types">
+        {tickets.map(ticket => (
           <div key={ticket.id} className="ticket-item">
-            <span className="ticket-name">{ticket.name} (KES {ticket.price})</span>
-            <input
-              type="number"
-              min={0}
-              max={ticket.quantity_available - ticket.quantity_sold}
-              value={ticket.quantity}
-              onChange={(e) => handleQuantityChange(ticket.id, parseInt(e.target.value))}
-            />
-            <span className="ticket-subtotal">Subtotal: KES {ticket.subtotal.toLocaleString()}</span>
+            <span>{ticket.name} (KES {ticket.price})</span>
+            <div className="ticket-controls">
+              <button onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] - 1)} disabled={selectedTickets[ticket.id] === 0}>-</button>
+              <input type="number"
+                     min="0"
+                     max={ticket.quantity_available - ticket.quantity_sold}
+                     value={selectedTickets[ticket.id]}
+                     onChange={e => handleQuantityChange(ticket.id, parseInt(e.target.value) || 0)} />
+              <button onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] + 1)} disabled={selectedTickets[ticket.id] >= ticket.quantity_available - ticket.quantity_sold}>+</button>
+            </div>
+            {selectedTickets[ticket.id] > 0 && <span>Subtotal: KES {(ticket.price * selectedTickets[ticket.id]).toLocaleString()}</span>}
           </div>
         ))}
-        <div className="total-amount">
-          <strong>Total Amount: KES {totalAmount.toLocaleString()}</strong>
-        </div>
       </div>
 
       <form onSubmit={handleBooking}>
         <div className="form-group">
-          <label htmlFor="phone">
-            M-Pesa Phone Number <span className="required">*</span>
-          </label>
+          <label htmlFor="phone">M-Pesa Phone Number</label>
           <input
             id="phone"
             type="tel"
             placeholder="0712345678"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
+            onChange={e => setPhoneNumber(e.target.value)}
             required
           />
-          <small className="form-help">
-            Enter the phone number to receive M-Pesa payment prompt
-          </small>
+        </div>
+
+        <div className="summary">
+          <strong>Total Tickets:</strong> {totalTickets} <br />
+          <strong>Total Amount:</strong> KES {totalAmount.toLocaleString()}
         </div>
 
         {error && <p className="error">{error}</p>}
 
-        <div className="form-actions">
-          <button
-            type="button"
-            onClick={() => navigate(`/dashboard/events/${id}/tickets`)}
-            className="btn-secondary"
-            disabled={loading}
-          >
-            Back to Tickets
-          </button>
-
-          <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? "Processing..." : "Proceed to Payment"}
-          </button>
-        </div>
+        <button type="submit" disabled={loading}>
+          {loading ? "Processing..." : "Proceed to Payment"}
+        </button>
       </form>
     </div>
   );

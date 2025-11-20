@@ -4,7 +4,6 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 // Pages
 import UserDashboardHome from "./UserDashboardHome";
 import EventDetails from "./EventDetails";
-import TicketSelection from "./TicketSelection"; 
 import BookingForm from "./BookingForm";
 import PaymentPage from "./PaymentPage";
 import BookingSuccess from "./BookingSuccess"; 
@@ -29,7 +28,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           user ? (
             <Navigate to="/dashboard" replace />
           ) : (
-            <LoginForm onLoginSuccess={onLoginSuccess} /> // <- pass callback
+            <LoginForm onLoginSuccess={onLoginSuccess} />
           )
         }
       />
@@ -39,7 +38,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           user ? (
             <Navigate to="/dashboard" replace />
           ) : (
-            <SignupForm onLoginSuccess={onLoginSuccess} /> // <- optional
+            <SignupForm onLoginSuccess={onLoginSuccess} />
           )
         }
       />
@@ -48,20 +47,6 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
       <Route path="/events/:id" element={<EventDetails user={user} />} />
 
       {/* Protected routes */}
-      <Route
-        path="/events/:id/tickets"
-        element={
-          user ? (
-            <TicketSelection user={user} />
-          ) : (
-            <Navigate
-              to="/dashboard/login"
-              state={{ from: location.pathname }}
-              replace
-            />
-          )
-        }
-      />
       <Route
         path="/book/:id"
         element={

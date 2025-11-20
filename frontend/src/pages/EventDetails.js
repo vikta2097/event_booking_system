@@ -31,11 +31,9 @@ const EventDetails = ({ user }) => {
 
   const handleBookNow = () => {
     if (!user) {
-      // ✅ FIXED: Navigate to dashboard login
       navigate("/dashboard/login");
     } else {
-      // ✅ FIXED: Navigate to ticket selection page
-      navigate(`/dashboard/events/${event.id}/tickets`);
+      navigate(`/dashboard/book/${event.id}`); // ✅ Updated to new booking flow
     }
   };
 
@@ -44,7 +42,7 @@ const EventDetails = ({ user }) => {
       weekday: "long",
       year: "numeric",
       month: "long",
-      day: "numeric"
+      day: "numeric",
     });
   };
 
