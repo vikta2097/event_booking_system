@@ -27,7 +27,7 @@ const Payments = () => {
 
   const fetchStats = async () => {
     try {
-      const res = await api.get("/payments/stats");
+      const res = await api.get("/payments/stats/summary");
       setStats(res.data);
     } catch (err) {
       console.error("Error fetching stats:", err);

@@ -156,14 +156,23 @@ router.get("/:id", verifyToken, async (req, res) => {
 });
 
 // ======================
-// GET all payments (Admin only)
+// GET all payments (Admin only) - WITH USER & EVENT NAMES
 // ======================
 router.get("/", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT p.*, b.user_id, b.reference AS booking_reference, b.event_id
+      SELECT 
+        p.*,
+        b.user_id, 
+        b.reference AS booking_reference, 
+        b.event_id,
+        u.name AS user_name,
+        u.email AS user_email,
+        e.title AS event_title
       FROM payments p
       JOIN bookings b ON p.booking_id = b.id
+      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN events e ON b.event_id = e.id
       ORDER BY p.created_at DESC
     `);
     res.json(result.rows);
@@ -174,21 +183,84 @@ router.get("/", verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // ======================
-// Payment stats (Admin only)
+// Payment stats (Admin only) - FIXED STRUCTURE
 // ======================
 router.get("/stats/summary", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const result = await db.query("SELECT * FROM payments");
     const all = result.rows;
-    const totalRevenue = all.filter(p => p.status === "success").reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    
+    const successful = all.filter(p => p.status === "success");
+    const totalRevenue = successful.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
     const pending = all.filter(p => p.status === "pending").length;
-    const successful = all.filter(p => p.status === "success").length;
-    const failed = all.filter(p => p.status === "failed").length;
+    const failed = all.filter(p => p.status === "failed" || p.status === "refunded").length;
 
-    res.json({ totalRevenue, totalPayments: all.length, successful, pending, failed });
+    res.json({ 
+      total: totalRevenue,  // Frontend expects "total" not "totalRevenue"
+      totalRevenue,
+      totalPayments: all.length, 
+      successful: successful.length, 
+      pending, 
+      failed 
+    });
   } catch (err) {
     console.error("Error fetching stats:", err);
     res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+
+// ======================
+// REFUND payment (Admin only) - NEW ENDPOINT
+// ======================
+router.put("/refund/:id", verifyToken, verifyAdmin, async (req, res) => {
+  const client = await db.getClient();
+  try {
+    await client.query("BEGIN");
+
+    // Get payment details
+    const paymentRes = await client.query(
+      "SELECT * FROM payments WHERE id = $1 FOR UPDATE", 
+      [req.params.id]
+    );
+    
+    if (paymentRes.rows.length === 0) {
+      throw new Error("Payment not found");
+    }
+
+    const payment = paymentRes.rows[0];
+
+    // Only allow refunding successful payments
+    if (payment.status !== 'success') {
+      throw new Error("Only successful payments can be refunded");
+    }
+
+    // Update payment to refunded
+    await client.query(
+      "UPDATE payments SET status = 'refunded', updated_at = NOW() WHERE id = $1",
+      [req.params.id]
+    );
+
+    // Cancel the booking
+    await client.query(
+      "UPDATE bookings SET status = 'cancelled', updated_at = NOW() WHERE id = $1",
+      [payment.booking_id]
+    );
+
+    // Optionally: Invalidate tickets
+    await client.query(
+      "UPDATE tickets SET status = 'cancelled' WHERE booking_id = $1",
+      [payment.booking_id]
+    );
+
+    await client.query("COMMIT");
+    res.json({ message: "Payment refunded successfully" });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error refunding payment:", err);
+    res.status(500).json({ error: err.message || "Failed to refund payment" });
+  } finally {
+    client.release();
   }
 });
 
