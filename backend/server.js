@@ -19,6 +19,8 @@ const paymentsRouter = require("./routes/payments");
 const reportsRouter = require("./routes/reports");
 const supportRoutes = require("./routes/support");
 const settingsRoutes = require("./routes/settings");
+const mpesaCallbackRoute = require("./routes/mpesaCallback");
+
 
 const app = express();
 const server = http.createServer(app);
@@ -69,6 +71,8 @@ app.use("/api/payments", paymentsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/support", supportRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/payments", mpesaCallbackRoute);
+
 
 // =======================
 // ✅ Token validation

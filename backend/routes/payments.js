@@ -165,86 +165,7 @@ router.post("/mpesa", verifyToken, async (req, res) => {
 // ======================
 // Daraja STK Push callback
 // ======================
-router.post("/mpesa/callback", async (req, res) => {
-  try {
-    console.log("M-Pesa Callback received:", JSON.stringify(req.body, null, 2));
 
-    const stkCallback = req.body?.Body?.stkCallback;
-    
-    if (!stkCallback || !stkCallback.CheckoutRequestID) {
-      console.error("Invalid callback format");
-      return res.status(400).json({ error: "Invalid callback" });
-    }
-
-    const { ResultCode, ResultDesc, CheckoutRequestID, CallbackMetadata } = stkCallback;
-
-    // Find the payment record using CheckoutRequestID
-    const paymentResult = await db.query(
-      "SELECT * FROM payments WHERE checkout_request_id = $1",
-      [CheckoutRequestID]
-    );
-
-    if (paymentResult.rows.length === 0) {
-      console.error("Payment not found for CheckoutRequestID:", CheckoutRequestID);
-      return res.status(404).json({ error: "Payment not found" });
-    }
-
-    const payment = paymentResult.rows[0];
-
-    // Extract metadata if available
-    let mpesaReceiptNumber = null;
-    let phoneNumber = null;
-    
-    if (CallbackMetadata && CallbackMetadata.Item) {
-      const items = CallbackMetadata.Item;
-      const receiptItem = items.find(item => item.Name === 'MpesaReceiptNumber');
-      const phoneItem = items.find(item => item.Name === 'PhoneNumber');
-      
-      if (receiptItem) mpesaReceiptNumber = receiptItem.Value;
-      if (phoneItem) phoneNumber = phoneItem.Value;
-    }
-
-    if (ResultCode === 0) {
-      // Payment successful
-      await db.query(
-        `UPDATE payments 
-         SET status = $1, paid_at = NOW(), mpesa_receipt = $2, phone_number = $3
-         WHERE id = $4`,
-        ['success', mpesaReceiptNumber, phoneNumber, payment.id]
-      );
-      
-      // Update booking status to confirmed
-      await db.query(
-        "UPDATE bookings SET status = $1 WHERE id = $2",
-        ['confirmed', payment.booking_id]
-      );
-
-      console.log(`Payment ${payment.id} successful. Booking ${payment.booking_id} confirmed.`);
-    } else {
-      // Payment failed or cancelled
-      await db.query(
-        `UPDATE payments 
-         SET status = $1, failure_reason = $2
-         WHERE id = $3`,
-        ['failed', ResultDesc, payment.id]
-      );
-
-      console.log(`Payment ${payment.id} failed. Reason: ${ResultDesc}`);
-    }
-
-    res.json({ 
-      ResultCode: 0,
-      ResultDesc: "Callback processed successfully" 
-    });
-
-  } catch (err) {
-    console.error("Daraja callback error:", err);
-    res.status(500).json({ 
-      ResultCode: 1,
-      ResultDesc: "Callback processing failed" 
-    });
-  }
-});
 
 // ======================
 // GET payment by booking ID
@@ -418,5 +339,56 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
     res.status(500).json({ error: "Failed to update payment" });
   }
 });
+
+const { generateTicketQR } = require("../utils/ticketUtils");
+
+router.get("/:id", verifyToken, async (req, res) => {
+  try {
+    const paymentId = req.params.id;
+
+    const paymentRes = await db.query(
+      "SELECT * FROM payments WHERE id = $1",
+      [paymentId]
+    );
+
+    if (paymentRes.rows.length === 0) {
+      return res.status(404).json({ error: "Payment not found" });
+    }
+
+    const payment = paymentRes.rows[0];
+
+    // If payment is now success and tickets not yet generated
+    if (payment.status === "success" && !payment.tickets_generated) {
+      const bookingId = payment.booking_id;
+
+      const bookedTickets = await db.query(
+        "SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1",
+        [bookingId]
+      );
+
+      for (const bt of bookedTickets.rows) {
+        for (let i = 0; i < bt.quantity; i++) {
+          const qrCode = generateTicketQR();
+          await db.query(
+            "INSERT INTO tickets (booking_id, ticket_type_id, qr_code) VALUES ($1, $2, $3)",
+            [bookingId, bt.ticket_type_id, qrCode]
+          );
+        }
+      }
+
+      // Mark tickets as generated
+      await db.query(
+        "UPDATE payments SET tickets_generated = true WHERE id = $1",
+        [paymentId]
+      );
+    }
+
+    res.json(payment);
+  } catch (err) {
+    console.error("Payment fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch payment" });
+  }
+});
+
 
 module.exports = router;
