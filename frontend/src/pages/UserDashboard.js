@@ -19,7 +19,9 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   return (
     <Routes>
       {/* Public home */}
-      <Route path="/" element={<UserDashboardHome user={user} />} />
+      <Route path="/" element={<UserDashboardHome user={user} onLogout={onLogout} />} />
+
+
 
       {/* Login/Register */}
       <Route
