@@ -10,7 +10,7 @@ const EventCard = ({ event, user }) => {
       navigate("/dashboard/login"); // Redirect to login if not authenticated
     } else {
       // ✅ FIXED: Navigate to ticket selection page first
-      navigate(`/dashboard/events/${event.id}/tickets`);
+      navigate(`/dashboard/book/${event.id}`);
     }
   };
 
