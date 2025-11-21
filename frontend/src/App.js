@@ -75,6 +75,12 @@ function App() {
 
   return (
     <Router>
+
+      <Route 
+  path="/reset-password/:token" 
+  element={<AuthForm onLoginSuccess={handleLoginSuccess} />} 
+/>
+
       <Routes>
         {/* Login */}
         <Route

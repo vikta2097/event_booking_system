@@ -26,10 +26,11 @@ const SignupForm = ({ onLoginClick }) => {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      return;
-    }
+    const passwordRegex = /^(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{6,}$/;
+if (!passwordRegex.test(password)) {
+  setError("Password must be at least 6 characters and include a lowercase letter, number, and special character");
+  return;
+}
 
     setLoading(true);
 

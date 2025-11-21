@@ -11,13 +11,13 @@ const AuthForm = ({ onLoginSuccess }) => {
 
   // Handle password reset token manually (optional)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tokenFromURL = params.get("token");
-    if (tokenFromURL) {
-      setResetToken(tokenFromURL);
-      setView("reset");
-    }
-  }, []);
+  // Extract token from path like /reset-password/:token
+  const pathMatch = window.location.pathname.match(/\/reset-password\/(.+)/);
+  if (pathMatch && pathMatch[1]) {
+    setResetToken(pathMatch[1]);
+    setView("reset");
+  }
+}, []);
 
   const handleSwitch = (target) => {
     setView(target);

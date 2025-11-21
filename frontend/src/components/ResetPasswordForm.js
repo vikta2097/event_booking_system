@@ -26,16 +26,17 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      return;
-    }
+    const passwordRegex = /^(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{6,}$/;
+if (!passwordRegex.test(password)) {
+  setError("Password must be at least 6 characters and include a lowercase letter, number, and special character");
+  return;
+}
 
     setLoading(true);
 
     try {
       // Remove unused variable 'res'
-      await api.post("/auth/reset-password", { token, newPassword: password });
+      await api.post(`/auth/reset-password/${token}`, { password });
 
       setMessage("Password reset successful! Redirecting to login...");
       setTimeout(() => onLoginClick(), 2000);
