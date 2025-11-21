@@ -75,13 +75,13 @@ function App() {
 
   return (
     <Router>
-
-      <Route 
-  path="/reset-password/:token" 
-  element={<AuthForm onLoginSuccess={handleLoginSuccess} />} 
-/>
-
       <Routes>
+        {/* Reset Password - must be accessible without auth */}
+        <Route
+          path="/reset-password/:token"
+          element={<AuthForm onLoginSuccess={handleLogin} />}
+        />
+
         {/* Login */}
         <Route
           path="/login"
@@ -92,7 +92,7 @@ function App() {
                 replace
               />
             ) : (
-              <AuthForm onLoginSuccess={handleLogin} /> // <- pass handleLogin
+              <AuthForm onLoginSuccess={handleLogin} />
             )
           }
         />
@@ -117,7 +117,7 @@ function App() {
               user={user}
               token={token}
               onLogout={handleLogout}
-              onLoginSuccess={handleLogin} // <- forward to UserDashboard
+              onLoginSuccess={handleLogin}
             />
           }
         />
