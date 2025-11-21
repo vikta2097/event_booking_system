@@ -72,7 +72,7 @@ const UserBookings = ({ user }) => {
             {b.booking_status === "pending" && (
               <button
                 className="btn-action"
-                onClick={() => navigate(`/payment/${b.id}`)}
+                onClick={() => navigate(`/dashboard/payment/${b.id}`)}
               >
                 💳 Complete Payment
               </button>
@@ -82,7 +82,7 @@ const UserBookings = ({ user }) => {
               <>
                 <button
                   className="btn-action"
-                  onClick={() => navigate(`/booking-success/${b.id}`)}
+                  onClick={() => navigate(`/dashboard/booking-success/${b.id}`)}
                 >
                   🎟️ View Tickets
                 </button>

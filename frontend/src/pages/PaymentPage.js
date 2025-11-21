@@ -29,7 +29,7 @@ const PaymentPage = ({ user }) => {
         if (res.data.booking_status === 'confirmed') {
           setSuccess(true);
           setTimeout(() => {
-            navigate(`/booking-success/${bookingId}`);
+            navigate(`/dashboard/booking-success/${bookingId}`);
           }, 1500);
         }
       } catch (err) {
@@ -98,7 +98,7 @@ const PaymentPage = ({ user }) => {
 
             // Redirect after slight delay
             setTimeout(() => {
-              navigate(`/booking-success/${bookingId}`);
+              navigate(`/dashboard/booking-success/${bookingId}`);
             }, 2000);
           }
 
