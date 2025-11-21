@@ -14,7 +14,21 @@ const UserBookings = ({ user }) => {
     const fetchBookings = async () => {
       try {
         const res = await api.get("/bookings");
-        setBookings(res.data);
+        const bookingsData = res.data;
+
+        // Fetch payments for each booking to determine status
+        const bookingsWithPayment = await Promise.all(
+          bookingsData.map(async (b) => {
+            try {
+              const paymentRes = await api.get(`/payments/by-booking/${b.id}`);
+              return { ...b, paymentStatus: paymentRes.data?.status || null };
+            } catch {
+              return { ...b, paymentStatus: null };
+            }
+          })
+        );
+
+        setBookings(bookingsWithPayment);
       } catch (err) {
         console.error("Error fetching bookings:", err);
         setError("Failed to load bookings. Try again later.");
@@ -26,8 +40,7 @@ const UserBookings = ({ user }) => {
     fetchBookings();
   }, []);
 
-  if (loading)
-    return <p className="loading-text">Loading your bookings...</p>;
+  if (loading) return <p className="loading-text">Loading your bookings...</p>;
 
   if (error)
     return (
@@ -39,8 +52,7 @@ const UserBookings = ({ user }) => {
       </div>
     );
 
-  if (!bookings.length)
-    return <p className="no-bookings">You have no bookings yet.</p>;
+  if (!bookings.length) return <p className="no-bookings">You have no bookings yet.</p>;
 
   return (
     <div className="user-bookings">
@@ -69,7 +81,7 @@ const UserBookings = ({ user }) => {
             </p>
 
             {/* Action buttons */}
-            {b.booking_status === "pending" && (
+            {b.booking_status === "pending" && b.paymentStatus !== "success" && (
               <button
                 className="btn-action"
                 onClick={() => navigate(`/dashboard/payment/${b.id}`)}
@@ -78,7 +90,7 @@ const UserBookings = ({ user }) => {
               </button>
             )}
 
-            {b.booking_status === "confirmed" && (
+            {(b.booking_status === "confirmed" || b.paymentStatus === "success") && (
               <>
                 <button
                   className="btn-action"
@@ -87,16 +99,10 @@ const UserBookings = ({ user }) => {
                   🎟️ View Tickets
                 </button>
 
-                {/* Quick QR preview (optional) */}
                 {b.tickets?.length > 0 && (
                   <div className="tickets-preview">
                     {b.tickets.map((ticket) => (
-                      <QRCodeSVG
-                        key={ticket.id}
-                        value={ticket.qr_code}
-                        size={60}
-                        level="H"
-                      />
+                      <QRCodeSVG key={ticket.id} value={ticket.qr_code} size={60} level="H" />
                     ))}
                   </div>
                 )}
