@@ -166,12 +166,12 @@ router.get("/", verifyToken, verifyAdmin, async (req, res) => {
         b.user_id, 
         b.reference AS booking_reference, 
         b.event_id,
-        u.name AS user_name,
+        u.fullname AS user_name,
         u.email AS user_email,
         e.title AS event_title
       FROM payments p
       JOIN bookings b ON p.booking_id = b.id
-      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN usercredentials u ON b.user_id = u.id
       LEFT JOIN events e ON b.event_id = e.id
       ORDER BY p.created_at DESC
     `);
