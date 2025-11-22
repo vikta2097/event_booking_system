@@ -10,6 +10,7 @@ import Payments from "./Payments";
 import Reports from "./Reports";
 import Settings from "./Settings";
 import Support from "./Support";
+import TicketScanner from "./TicketScanner"; // Add this import
 
 const AdminDashboard = ({ onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -43,6 +44,7 @@ const AdminDashboard = ({ onLogout }) => {
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings currentUser={currentUser} />} />
             <Route path="support" element={<Support />} />
+            <Route path="scan" element={<TicketScanner />} /> {/* Add this route */}
             <Route path="*" element={<Navigate to="." replace />} />
           </Routes>
         </div>

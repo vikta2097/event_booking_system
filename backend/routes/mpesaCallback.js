@@ -1,4 +1,4 @@
-// mpesaCallback.js - Fixed with booking confirmation & ticket generation
+// mpesaCallback.js - Fixed with correct column names
 
 const { generateTicketQR } = require("../utils/ticketUtils");
 
@@ -32,13 +32,13 @@ module.exports = (app, db) => {
 
           console.log("Payment successful:", { receipt, amount, phone });
 
-          // 1. Update payment status
+          // 1. Update payment status with CORRECT column names
           const paymentRes = await client.query(
             `UPDATE payments 
              SET status = 'success', 
-                 transaction_id = $1, 
-                 phone = $2,
-                 updated_at = NOW()
+                 mpesa_receipt = $1, 
+                 phone_number = $2,
+                 paid_at = NOW()
              WHERE checkout_request_id = $3 
              RETURNING *`,
             [receipt, phone, checkoutRequestID]
@@ -53,7 +53,7 @@ module.exports = (app, db) => {
 
           // 2. Update booking to confirmed
           await client.query(
-            "UPDATE bookings SET status = 'confirmed', updated_at = NOW() WHERE id = $1",
+            "UPDATE bookings SET status = 'confirmed' WHERE id = $1",
             [payment.booking_id]
           );
           console.log("Booking confirmed:", payment.booking_id);
@@ -73,8 +73,8 @@ module.exports = (app, db) => {
               for (let i = 0; i < bt.quantity; i++) {
                 const qrCode = generateTicketQR();
                 await client.query(
-                  `INSERT INTO tickets (booking_id, ticket_type_id, qr_code, created_at) 
-                   VALUES ($1, $2, $3, NOW())`,
+                  `INSERT INTO tickets (booking_id, ticket_type_id, qr_code, status, created_at) 
+                   VALUES ($1, $2, $3, 'valid', NOW())`,
                   [payment.booking_id, bt.ticket_type_id, qrCode]
                 );
               }
@@ -102,9 +102,9 @@ module.exports = (app, db) => {
           await client.query(
             `UPDATE payments 
              SET status = 'failed', 
-                 updated_at = NOW()
-             WHERE checkout_request_id = $1`,
-            [checkoutRequestID]
+                 failure_reason = $1
+             WHERE checkout_request_id = $2`,
+            [resultDesc, checkoutRequestID]
           );
 
           await client.query("COMMIT");
