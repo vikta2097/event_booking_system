@@ -4,9 +4,31 @@ const db = require("../db");
 const { verifyToken, verifyAdmin } = require("../auth");
 
 // ======================
-// GET all events (public)
+// GET all events (public - only upcoming events)
 // ======================
 router.get("/", async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        e.*,
+        c.name AS category_name
+      FROM events e
+      LEFT JOIN event_categories c ON e.category_id = c.id
+      WHERE e.status = 'upcoming' 
+        AND e.event_date >= CURRENT_DATE
+      ORDER BY e.event_date ASC, e.start_time ASC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching events:", err);
+    res.status(500).json({ error: "Failed to fetch events" });
+  }
+});
+
+// ======================
+// GET all events (admin - includes all statuses)
+// ======================
+router.get("/admin/all", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
@@ -18,7 +40,7 @@ router.get("/", async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error("Error fetching events:", err);
+    console.error("Error fetching all events:", err);
     res.status(500).json({ error: "Failed to fetch events" });
   }
 });
