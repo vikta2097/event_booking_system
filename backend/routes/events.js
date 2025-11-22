@@ -46,6 +46,67 @@ router.get("/admin/all", verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // ======================
+// GET ticket types for a specific event
+// ======================
+// GET /api/events/:eventId/ticket-types
+router.get("/:eventId/ticket-types", async (req, res) => {
+  const { eventId } = req.params;
+
+  try {
+    // Check if event exists
+    const eventCheck = await db.query(
+      "SELECT id, title FROM events WHERE id = $1",
+      [eventId]
+    );
+
+    if (eventCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    // Fetch ticket types for the event
+    const ticketTypes = await db.query(
+      `SELECT 
+         tt.id,
+         tt.name,
+         tt.price,
+         tt.capacity,
+         COUNT(t.id) AS tickets_sold
+       FROM ticket_types tt
+       LEFT JOIN tickets t ON t.ticket_type_id = tt.id
+       WHERE tt.event_id = $1
+       GROUP BY tt.id`,
+      [eventId]
+    );
+
+    if (ticketTypes.rows.length === 0) {
+      return res.status(404).json({ error: "No ticket types found for this event" });
+    }
+
+    // Format response with availability, ensuring remaining tickets are never negative
+    const result = ticketTypes.rows.map(tt => {
+      const sold = parseInt(tt.tickets_sold);
+      const capacity = parseInt(tt.capacity);
+      return {
+        id: tt.id,
+        name: tt.name,
+        price: parseFloat(tt.price),
+        capacity: capacity,
+        tickets_sold: sold,
+        tickets_remaining: Math.max(0, capacity - sold) // <-- prevents negatives
+      };
+    });
+
+    res.json({
+      event: eventCheck.rows[0].title,
+      ticket_types: result
+    });
+  } catch (err) {
+    console.error("Error fetching ticket types:", err);
+    res.status(500).json({ error: "Failed to fetch ticket types" });
+  }
+});
+
+// ======================
 // GET single event by ID (public)
 // ======================
 router.get("/:id", async (req, res) => {
@@ -95,7 +156,6 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Validate category if provided
     if (category_id) {
       const catResult = await db.query(
         "SELECT id FROM event_categories WHERE id = $1",
@@ -154,7 +214,6 @@ router.put("/:id", verifyToken, async (req, res) => {
       status,
     } = req.body;
 
-    // Check event exists
     const existingResult = await db.query(
       "SELECT * FROM events WHERE id = $1", 
       [req.params.id]
@@ -166,12 +225,10 @@ router.put("/:id", verifyToken, async (req, res) => {
 
     const event = existingResult.rows[0];
 
-    // Only creator or admin can update
     if (req.user.id !== event.created_by && req.user.role !== "admin") {
       return res.status(403).json({ error: "Forbidden: not allowed to update this event" });
     }
 
-    // Validate category
     if (category_id) {
       const catResult = await db.query(
         "SELECT id FROM event_categories WHERE id = $1", 
@@ -186,56 +243,16 @@ router.put("/:id", verifyToken, async (req, res) => {
     const values = [];
     let paramCount = 1;
 
-    if (title) { 
-      updateFields.push(`title = $${paramCount}`); 
-      values.push(title); 
-      paramCount++;
-    }
-    if (description !== undefined) { 
-      updateFields.push(`description = $${paramCount}`); 
-      values.push(description); 
-      paramCount++;
-    }
-    if (category_id !== undefined) { 
-      updateFields.push(`category_id = $${paramCount}`); 
-      values.push(category_id); 
-      paramCount++;
-    }
-    if (location !== undefined) { 
-      updateFields.push(`location = $${paramCount}`); 
-      values.push(location); 
-      paramCount++;
-    }
-    if (event_date) { 
-      updateFields.push(`event_date = $${paramCount}`); 
-      values.push(event_date); 
-      paramCount++;
-    }
-    if (start_time) { 
-      updateFields.push(`start_time = $${paramCount}`); 
-      values.push(start_time); 
-      paramCount++;
-    }
-    if (end_time) { 
-      updateFields.push(`end_time = $${paramCount}`); 
-      values.push(end_time); 
-      paramCount++;
-    }
-    if (capacity !== undefined) { 
-      updateFields.push(`capacity = $${paramCount}`); 
-      values.push(capacity); 
-      paramCount++;
-    }
-    if (price !== undefined) { 
-      updateFields.push(`price = $${paramCount}`); 
-      values.push(price); 
-      paramCount++;
-    }
-    if (status) { 
-      updateFields.push(`status = $${paramCount}`); 
-      values.push(status); 
-      paramCount++;
-    }
+    if (title) { updateFields.push(`title = $${paramCount}`); values.push(title); paramCount++; }
+    if (description !== undefined) { updateFields.push(`description = $${paramCount}`); values.push(description); paramCount++; }
+    if (category_id !== undefined) { updateFields.push(`category_id = $${paramCount}`); values.push(category_id); paramCount++; }
+    if (location !== undefined) { updateFields.push(`location = $${paramCount}`); values.push(location); paramCount++; }
+    if (event_date) { updateFields.push(`event_date = $${paramCount}`); values.push(event_date); paramCount++; }
+    if (start_time) { updateFields.push(`start_time = $${paramCount}`); values.push(start_time); paramCount++; }
+    if (end_time) { updateFields.push(`end_time = $${paramCount}`); values.push(end_time); paramCount++; }
+    if (capacity !== undefined) { updateFields.push(`capacity = $${paramCount}`); values.push(capacity); paramCount++; }
+    if (price !== undefined) { updateFields.push(`price = $${paramCount}`); values.push(price); paramCount++; }
+    if (status) { updateFields.push(`status = $${paramCount}`); values.push(status); paramCount++; }
 
     if (updateFields.length === 0) {
       return res.status(400).json({ error: "No fields to update" });
@@ -271,7 +288,6 @@ router.delete("/:id", verifyToken, async (req, res) => {
 
     const event = existingResult.rows[0];
 
-    // Only creator or admin
     if (req.user.id !== event.created_by && req.user.role !== "admin") {
       return res.status(403).json({ error: "Forbidden: not allowed to delete this event" });
     }
