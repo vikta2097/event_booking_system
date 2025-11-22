@@ -73,19 +73,26 @@ router.get("/", verifyToken, async (req, res) => {
 });
 
 // ======================
-// GET single booking by ID
-// ======================
 // GET single booking by ID (with ticket types and generated tickets)
+// ======================
 router.get("/:id", verifyToken, async (req, res) => {
   const bookingId = req.params.id;
   const isAdmin = req.user.role === "admin";
   const userId = req.user.id;
 
   try {
-    // --- Fetch booking info ---
+    // --- Fetch booking info with correct field aliases ---
     const bookingResult = await db.query(`
       SELECT 
-        b.*,
+        b.id,
+        b.reference,
+        b.booking_date,
+        b.seats,
+        b.total_amount,
+        b.status AS booking_status,
+        b.created_at,
+        b.user_id,
+        b.event_id,
         e.title AS event_title,
         e.event_date,
         e.location,
@@ -147,7 +154,6 @@ router.get("/:id", verifyToken, async (req, res) => {
 // ======================
 // POST create new booking with ticket types
 // ======================
-// POST create new booking with ticket types
 router.post("/", verifyToken, async (req, res) => {
   const client = await db.getClient();
 
@@ -278,8 +284,6 @@ router.post("/", verifyToken, async (req, res) => {
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("Booking creation error:", error);
-
-    // Send user-friendly message
     res.status(400).json({ error: error.message || "Failed to create booking" });
   } finally {
     client.release();
@@ -287,8 +291,7 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 // ======================
-// PUT update booking
-// Admin only
+// PUT update booking (Admin only)
 // ======================
 router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
