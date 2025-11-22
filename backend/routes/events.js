@@ -53,7 +53,6 @@ router.get("/:eventId/ticket-types", async (req, res) => {
   const { eventId } = req.params;
 
   try {
-    // Check if event exists
     const eventCheck = await db.query(
       "SELECT id, title FROM events WHERE id = $1",
       [eventId]
@@ -63,18 +62,10 @@ router.get("/:eventId/ticket-types", async (req, res) => {
       return res.status(404).json({ error: "Event not found" });
     }
 
-    // Fetch ticket types for the event
     const ticketTypes = await db.query(
-      `SELECT 
-         tt.id,
-         tt.name,
-         tt.price,
-         tt.capacity,
-         COUNT(t.id) AS tickets_sold
-       FROM ticket_types tt
-       LEFT JOIN tickets t ON t.ticket_type_id = tt.id
-       WHERE tt.event_id = $1
-       GROUP BY tt.id`,
+      `SELECT id, name, price, quantity_available, quantity_sold
+       FROM ticket_types
+       WHERE event_id = $1`,
       [eventId]
     );
 
@@ -82,26 +73,22 @@ router.get("/:eventId/ticket-types", async (req, res) => {
       return res.status(404).json({ error: "No ticket types found for this event" });
     }
 
-    // Format response with availability, ensuring remaining tickets are never negative
-    const result = ticketTypes.rows.map(tt => {
-      const sold = parseInt(tt.tickets_sold);
-      const capacity = parseInt(tt.capacity);
-      return {
-        id: tt.id,
-        name: tt.name,
-        price: parseFloat(tt.price),
-        capacity: capacity,
-        tickets_sold: sold,
-        tickets_remaining: Math.max(0, capacity - sold) // <-- prevents negatives
-      };
-    });
+    const result = ticketTypes.rows.map(tt => ({
+      id: tt.id,
+      name: tt.name,
+      price: parseFloat(tt.price),
+      capacity: parseInt(tt.quantity_available),
+      tickets_sold: parseInt(tt.quantity_sold),
+      tickets_remaining: Math.max(0, parseInt(tt.quantity_available) - parseInt(tt.quantity_sold))
+    }));
 
     res.json({
       event: eventCheck.rows[0].title,
       ticket_types: result
     });
+
   } catch (err) {
-    console.error("Error fetching ticket types:", err);
+    console.error("Error fetching ticket types:", err.stack);
     res.status(500).json({ error: "Failed to fetch ticket types" });
   }
 });
