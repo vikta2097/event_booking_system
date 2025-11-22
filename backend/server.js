@@ -16,12 +16,11 @@ const categoriesRouter = require("./routes/categories");
 const ticketTypesRouter = require("./routes/ticketTypes");
 const dashboardRouter = require("./routes/dashboard");
 const paymentsRouter = require("./routes/payments");
+const mpesaCallbackRoute = require("./routes/mpesaCallback"); // renamed for clarity
 const reportsRouter = require("./routes/reports");
 const supportRoutes = require("./routes/support");
 const settingsRoutes = require("./routes/settings");
-const mpesaCallbackRoute = require("./routes/mpesaCallback");
-const ticketsroutes= require("./routes/tickets");
-const ticketsRouter = require("./routes/tickets"); 
+const ticketsRouter = require("./routes/tickets"); // unified tickets router
 
 const app = express();
 const server = http.createServer(app);
@@ -30,19 +29,16 @@ const server = http.createServer(app);
 // ✅ CORS middleware
 // =======================
 const allowedOrigins = [
-  "http://localhost:3000",          // Local dev
-  "https://eventhyper.netlify.app"  // Production frontend
+  "http://localhost:3000",
+  "https://eventhyper.netlify.app"
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Allow curl/Postman
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(new Error(`CORS policy: origin ${origin} not allowed`));
-      }
+      if (!origin) return callback(null, true); // Allow Postman/curl
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error(`CORS policy: origin ${origin} not allowed`));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -66,16 +62,14 @@ app.use("/api/bookings", bookingsRouter);
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventsRouter);
 app.use("/api/categories", categoriesRouter);
-app.use("/api", ticketTypesRouter);
+app.use("/api/ticket-types", ticketTypesRouter);  // clear path
 app.use("/api/dashboard", dashboardRouter);
-app.use("/api/payments", paymentsRouter);
+app.use("/api/payments", paymentsRouter);          // normal payment endpoints
+app.use("/api/payments/mpesa-callback", mpesaCallbackRoute); // M-Pesa callback
 app.use("/api/reports", reportsRouter);
 app.use("/api/support", supportRoutes);
 app.use("/api/settings", settingsRoutes);
-app.use("/api/payments", mpesaCallbackRoute);
-app.use("/api/tickets", ticketsroutes);
-app.use("/api/tickets", ticketsRouter); 
-
+app.use("/api/tickets", ticketsRouter);           // unified tickets router
 
 // =======================
 // ✅ Token validation
