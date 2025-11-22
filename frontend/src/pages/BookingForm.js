@@ -23,12 +23,14 @@ const BookingForm = ({ user }) => {
       ]);
 
       setEvent(eventRes.data);
-      setTickets(ticketsRes.data);
+      const ticketArray = ticketsRes.data.ticket_types || [];
+      setTickets(ticketArray);
 
       // Initialize ticket selection
-      const initial = {};
-      ticketsRes.data.forEach(t => { initial[t.id] = 0; });
-      setSelectedTickets(initial);
+      const initialSelection = {};
+      ticketArray.forEach(t => { initialSelection[t.id] = 0; });
+      setSelectedTickets(initialSelection);
+
     } catch (err) {
       console.error(err);
       setError("Failed to load event or tickets");
@@ -39,7 +41,8 @@ const BookingForm = ({ user }) => {
 
   const handleQuantityChange = (ticketId, qty) => {
     const ticket = tickets.find(t => t.id === ticketId);
-    const quantity = Math.max(0, Math.min(qty, ticket.quantity_available - ticket.quantity_sold));
+    if (!ticket) return;
+    const quantity = Math.max(0, Math.min(qty, ticket.capacity - ticket.tickets_sold));
     setSelectedTickets(prev => ({ ...prev, [ticketId]: quantity }));
   };
 
@@ -55,15 +58,16 @@ const BookingForm = ({ user }) => {
       navigate("/login");
       return;
     }
+
     if (!phoneNumber.trim()) {
       setError("Phone number is required for M-Pesa payment");
       return;
     }
 
     // Validate Kenyan phone number
-    // eslint-disable-next-line no-useless-escape
+     // eslint-disable-next-line no-useless-escape
     const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
-    // eslint-disable-next-line no-useless-escape
+     // eslint-disable-next-line no-useless-escape
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
     if (!phoneRegex.test(cleanPhone)) {
       setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
@@ -100,32 +104,48 @@ const BookingForm = ({ user }) => {
     }
   };
 
-  if (!event) return <p className="loading-text">{error || "Loading booking details..."}</p>;
+  if (!event) {
+    return <p className="loading-text">{error || "Loading booking details..."}</p>;
+  }
 
   return (
     <div className="booking-form">
       <h2>Book Tickets for {event.title}</h2>
       <p className="event-date">
-        {new Date(event.event_date).toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        {new Date(event.event_date).toLocaleDateString("en-GB", {
+          weekday: "long", year: "numeric", month: "long", day: "numeric"
+        })}
       </p>
-      <p className="event-location">{event.venue || event.location}</p>
+      <p className="event-location">{event.location || "Location not specified"}</p>
 
       <div className="ticket-types">
-        {tickets.map(ticket => (
+        {tickets.length > 0 ? tickets.map(ticket => (
           <div key={ticket.id} className="ticket-item">
             <span>{ticket.name} (KES {ticket.price})</span>
             <div className="ticket-controls">
-              <button onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] - 1)} disabled={selectedTickets[ticket.id] === 0}>-</button>
-              <input type="number"
-                     min="0"
-                     max={ticket.quantity_available - ticket.quantity_sold}
-                     value={selectedTickets[ticket.id]}
-                     onChange={e => handleQuantityChange(ticket.id, parseInt(e.target.value) || 0)} />
-              <button onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] + 1)} disabled={selectedTickets[ticket.id] >= ticket.quantity_available - ticket.quantity_sold}>+</button>
+              <button
+                type="button"
+                onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] - 1)}
+                disabled={selectedTickets[ticket.id] === 0}
+              >-</button>
+              <input
+                type="number"
+                min="0"
+                max={ticket.capacity - ticket.tickets_sold}
+                value={selectedTickets[ticket.id]}
+                onChange={e => handleQuantityChange(ticket.id, parseInt(e.target.value) || 0)}
+              />
+              <button
+                type="button"
+                onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] + 1)}
+                disabled={selectedTickets[ticket.id] >= ticket.capacity - ticket.tickets_sold}
+              >+</button>
             </div>
-            {selectedTickets[ticket.id] > 0 && <span>Subtotal: KES {(ticket.price * selectedTickets[ticket.id]).toLocaleString()}</span>}
+            {selectedTickets[ticket.id] > 0 && (
+              <span>Subtotal: KES {(ticket.price * selectedTickets[ticket.id]).toLocaleString()}</span>
+            )}
           </div>
-        ))}
+        )) : <p>No tickets available for this event.</p>}
       </div>
 
       <form onSubmit={handleBooking}>
