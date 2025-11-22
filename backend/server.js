@@ -20,7 +20,8 @@ const reportsRouter = require("./routes/reports");
 const supportRoutes = require("./routes/support");
 const settingsRoutes = require("./routes/settings");
 const mpesaCallbackRoute = require("./routes/mpesaCallback");
-
+const ticketsroutes= require("./routes/tickets");
+const ticketsRouter = require("./routes/tickets"); 
 
 const app = express();
 const server = http.createServer(app);
@@ -72,6 +73,8 @@ app.use("/api/reports", reportsRouter);
 app.use("/api/support", supportRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/payments", mpesaCallbackRoute);
+app.use("/api/tickets", ticketsroutes);
+app.use("/api/tickets", ticketsRouter); 
 
 
 // =======================
