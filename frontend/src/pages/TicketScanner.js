@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useRef, useEffect } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import api from "../api";
@@ -10,6 +12,39 @@ const TicketScanner = () => {
   const [manualCode, setManualCode] = useState("");
   const [scannerActive, setScannerActive] = useState(true);
   const scannerRef = useRef(null);
+
+  const validateTicket = async (qrCode) => {
+    setLoading(true);
+    setError("");
+    setScanResult(null);
+
+    try {
+      const response = await api.post("/tickets/validate", { qr_code: qrCode });
+      setScanResult({
+        success: true,
+        message: response.data.message,
+        ticket: response.data.ticket,
+      });
+      playSound("success");
+    } catch (err) {
+      const errorData = err.response?.data;
+      setScanResult({
+        success: false,
+        message: errorData?.message || "Validation failed",
+        ticket: errorData?.ticket || null,
+      });
+      playSound("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const playSound = (type) => {
+    const audio = new Audio(
+      type === "success" ? "/sounds/success.mp3" : "/sounds/error.mp3"
+    );
+    audio.play().catch(() => {});
+  };
 
   useEffect(() => {
     if (!scannerActive) return;
@@ -24,6 +59,15 @@ const TicketScanner = () => {
       false
     );
 
+    const onScanSuccess = async (decodedText) => {
+      if (scannerRef.current) {
+        await scannerRef.current.pause();
+      }
+      await validateTicket(decodedText);
+    };
+
+    const onScanFailure = () => {};
+
     scanner.render(onScanSuccess, onScanFailure);
     scannerRef.current = scanner;
 
@@ -33,57 +77,6 @@ const TicketScanner = () => {
       }
     };
   }, [scannerActive]);
-
-  const onScanSuccess = async (decodedText) => {
-    // Pause scanner while processing
-    if (scannerRef.current) {
-      await scannerRef.current.pause();
-    }
-    await validateTicket(decodedText);
-  };
-
-  const onScanFailure = (error) => {
-    // Ignore scan failures (no QR in frame)
-  };
-
-  const validateTicket = async (qrCode) => {
-    setLoading(true);
-    setError("");
-    setScanResult(null);
-
-    try {
-      const response = await api.post("/tickets/validate", { qr_code: qrCode });
-      setScanResult({
-        success: true,
-        message: response.data.message,
-        ticket: response.data.ticket,
-      });
-
-      // Play success sound
-      playSound("success");
-    } catch (err) {
-      const errorData = err.response?.data;
-      setScanResult({
-        success: false,
-        message: errorData?.message || "Validation failed",
-        ticket: errorData?.ticket || null,
-      });
-
-      // Play error sound
-      playSound("error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const playSound = (type) => {
-    const audio = new Audio(
-      type === "success"
-        ? "/sounds/success.mp3"
-        : "/sounds/error.mp3"
-    );
-    audio.play().catch(() => {}); // Ignore if sound fails
-  };
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
@@ -96,8 +89,6 @@ const TicketScanner = () => {
     setScanResult(null);
     setError("");
     setManualCode("");
-    
-    // Resume scanner
     if (scannerRef.current) {
       scannerRef.current.resume();
     }
@@ -117,7 +108,6 @@ const TicketScanner = () => {
         </button>
       </div>
 
-      {/* QR Scanner */}
       {scannerActive && !scanResult && (
         <div className="scanner-container">
           <div id="qr-reader"></div>
@@ -125,7 +115,6 @@ const TicketScanner = () => {
         </div>
       )}
 
-      {/* Manual Entry */}
       {!scannerActive && !scanResult && (
         <form onSubmit={handleManualSubmit} className="manual-entry">
           <div className="form-group">
@@ -145,7 +134,6 @@ const TicketScanner = () => {
         </form>
       )}
 
-      {/* Loading State */}
       {loading && (
         <div className="loading-state">
           <div className="spinner"></div>
@@ -153,7 +141,6 @@ const TicketScanner = () => {
         </div>
       )}
 
-      {/* Scan Result */}
       {scanResult && (
         <div className={`scan-result ${scanResult.success ? "success" : "error"}`}>
           <div className="result-icon">
