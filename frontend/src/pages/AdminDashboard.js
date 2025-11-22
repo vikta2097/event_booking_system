@@ -44,7 +44,7 @@ const AdminDashboard = ({ onLogout }) => {
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings currentUser={currentUser} />} />
             <Route path="support" element={<Support />} />
-            <Route path="scan" element={<TicketScanner />} /> {/* Add this route */}
+            <Route path="scan" element={<TicketScanner />} /> 
             <Route path="*" element={<Navigate to="." replace />} />
           </Routes>
         </div>
