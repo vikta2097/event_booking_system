@@ -63,7 +63,7 @@ app.use("/api/bookings", bookingsRouter);
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventsRouter);
 app.use("/api/categories", categoriesRouter);
-app.use("/api/ticket-types", ticketTypesRouter); 
+app.use("/api", ticketTypesRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/payments", paymentsRouter);         
 app.use("/api/payments/mpesa-callback", mpesaCallbackRoute); 
