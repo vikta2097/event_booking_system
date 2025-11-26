@@ -25,7 +25,7 @@ h2, h3 {
   cursor: pointer;
   border-radius: 5px;
   font-weight: bold;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 .tabs button.active {
@@ -34,7 +34,8 @@ h2, h3 {
 }
 
 .tabs button:hover:not(.active) {
-  background-color: #bdc3c7;
+  background-color: #2980b9;
+  color: white;
 }
 
 /* New Ticket / Contact Form */
@@ -76,6 +77,9 @@ h2, h3 {
 .contacts-list table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: auto;
+  overflow-x: auto;
+  display: block;
 }
 
 .tickets-list th,
@@ -102,6 +106,14 @@ h2, h3 {
 .tickets-list tr:hover,
 .contacts-list tr:hover {
   background-color: #e1f5fe;
+}
+
+/* Distinguish Admin vs User Tickets */
+.tickets-list tr.admin-ticket {
+  background-color: #fff3e0;
+}
+.tickets-list tr.user-ticket {
+  background-color: #e8f6ff;
 }
 
 /* Buttons */
@@ -139,6 +151,7 @@ h2, h3 {
   color: white;
   font-size: 12px;
   text-transform: capitalize;
+  margin-right: 4px;
 }
 
 .status-open { background-color: #3498db; }
@@ -153,6 +166,7 @@ h2, h3 {
   color: white;
   font-size: 12px;
   text-transform: capitalize;
+  margin-right: 4px;
 }
 
 .priority-low { background-color: #2ecc71; }
@@ -182,6 +196,7 @@ h2, h3 {
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  scroll-behavior: smooth;
 }
 
 .modal-header {

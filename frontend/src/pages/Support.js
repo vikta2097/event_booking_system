@@ -27,7 +27,7 @@ const Support = ({ currentUser }) => {
   const fetchTickets = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/support");
+      const res = await api.get("/support/ticket");
       setTickets(res.data || []);
       setError("");
     } catch (err) {
@@ -67,7 +67,7 @@ const Support = ({ currentUser }) => {
       return;
     }
     try {
-      await api.post("/support", newTicket);
+      await api.post("/support/ticket", newTicket);
       toast.success("Ticket submitted successfully");
       setNewTicket({ subject: "", message: "", priority: "low" });
       fetchTickets();
@@ -82,7 +82,7 @@ const Support = ({ currentUser }) => {
   // ======================
   const viewTicket = async (ticketId) => {
     try {
-      const res = await api.get(`/support/${ticketId}`);
+      const res = await api.get(`/support/ticket/${ticketId}`);
       setSelectedTicket(res.data);
       setShowTicketModal(true);
     } catch (err) {
@@ -98,7 +98,7 @@ const Support = ({ currentUser }) => {
       return;
     }
     try {
-      await api.post(`/support/${selectedTicket.id}/reply`, { message: replyMessage });
+      await api.post(`/support/ticket/${selectedTicket.id}/reply`, { message: replyMessage });
       toast.success("Reply sent successfully");
       setReplyMessage("");
       viewTicket(selectedTicket.id);
@@ -110,7 +110,7 @@ const Support = ({ currentUser }) => {
 
   const updateTicketStatus = async (ticketId, newStatus) => {
     try {
-      await api.put(`/support/${ticketId}/status`, { status: newStatus });
+      await api.put(`/support/ticket/${ticketId}/status`, { status: newStatus });
       toast.success("Status updated successfully");
       fetchTickets();
       if (selectedTicket?.id === ticketId) viewTicket(ticketId);
@@ -123,7 +123,7 @@ const Support = ({ currentUser }) => {
   const deleteTicket = async (ticketId) => {
     if (!window.confirm("Are you sure you want to delete this ticket?")) return;
     try {
-      await api.delete(`/support/${ticketId}`);
+      await api.delete(`/support/ticket/${ticketId}`);
       toast.success("Ticket deleted successfully");
       fetchTickets();
       if (selectedTicket?.id === ticketId) {
