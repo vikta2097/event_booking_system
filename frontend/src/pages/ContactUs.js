@@ -30,6 +30,7 @@ const ContactUs = () => {
     }
 
     // Basic email validation
+    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       toast.error("Please enter a valid email address");
@@ -74,21 +75,21 @@ const ContactUs = () => {
               <i className="icon-email"></i>
               <div>
                 <h4>Email</h4>
-                <p>support@yourcompany.com</p>
+                <p>victorlabs854@gamail.com</p>
               </div>
             </div>
             <div className="info-item">
               <i className="icon-phone"></i>
               <div>
                 <h4>Phone</h4>
-                <p>+1 (555) 123-4567</p>
+                <p>+254 (7)59205319</p>
               </div>
             </div>
             <div className="info-item">
               <i className="icon-location"></i>
               <div>
                 <h4>Office</h4>
-                <p>123 Business Street<br/>City, State 12345</p>
+                <p>MAIN CAMPUS WAY<br/>KARATINA</p>
               </div>
             </div>
             <div className="info-item">
