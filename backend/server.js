@@ -26,6 +26,8 @@ const contactRoutes = require('./routes/contact');
 const app = express();
 const server = http.createServer(app);
 
+require("./eventScheduler");
+
 // =======================
 // ✅ CORS middleware
 // =======================

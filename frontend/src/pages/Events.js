@@ -50,12 +50,32 @@ const Events = ({ currentUser }) => {
     fetchCategories();
   }, [currentUser]);
 
+  // =======================
+  // FETCH EVENTS
+  // =======================
   const fetchEvents = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
       const res = await api.get("/events", { headers: { Authorization: `Bearer ${token}` } });
-      setEvents(res.data || []);
+
+      // Automatically calculate status
+      const enhancedEvents = (res.data || []).map((ev) => {
+        const now = new Date();
+        const eventStart = new Date(`${ev.event_date}T${ev.start_time}`);
+        const eventEnd = new Date(`${ev.event_date}T${ev.end_time}`);
+        let status = ev.status;
+
+        if (ev.status !== "cancelled") {
+          if (now > eventEnd) status = "expired";
+          else if (now >= eventStart && now <= eventEnd) status = "ongoing";
+          else status = "upcoming";
+        }
+
+        return { ...ev, status };
+      });
+
+      setEvents(enhancedEvents);
       setError("");
     } catch (err) {
       console.error(err);
@@ -65,6 +85,9 @@ const Events = ({ currentUser }) => {
     }
   };
 
+  // =======================
+  // FETCH CATEGORIES
+  // =======================
   const fetchCategories = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -75,6 +98,9 @@ const Events = ({ currentUser }) => {
     }
   };
 
+  // =======================
+  // FETCH TICKET TYPES
+  // =======================
   const fetchTicketTypes = async (eventId) => {
     try {
       const token = localStorage.getItem("token");
@@ -86,6 +112,9 @@ const Events = ({ currentUser }) => {
     }
   };
 
+  // =======================
+  // EVENT FORM HANDLERS
+  // =======================
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const openModal = (event = null) => {
@@ -120,11 +149,13 @@ const Events = ({ currentUser }) => {
     try {
       const token = localStorage.getItem("token");
       const payload = { ...formData, created_by: currentUser.id };
+
       if (editingEvent) {
         await api.put(`/events/${editingEvent.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
       } else {
         await api.post("/events", payload, { headers: { Authorization: `Bearer ${token}` } });
       }
+
       fetchEvents();
       setShowModal(false);
     } catch (err) {
@@ -146,7 +177,7 @@ const Events = ({ currentUser }) => {
   };
 
   // =======================
-  // Ticket Type CRUD
+  // TICKET FORM HANDLERS
   // =======================
   const handleTicketChange = (e) => setTicketForm({ ...ticketForm, [e.target.name]: e.target.value });
 
@@ -161,6 +192,8 @@ const Events = ({ currentUser }) => {
       } else {
         await api.post(`/events/${editingEvent.id}/ticket-types`, ticketForm, { headers: { Authorization: `Bearer ${token}` } });
       }
+
+      // Reset ticket form
       setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
       setEditingTicket(null);
       fetchTicketTypes(editingEvent.id);
@@ -181,11 +214,12 @@ const Events = ({ currentUser }) => {
   };
 
   // =======================
-  // Category CRUD
+  // CATEGORY HANDLERS
   // =======================
   const handleCategoryAdd = async (e) => {
     e.preventDefault();
     if (!newCategory.trim()) return;
+
     try {
       const token = localStorage.getItem("token");
       await api.post("/categories", { name: newCategory }, { headers: { Authorization: `Bearer ${token}` } });
@@ -201,8 +235,8 @@ const Events = ({ currentUser }) => {
     try {
       const token = localStorage.getItem("token");
       await api.put(`/categories/${id}`, { name }, { headers: { Authorization: `Bearer ${token}` } });
-      fetchCategories();
       setEditingCategory(null);
+      fetchCategories();
     } catch (err) {
       setCategoryError("Failed to update category");
     }
@@ -221,8 +255,11 @@ const Events = ({ currentUser }) => {
 
   if (!currentUser) return <p>Loading user...</p>;
 
+  // =======================
+  // FILTERED EVENTS
+  // =======================
   const filteredEvents = events.filter((event) => {
-    if (filterStatus === "active") return event.status !== "expired";
+    if (filterStatus === "active") return event.status === "upcoming" || event.status === "ongoing";
     if (filterStatus === "expired") return event.status === "expired";
     return true; // all
   });
@@ -260,24 +297,18 @@ const Events = ({ currentUser }) => {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (editingCategory) {
-                handleCategoryUpdate(editingCategory.id, editingCategory.name);
-              } else {
-                handleCategoryAdd(e);
-              }
+              if (editingCategory) handleCategoryUpdate(editingCategory.id, editingCategory.name);
+              else handleCategoryAdd(e);
             }}
           >
             <input
               type="text"
               placeholder="Category name"
               value={editingCategory ? editingCategory.name : newCategory}
-              onChange={(e) => {
-                if (editingCategory) {
-                  setEditingCategory({ ...editingCategory, name: e.target.value });
-                } else {
-                  setNewCategory(e.target.value);
-                }
-              }}
+              onChange={(e) => editingCategory
+                ? setEditingCategory({ ...editingCategory, name: e.target.value })
+                : setNewCategory(e.target.value)
+              }
               required
             />
             <button type="submit">{editingCategory ? "Update" : "Add"}</button>
@@ -291,9 +322,7 @@ const Events = ({ currentUser }) => {
                   <input
                     type="text"
                     value={editingCategory.name}
-                    onChange={(e) =>
-                      setEditingCategory({ ...editingCategory, name: e.target.value })
-                    }
+                    onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
                   />
                 ) : (
                   <>

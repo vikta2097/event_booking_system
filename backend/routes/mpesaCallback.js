@@ -1,79 +1,83 @@
-// mpesaCallback.js - Fixed with correct column names
-
+// mpesaCallback.js
 const { generateTicketQR } = require("../utils/ticketUtils");
 
 module.exports = (app, db) => {
   app.post("/mpesa/callback", async (req, res) => {
-    // Respond to M-Pesa immediately (they require quick response)
+    // M-Pesa requires immediate response
     res.json({ ResultCode: 0, ResultDesc: "Accepted" });
 
+    console.log("⚡ Incoming M-Pesa callback:", JSON.stringify(req.body, null, 2));
+
     try {
-      const callback = req.body.Body.stkCallback;
+      const callback = req.body?.Body?.stkCallback;
+      if (!callback) {
+        console.error("Callback payload missing stkCallback");
+        return;
+      }
+
       const checkoutRequestID = callback.CheckoutRequestID;
       const resultCode = callback.ResultCode;
+      const resultDesc = callback.ResultDesc || "";
 
-      console.log("M-Pesa Callback received:", { checkoutRequestID, resultCode });
+      console.log(`Processing payment for CheckoutRequestID: ${checkoutRequestID}, ResultCode: ${resultCode}`);
 
-      // Get database client for transaction
       const client = await db.getClient();
 
       try {
         await client.query("BEGIN");
 
+        // --- Fetch payment record ---
+        const paymentRes = await client.query(
+          `SELECT * FROM payments WHERE checkout_request_id = $1 FOR UPDATE`,
+          [checkoutRequestID]
+        );
+
+        if (paymentRes.rows.length === 0) {
+          throw new Error(`Payment record not found for CheckoutRequestID: ${checkoutRequestID}`);
+        }
+
+        const payment = paymentRes.rows[0];
+
+        // --- Payment succeeded ---
         if (resultCode === 0) {
-          // ============================================
-          // SUCCESS: Payment completed
-          // ============================================
-          const metadata = callback.CallbackMetadata.Item;
+          const metadata = callback.CallbackMetadata?.Item || [];
+          const amount = metadata.find(i => i.Name === "Amount")?.Value || 0;
+          const receipt = metadata.find(i => i.Name === "MpesaReceiptNumber")?.Value || "";
+          const phone = metadata.find(i => i.Name === "PhoneNumber")?.Value || "";
 
-          const amount = metadata.find(i => i.Name === "Amount")?.Value;
-          const receipt = metadata.find(i => i.Name === "MpesaReceiptNumber")?.Value;
-          const phone = metadata.find(i => i.Name === "PhoneNumber")?.Value;
+          console.log(`✅ Payment SUCCESS: Receipt=${receipt}, Amount=${amount}, Phone=${phone}`);
 
-          console.log("Payment successful:", { receipt, amount, phone });
-
-          // 1. Update payment status with CORRECT column names
-          const paymentRes = await client.query(
-            `UPDATE payments 
-             SET status = 'success', 
-                 mpesa_receipt = $1, 
+          // Update payment status
+          await client.query(
+            `UPDATE payments
+             SET status = 'success',
+                 mpesa_receipt = $1,
                  phone_number = $2,
                  paid_at = NOW()
-             WHERE checkout_request_id = $3 
-             RETURNING *`,
-            [receipt, phone, checkoutRequestID]
+             WHERE id = $3`,
+            [receipt, phone, payment.id]
           );
 
-          if (paymentRes.rows.length === 0) {
-            throw new Error("Payment record not found");
-          }
-
-          const payment = paymentRes.rows[0];
-          console.log("Payment updated:", payment.id);
-
-          // 2. Update booking to confirmed
+          // Update booking status to confirmed
           await client.query(
-            "UPDATE bookings SET status = 'confirmed' WHERE id = $1",
+            `UPDATE bookings SET status = 'confirmed' WHERE id = $1`,
             [payment.booking_id]
           );
-          console.log("Booking confirmed:", payment.booking_id);
 
-          // 3. Generate tickets if not already generated
+          // Generate tickets if not already generated
           if (!payment.tickets_generated) {
-            // Get booked ticket types and quantities
             const bookedTickets = await client.query(
-              "SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1",
+              `SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1`,
               [payment.booking_id]
             );
 
             console.log(`Generating tickets for booking ${payment.booking_id}...`);
 
-            // Generate tickets for each ticket type
             for (const bt of bookedTickets.rows) {
               for (let i = 0; i < bt.quantity; i++) {
                 const qrCode = generateTicketQR();
                 await client.query(
-                  `INSERT INTO tickets (booking_id, ticket_type_id, qr_code, status, created_at) 
+                  `INSERT INTO tickets (booking_id, ticket_type_id, qr_code, status, created_at)
                    VALUES ($1, $2, $3, 'valid', NOW())`,
                   [payment.booking_id, bt.ticket_type_id, qrCode]
                 );
@@ -83,45 +87,36 @@ module.exports = (app, db) => {
 
             // Mark tickets as generated
             await client.query(
-              "UPDATE payments SET tickets_generated = true WHERE id = $1",
+              `UPDATE payments SET tickets_generated = true WHERE id = $1`,
               [payment.id]
             );
-            console.log("Tickets marked as generated");
           }
 
-          await client.query("COMMIT");
-          console.log("Transaction committed successfully");
-
         } else {
-          // ============================================
-          // FAILED: Payment failed or cancelled
-          // ============================================
-          const resultDesc = callback.ResultDesc || "Payment failed";
-          console.log("Payment failed:", { resultCode, resultDesc });
+          // --- Payment failed or cancelled ---
+          console.warn(`❌ Payment FAILED: ResultCode=${resultCode}, Desc=${resultDesc}`);
 
           await client.query(
-            `UPDATE payments 
-             SET status = 'failed', 
+            `UPDATE payments
+             SET status = 'failed',
                  failure_reason = $1
-             WHERE checkout_request_id = $2`,
-            [resultDesc, checkoutRequestID]
+             WHERE id = $2`,
+            [resultDesc, payment.id]
           );
-
-          await client.query("COMMIT");
-          console.log("Payment marked as failed");
         }
+
+        await client.query("COMMIT");
+        console.log("Transaction committed successfully");
 
       } catch (error) {
         await client.query("ROLLBACK");
-        console.error("Transaction error:", error);
-        throw error;
+        console.error("Transaction ROLLBACK due to error:", error);
       } finally {
         client.release();
       }
 
     } catch (error) {
-      console.error("Callback processing error:", error);
-      // Note: We already responded to M-Pesa, so we just log the error
+      console.error("Error processing callback:", error);
     }
   });
 };

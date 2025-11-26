@@ -11,9 +11,11 @@ const Support = ({ currentUser }) => {
   const [error, setError] = useState("");
   const [newTicket, setNewTicket] = useState({ subject: "", message: "", priority: "low" });
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
   const [replyMessage, setReplyMessage] = useState("");
   const [activeTab, setActiveTab] = useState("tickets"); // tickets | contacts
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -40,7 +42,7 @@ const Support = ({ currentUser }) => {
   };
 
   // ======================
-  // Fetch Contact Messages (Admin only)
+  // Fetch Contacts (Admin)
   // ======================
   const fetchContacts = async () => {
     try {
@@ -53,7 +55,7 @@ const Support = ({ currentUser }) => {
   };
 
   // ======================
-  // Handle New Ticket Input
+  // Ticket Input Handlers
   // ======================
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -137,8 +139,13 @@ const Support = ({ currentUser }) => {
   };
 
   // ======================
-  // Contact Message Actions (Admin)
+  // Contact Message Actions
   // ======================
+  const viewContact = (contact) => {
+    setSelectedContact(contact);
+    setShowContactModal(true);
+  };
+
   const updateContactStatus = async (contactId, newStatus) => {
     try {
       await api.put(`/support/contact/${contactId}/status`, { status: newStatus });
@@ -156,12 +163,16 @@ const Support = ({ currentUser }) => {
       await api.delete(`/support/contact/${contactId}`);
       toast.success("Message deleted successfully");
       fetchContacts();
+      setShowContactModal(false);
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.error || "Failed to delete message");
     }
   };
 
+  // ======================
+  // Helpers for badges
+  // ======================
   const getStatusBadge = (status) => {
     const classes = { open: "status-open", in_progress: "status-progress", resolved: "status-resolved", closed: "status-closed", new: "status-new" };
     return <span className={`status-badge ${classes[status]}`}>{status}</span>;
@@ -187,7 +198,7 @@ const Support = ({ currentUser }) => {
         )}
       </div>
 
-      {/* Tab Content */}
+      {/* Tickets Tab */}
       {activeTab === "tickets" && (
         <>
           {/* New Ticket Form */}
@@ -237,6 +248,7 @@ const Support = ({ currentUser }) => {
         </>
       )}
 
+      {/* Contacts Tab */}
       {activeTab === "contacts" && currentUser.role === "admin" && (
         <div className="contacts-list">
           <h3>Contact Messages</h3>
@@ -258,6 +270,7 @@ const Support = ({ currentUser }) => {
                     <td>{getStatusBadge(c.status)}</td>
                     <td>{new Date(c.created_at).toLocaleString()}</td>
                     <td>
+                      <button className="view-btn" onClick={() => viewContact(c)}>View</button>
                       <select value={c.status} onChange={(e) => updateContactStatus(c.id, e.target.value)}>
                         <option value="new">New</option>
                         <option value="in_progress">In Progress</option>
@@ -273,7 +286,7 @@ const Support = ({ currentUser }) => {
         </div>
       )}
 
-      {/* Ticket Detail Modal */}
+      {/* Ticket Modal */}
       {showTicketModal && selectedTicket && (
         <div className="modal-overlay" onClick={() => setShowTicketModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -282,20 +295,16 @@ const Support = ({ currentUser }) => {
               <button className="close-btn" onClick={() => setShowTicketModal(false)}>&times;</button>
             </div>
             <div className="modal-body">
-              <div className="ticket-info">
-                <p><strong>Status:</strong> {getStatusBadge(selectedTicket.status)}</p>
-                <p><strong>Priority:</strong> {getPriorityBadge(selectedTicket.priority)}</p>
-                <p><strong>Created by:</strong> {selectedTicket.user_name}</p>
-                <p><strong>Created at:</strong> {new Date(selectedTicket.created_at).toLocaleString()}</p>
-              </div>
-              <div className="ticket-message">
-                <h4>Message:</h4>
-                <p>{selectedTicket.message}</p>
-              </div>
+              <p><strong>Status:</strong> {getStatusBadge(selectedTicket.status)}</p>
+              <p><strong>Priority:</strong> {getPriorityBadge(selectedTicket.priority)}</p>
+              <p><strong>Created by:</strong> {selectedTicket.user_name}</p>
+              <p><strong>Created at:</strong> {new Date(selectedTicket.created_at).toLocaleString()}</p>
+              <p><strong>Message:</strong> {selectedTicket.message}</p>
 
+              {/* Admin status update */}
               {currentUser?.role === "admin" && (
                 <div className="status-controls">
-                  <h4>Update Status:</h4>
+                  <label>Update Status: </label>
                   <select value={selectedTicket.status} onChange={(e) => updateTicketStatus(selectedTicket.id, e.target.value)}>
                     <option value="open">Open</option>
                     <option value="in_progress">In Progress</option>
@@ -305,26 +314,49 @@ const Support = ({ currentUser }) => {
                 </div>
               )}
 
+              {/* Replies / Troubleshoot history */}
               <div className="ticket-replies">
-                <h4>Replies ({selectedTicket.replies?.length || 0})</h4>
+                <h4>Troubleshoot / Reply History ({selectedTicket.replies?.length || 0})</h4>
                 {selectedTicket.replies?.map((reply) => (
                   <div key={reply.id} className={`reply ${reply.sender_role}`}>
                     <div className="reply-header">
-                      <strong>{reply.sender_name}</strong> <span className="reply-role">({reply.sender_role})</span>
-                      <span className="reply-date">{new Date(reply.created_at).toLocaleString()}</span>
+                      <strong>{reply.sender_name}</strong> <span>({reply.sender_role})</span>
+                      <span>{new Date(reply.created_at).toLocaleString()}</span>
                     </div>
                     <div className="reply-message">{reply.message}</div>
                   </div>
                 ))}
               </div>
 
-              <div className="reply-form">
-                <h4>Add Reply</h4>
-                <form onSubmit={submitReply}>
-                  <textarea value={replyMessage} onChange={(e) => setReplyMessage(e.target.value)} placeholder="Type your reply..." rows="4" required />
-                  <button type="submit" className="submit-btn">Send Reply</button>
-                </form>
-              </div>
+              {/* Add reply */}
+              {currentUser?.role === "admin" && (
+                <div className="reply-form">
+                  <h4>Add Reply / Troubleshoot</h4>
+                  <form onSubmit={submitReply}>
+                    <textarea value={replyMessage} onChange={(e) => setReplyMessage(e.target.value)} placeholder="Type your reply..." rows="4" required />
+                    <button type="submit" className="submit-btn">Send Reply</button>
+                  </form>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Modal */}
+      {showContactModal && selectedContact && (
+        <div className="modal-overlay" onClick={() => setShowContactModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Contact Message #{selectedContact.id}: {selectedContact.subject}</h3>
+              <button className="close-btn" onClick={() => setShowContactModal(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <p><strong>Name:</strong> {selectedContact.name}</p>
+              <p><strong>Email:</strong> {selectedContact.email}</p>
+              <p><strong>Priority:</strong> {getPriorityBadge(selectedContact.priority)}</p>
+              <p><strong>Status:</strong> {getStatusBadge(selectedContact.status)}</p>
+              <p><strong>Message:</strong> {selectedContact.message}</p>
             </div>
           </div>
         </div>

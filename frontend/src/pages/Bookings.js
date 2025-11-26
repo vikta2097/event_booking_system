@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api"; // <-- Use your preconfigured Axios instance
+import api from "../api"; // <-- Your preconfigured Axios instance
 import "../styles/Bookings.css";
 
 const Bookings = () => {
@@ -18,7 +18,7 @@ const Bookings = () => {
     try {
       setLoading(true);
       setError("");
-      const res = await api.get("/bookings"); // ✅ Use api instance
+      const res = await api.get("/bookings");
       setBookings(res.data);
     } catch (err) {
       setError("Failed to fetch bookings");
@@ -31,7 +31,8 @@ const Bookings = () => {
   // Update booking status
   const handleStatusChange = async (bookingId, newStatus) => {
     try {
-      await api.put(`/bookings/${bookingId}`, { status: newStatus }); // ✅ Use api instance
+      // eslint-disable-next-line
+      const res = await api.put(`/bookings/${bookingId}`, { status: newStatus });
       setBookings((prev) =>
         prev.map((booking) =>
           booking.id === bookingId
@@ -39,10 +40,12 @@ const Bookings = () => {
             : booking
         )
       );
+      setError(""); // clear previous errors on success
     } catch (err) {
-      setError("Failed to update booking status");
+      const msg = err.response?.data?.error || "Failed to update booking status";
+      setError(msg);
       console.error(err);
-      fetchBookings();
+      fetchBookings(); // refresh to reflect backend state
     }
   };
 
@@ -50,10 +53,12 @@ const Bookings = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this booking?")) return;
     try {
-      await api.delete(`/bookings/${id}`); // ✅ Use api instance
+      await api.delete(`/bookings/${id}`);
       setBookings((prev) => prev.filter((booking) => booking.id !== id));
+      setError("");
     } catch (err) {
-      setError("Failed to delete booking");
+      const msg = err.response?.data?.error || "Failed to delete booking";
+      setError(msg);
       console.error(err);
       fetchBookings();
     }
@@ -198,13 +203,13 @@ const Bookings = () => {
                     </div>
                   </td>
                   <td>
-                    {booking.event_date 
-                      ? new Date(booking.event_date).toLocaleDateString() 
+                    {booking.event_date
+                      ? new Date(booking.event_date).toLocaleDateString()
                       : "N/A"}
                   </td>
                   <td>
-                    {booking.booking_date 
-                      ? new Date(booking.booking_date).toLocaleString() 
+                    {booking.booking_date
+                      ? new Date(booking.booking_date).toLocaleString()
                       : "N/A"}
                   </td>
                   <td>{booking.seats || 0}</td>
@@ -216,7 +221,12 @@ const Bookings = () => {
                       onChange={(e) => handleStatusChange(booking.id, e.target.value)}
                     >
                       <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
+                      <option
+                        value="confirmed"
+                        disabled={booking.booking_status === "pending" && booking.payment_status !== "success"}
+                      >
+                        Confirmed
+                      </option>
                       <option value="cancelled">Cancelled</option>
                     </select>
                   </td>
