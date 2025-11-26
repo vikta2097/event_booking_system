@@ -41,6 +41,9 @@ const Events = ({ currentUser }) => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryError, setCategoryError] = useState("");
 
+  // Filter for events: all | active | expired
+  const [filterStatus, setFilterStatus] = useState("all");
+
   useEffect(() => {
     if (!currentUser) return;
     fetchEvents();
@@ -72,14 +75,14 @@ const Events = ({ currentUser }) => {
     }
   };
 
-  // Fetch ticket types for a specific event
   const fetchTicketTypes = async (eventId) => {
     try {
       const token = localStorage.getItem("token");
       const res = await api.get(`/events/${eventId}/ticket-types`, { headers: { Authorization: `Bearer ${token}` } });
-      setTicketTypes(res.data || []);
+      setTicketTypes(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Failed to fetch ticket types", err);
+      setTicketTypes([]);
     }
   };
 
@@ -178,7 +181,7 @@ const Events = ({ currentUser }) => {
   };
 
   // =======================
-  // Category CRUD (unchanged)
+  // Category CRUD
   // =======================
   const handleCategoryAdd = async (e) => {
     e.preventDefault();
@@ -218,6 +221,12 @@ const Events = ({ currentUser }) => {
 
   if (!currentUser) return <p>Loading user...</p>;
 
+  const filteredEvents = events.filter((event) => {
+    if (filterStatus === "active") return event.status !== "expired";
+    if (filterStatus === "expired") return event.status === "expired";
+    return true; // all
+  });
+
   return (
     <div className="events-container">
       <div className="events-header">
@@ -237,6 +246,14 @@ const Events = ({ currentUser }) => {
         )}
       </div>
 
+      {/* Filter */}
+      <div className="filter-buttons">
+        <button onClick={() => setFilterStatus("all")} className={filterStatus === "all" ? "active" : ""}>All</button>
+        <button onClick={() => setFilterStatus("active")} className={filterStatus === "active" ? "active" : ""}>Active</button>
+        <button onClick={() => setFilterStatus("expired")} className={filterStatus === "expired" ? "active" : ""}>Expired</button>
+      </div>
+
+      {/* Category Card */}
       {showCategoryCard && currentUser?.role === "admin" && (
         <div className="category-card">
           <h4>{editingCategory ? "Edit Category" : "Add New Category"}</h4>
@@ -297,7 +314,7 @@ const Events = ({ currentUser }) => {
         <p className="loading">Loading events...</p>
       ) : error ? (
         <p className="error">{error}</p>
-      ) : events.length === 0 ? (
+      ) : filteredEvents.length === 0 ? (
         <p className="no-data">No events found.</p>
       ) : (
         <table className="events-table">
@@ -316,7 +333,7 @@ const Events = ({ currentUser }) => {
             </tr>
           </thead>
           <tbody>
-            {events.map((event) => (
+            {filteredEvents.map((event) => (
               <tr key={event.id}>
                 <td>{event.title}</td>
                 <td>{event.category_name || "-"}</td>
@@ -328,15 +345,19 @@ const Events = ({ currentUser }) => {
                 <td>KES {event.price}</td>
                 <td className={`status ${event.status}`}>{event.status}</td>
                 <td>
-                  <button className="edit-btn" onClick={() => openModal(event)}>Edit</button>
-                  <button className="delete-btn" onClick={() => handleDelete(event.id)}>Delete</button>
-                  {currentUser?.role === "admin" || currentUser?.id === event.created_by ? (
-                    <button className="add-btn" onClick={() => {
-                      setEditingEvent(event);
-                      setShowTicketModal(true);
-                      fetchTicketTypes(event.id);
-                    }}>Manage Tickets</button>
-                  ) : null}
+                  <button className="edit-btn" onClick={() => openModal(event)}>View</button>
+                  {event.status !== "expired" && (
+                    <>
+                      <button className="delete-btn" onClick={() => handleDelete(event.id)}>Delete</button>
+                      {(currentUser?.role === "admin" || currentUser?.id === event.created_by) && (
+                        <button className="add-btn" onClick={() => {
+                          setEditingEvent(event);
+                          setShowTicketModal(true);
+                          fetchTicketTypes(event.id);
+                        }}>Manage Tickets</button>
+                      )}
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -344,7 +365,7 @@ const Events = ({ currentUser }) => {
         </table>
       )}
 
-      {/* Event Modal (Add/Edit Event) */}
+      {/* Event Modal */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
