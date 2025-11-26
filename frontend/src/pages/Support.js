@@ -14,14 +14,11 @@ const Support = ({ currentUser }) => {
   const [replyMessage, setReplyMessage] = useState("");
   const [activeTab, setActiveTab] = useState("tickets"); // tickets | contacts
   const [showTicketModal, setShowTicketModal] = useState(false);
-  const [userLoaded, setUserLoaded] = useState(false);
 
   useEffect(() => {
-    if (currentUser) {
-      setUserLoaded(true);
-      fetchTickets();
-      if (currentUser.role === "admin") fetchContacts();
-    }
+    if (!currentUser) return;
+    fetchTickets();
+    if (currentUser.role === "admin") fetchContacts();
   }, [currentUser]);
 
   // ======================
@@ -175,7 +172,7 @@ const Support = ({ currentUser }) => {
     return <span className={`priority-badge ${classes[priority]}`}>{priority}</span>;
   };
 
-  if (!userLoaded) return <p>Loading user...</p>;
+  if (!currentUser) return <p>Loading user...</p>;
 
   return (
     <div className="support-container">

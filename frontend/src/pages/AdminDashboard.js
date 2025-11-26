@@ -43,7 +43,7 @@ const AdminDashboard = ({ onLogout }) => {
             <Route path="payments" element={<Payments />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings currentUser={currentUser} />} />
-            <Route path="support" element={<Support />} />
+            <Route path="support" element={<Support currentUser={currentUser} />} />
             <Route path="scan" element={<TicketScanner />} /> 
             <Route path="*" element={<Navigate to="." replace />} />
           </Routes>
