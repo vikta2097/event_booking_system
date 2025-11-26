@@ -6,6 +6,8 @@ const Settings = () => {
   const userId = parseInt(localStorage.getItem("userId"));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
   const [profile, setProfile] = useState({
     fullname: "",
     email: "",
@@ -35,118 +37,45 @@ const Settings = () => {
   });
   const [twoFA, setTwoFA] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
-  const [saving, setSaving] = useState(false);
 
   // Load user settings
-  const fetchSettings = async () => {
-    try {
-      const res = await api.get(`/settings/user/${userId}`);
-      const data = res.data;
-      setProfile(data.profile);
-      setAppearance(data.appearance);
-      setPrivacy(data.privacy);
-      setNotifications(data.notifications);
-      setTwoFA(data.security.twoFA);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load settings");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get(`/settings/user/${userId}`);
+        const data = res.data;
+        setProfile(data.profile);
+        setAppearance(data.appearance);
+        setPrivacy(data.privacy);
+        setNotifications(data.notifications);
+        setTwoFA(data.security.twoFA);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load settings");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchSettings();
-  }, []);
+  }, [userId]);
 
-  // Handle input changes
-  const handleProfileChange = (e) =>
-    setProfile({ ...profile, [e.target.name]: e.target.value });
-  const handleAppearanceChange = (e) =>
-    setAppearance({ ...appearance, [e.target.name]: e.target.value });
-  const handlePrivacyChange = (e) =>
-    setPrivacy({ ...privacy, [e.target.name]: e.target.checked });
-  const handleNotificationsChange = (e) =>
-    setNotifications({ ...notifications, [e.target.name]: e.target.checked });
-  const handlePasswordChange = (e) =>
-    setPassword({ ...password, [e.target.name]: e.target.value });
-
-  // Save helpers
-  const saveProfile = async () => {
-    setSaving(true);
-    try {
-      await api.put(`/settings/profile/${userId}`, profile);
-      alert("Profile updated successfully");
-    } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "Failed to update profile");
-    } finally {
-      setSaving(false);
-    }
+  // Handlers
+  const handleChange = (setter) => (e) => {
+    const { name, type, checked, value } = e.target;
+    setter((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const saveAppearance = async () => {
+  // Save functions
+  const saveSettings = async (url, data, successMsg) => {
     setSaving(true);
     try {
-      await api.put(`/settings/appearance/${userId}`, appearance);
-      alert("Appearance updated successfully");
+      await api.put(url, data);
+      alert(successMsg);
     } catch (err) {
       console.error(err);
-      alert("Failed to update appearance");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const savePrivacy = async () => {
-    setSaving(true);
-    try {
-      await api.put(`/settings/privacy/${userId}`, privacy);
-      alert("Privacy settings updated");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update privacy");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveNotifications = async () => {
-    setSaving(true);
-    try {
-      await api.put(`/settings/notifications/${userId}`, notifications);
-      alert("Notification preferences updated");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update notifications");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const savePassword = async () => {
-    setSaving(true);
-    try {
-      await api.put(`/settings/password/${userId}`, password);
-      alert("Password changed successfully");
-      setPassword({ oldPassword: "", newPassword: "" });
-    } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "Failed to change password");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleTwoFA = async () => {
-    setSaving(true);
-    try {
-      await api.put(`/settings/2fa/${userId}`, { enabled: !twoFA });
-      setTwoFA(!twoFA);
-      alert(twoFA ? "2FA disabled" : "2FA enabled");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to toggle 2FA");
+      alert(err.response?.data?.message || "Failed to save settings");
     } finally {
       setSaving(false);
     }
@@ -161,12 +90,26 @@ const Settings = () => {
       const res = await api.post(`/settings/avatar/${userId}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setProfile({ ...profile, avatar: res.data.filename });
+      setProfile((prev) => ({ ...prev, avatar: res.data.filename }));
       alert("Avatar uploaded successfully");
       setAvatarFile(null);
     } catch (err) {
       console.error(err);
       alert("Failed to upload avatar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleTwoFA = async () => {
+    setSaving(true);
+    try {
+      await api.put(`/settings/2fa/${userId}`, { enabled: !twoFA });
+      setTwoFA(!twoFA);
+      alert(!twoFA ? "2FA enabled" : "2FA disabled");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to toggle 2FA");
     } finally {
       setSaving(false);
     }
@@ -182,27 +125,9 @@ const Settings = () => {
       {/* PROFILE */}
       <section>
         <h3>Profile</h3>
-        <input
-          type="text"
-          name="fullname"
-          placeholder="Full Name"
-          value={profile.fullname}
-          onChange={handleProfileChange}
-        />
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={profile.email}
-          onChange={handleProfileChange}
-        />
-        <input
-          type="text"
-          name="phone"
-          placeholder="Phone"
-          value={profile.phone}
-          onChange={handleProfileChange}
-        />
+        <input type="text" name="fullname" placeholder="Full Name" value={profile.fullname} onChange={handleChange(setProfile)} />
+        <input type="email" name="email" placeholder="Email" value={profile.email} onChange={handleChange(setProfile)} />
+        <input type="text" name="phone" placeholder="Phone" value={profile.phone} onChange={handleChange(setProfile)} />
         <div>
           {profile.avatar && (
             <img
@@ -212,15 +137,10 @@ const Settings = () => {
               height={100}
             />
           )}
-          <input
-            type="file"
-            onChange={(e) => setAvatarFile(e.target.files[0])}
-          />
-          <button onClick={uploadAvatar} disabled={saving}>
-            Upload Avatar
-          </button>
+          <input type="file" onChange={(e) => setAvatarFile(e.target.files[0])} />
+          <button onClick={uploadAvatar} disabled={saving}>Upload Avatar</button>
         </div>
-        <button onClick={saveProfile} disabled={saving}>
+        <button onClick={() => saveSettings(`/settings/profile/${userId}`, profile, "Profile updated successfully")} disabled={saving}>
           Save Profile
         </button>
       </section>
@@ -228,37 +148,15 @@ const Settings = () => {
       {/* APPEARANCE */}
       <section>
         <h3>Appearance</h3>
-        <select
-          name="theme"
-          value={appearance.theme}
-          onChange={handleAppearanceChange}
-        >
+        <select name="theme" value={appearance.theme} onChange={handleChange(setAppearance)}>
           <option value="light">Light</option>
           <option value="dark">Dark</option>
           <option value="system">System</option>
         </select>
-        <input
-          type="text"
-          name="language"
-          value={appearance.language}
-          onChange={handleAppearanceChange}
-          placeholder="Language"
-        />
-        <input
-          type="text"
-          name="timezone"
-          value={appearance.timezone}
-          onChange={handleAppearanceChange}
-          placeholder="Timezone"
-        />
-        <input
-          type="text"
-          name="dateFormat"
-          value={appearance.dateFormat}
-          onChange={handleAppearanceChange}
-          placeholder="Date Format"
-        />
-        <button onClick={saveAppearance} disabled={saving}>
+        <input type="text" name="language" placeholder="Language" value={appearance.language} onChange={handleChange(setAppearance)} />
+        <input type="text" name="timezone" placeholder="Timezone" value={appearance.timezone} onChange={handleChange(setAppearance)} />
+        <input type="text" name="dateFormat" placeholder="Date Format" value={appearance.dateFormat} onChange={handleChange(setAppearance)} />
+        <button onClick={() => saveSettings(`/settings/appearance/${userId}`, appearance, "Appearance updated successfully")} disabled={saving}>
           Save Appearance
         </button>
       </section>
@@ -266,34 +164,12 @@ const Settings = () => {
       {/* PRIVACY */}
       <section>
         <h3>Privacy</h3>
-        <label>
-          <input
-            type="checkbox"
-            name="showOnline"
-            checked={privacy.showOnline}
-            onChange={handlePrivacyChange}
-          />{" "}
-          Show Online
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="showLastLogin"
-            checked={privacy.showLastLogin}
-            onChange={handlePrivacyChange}
-          />{" "}
-          Show Last Login
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="analytics"
-            checked={privacy.analytics}
-            onChange={handlePrivacyChange}
-          />{" "}
-          Analytics
-        </label>
-        <button onClick={savePrivacy} disabled={saving}>
+        {Object.keys(privacy).map((key) => (
+          <label key={key}>
+            <input type="checkbox" name={key} checked={privacy[key]} onChange={handleChange(setPrivacy)} /> {key}
+          </label>
+        ))}
+        <button onClick={() => saveSettings(`/settings/privacy/${userId}`, privacy, "Privacy settings updated")} disabled={saving}>
           Save Privacy
         </button>
       </section>
@@ -301,43 +177,12 @@ const Settings = () => {
       {/* NOTIFICATIONS */}
       <section>
         <h3>Notifications</h3>
-        <label>
-          <input
-            type="checkbox"
-            name="emailNotifications"
-            checked={notifications.emailNotifications}
-            onChange={handleNotificationsChange}
-          />{" "}
-          Email Notifications
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="pushNotifications"
-            checked={notifications.pushNotifications}
-            onChange={handleNotificationsChange}
-          />{" "}
-          Push Notifications
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="taskReminders"
-            checked={notifications.taskReminders}
-            onChange={handleNotificationsChange}
-          />{" "}
-          Task Reminders
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="weeklyReports"
-            checked={notifications.weeklyReports}
-            onChange={handleNotificationsChange}
-          />{" "}
-          Weekly Reports
-        </label>
-        <button onClick={saveNotifications} disabled={saving}>
+        {Object.keys(notifications).map((key) => (
+          <label key={key}>
+            <input type="checkbox" name={key} checked={notifications[key]} onChange={handleChange(setNotifications)} /> {key}
+          </label>
+        ))}
+        <button onClick={() => saveSettings(`/settings/notifications/${userId}`, notifications, "Notifications updated")} disabled={saving}>
           Save Notifications
         </button>
       </section>
@@ -345,21 +190,9 @@ const Settings = () => {
       {/* PASSWORD */}
       <section>
         <h3>Change Password</h3>
-        <input
-          type="password"
-          name="oldPassword"
-          placeholder="Current Password"
-          value={password.oldPassword}
-          onChange={handlePasswordChange}
-        />
-        <input
-          type="password"
-          name="newPassword"
-          placeholder="New Password"
-          value={password.newPassword}
-          onChange={handlePasswordChange}
-        />
-        <button onClick={savePassword} disabled={saving}>
+        <input type="password" name="oldPassword" placeholder="Current Password" value={password.oldPassword} onChange={handleChange(setPassword)} />
+        <input type="password" name="newPassword" placeholder="New Password" value={password.newPassword} onChange={handleChange(setPassword)} />
+        <button onClick={() => saveSettings(`/settings/password/${userId}`, password, "Password changed successfully")} disabled={saving}>
           Change Password
         </button>
       </section>
