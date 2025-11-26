@@ -22,7 +22,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, onLogout }) => {
     { name: "Users", icon: <Users size={18} />, path: "/admin/dashboard/users" },
     { name: "Bookings", icon: <ClipboardList size={18} />, path: "/admin/dashboard/bookings" },
     { name: "Payments", icon: <CreditCard size={18} />, path: "/admin/dashboard/payments" },
-    { name: "Scan Tickets", icon: <ScanLine size={18} />, path: "/admin/dashboard/scan" }, // Add this
+    { name: "Scan Tickets", icon: <ScanLine size={18} />, path: "/admin/dashboard/scan" }, 
     { name: "Reports", icon: <BarChart3 size={18} />, path: "/admin/dashboard/reports" },
     { name: "Settings", icon: <Settings size={18} />, path: "/admin/dashboard/settings" },
     { name: "Support", icon: <MessageCircle size={18} />, path: "/admin/dashboard/support" },

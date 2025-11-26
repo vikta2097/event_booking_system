@@ -21,6 +21,7 @@ const reportsRouter = require("./routes/reports");
 const supportRoutes = require("./routes/support");
 const settingsRoutes = require("./routes/settings");
 const ticketsRouter = require("./routes/tickets"); // unified tickets router
+const contactRoutes = require('./routes/contact');
 
 const app = express();
 const server = http.createServer(app);
@@ -62,14 +63,15 @@ app.use("/api/bookings", bookingsRouter);
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventsRouter);
 app.use("/api/categories", categoriesRouter);
-app.use("/api/ticket-types", ticketTypesRouter);  // clear path
+app.use("/api/ticket-types", ticketTypesRouter); 
 app.use("/api/dashboard", dashboardRouter);
-app.use("/api/payments", paymentsRouter);          // normal payment endpoints
-app.use("/api/payments/mpesa-callback", mpesaCallbackRoute); // M-Pesa callback
+app.use("/api/payments", paymentsRouter);         
+app.use("/api/payments/mpesa-callback", mpesaCallbackRoute); 
 app.use("/api/reports", reportsRouter);
 app.use("/api/support", supportRoutes);
 app.use("/api/settings", settingsRoutes);
-app.use("/api/tickets", ticketsRouter);           // unified tickets router
+app.use("/api/tickets", ticketsRouter);           
+app.use("/api/contact", contactRoutes);
 
 // =======================
 // ✅ Token validation

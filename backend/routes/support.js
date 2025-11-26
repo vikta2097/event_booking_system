@@ -218,4 +218,107 @@ router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// ======================
+// PUBLIC: Submit Contact Us message
+// ======================
+router.post("/contact", async (req, res) => {
+  try {
+    const { name, email, subject, message, priority } = req.body;
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Invalid email address" });
+    }
+
+    const result = await db.query(
+      `INSERT INTO contact_messages 
+       (name, email, subject, message, priority, status) 
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+      [name, email, subject, message, priority || "low", "new"]
+    );
+
+    res.status(201).json({
+      message: "Message sent successfully! We'll get back to you soon.",
+      contact_id: result.rows[0].id
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// ======================
+// ADMIN: Get all Contact Us messages
+// ======================
+router.get("/contact", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { status, priority } = req.query;
+    let query = "SELECT * FROM contact_messages WHERE 1=1";
+    const values = [];
+    let paramCount = 1;
+
+    if (status) {
+      query += ` AND status = $${paramCount}`;
+      values.push(status);
+      paramCount++;
+    }
+    if (priority) {
+      query += ` AND priority = $${paramCount}`;
+      values.push(priority);
+      paramCount++;
+    }
+    query += " ORDER BY created_at DESC";
+
+    const result = await db.query(query, values);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
+});
+
+// ======================
+// ADMIN: Update Contact Us message status
+// ======================
+router.put("/contact/:id/status", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const validStatus = ["new", "in_progress", "resolved", "closed"];
+    if (!status || !validStatus.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const result = await db.query(
+      "UPDATE contact_messages SET status = $1, updated_at = NOW() WHERE id = $2",
+      [status, id]
+    );
+
+    if (result.rowCount === 0) return res.status(404).json({ error: "Message not found" });
+    res.json({ message: "Status updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update status" });
+  }
+});
+
+// ======================
+// ADMIN: Delete Contact Us message
+// ======================
+router.delete("/contact/:id", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query("DELETE FROM contact_messages WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Message not found" });
+    res.json({ message: "Message deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete message" });
+  }
+});
+
+
 module.exports = router;

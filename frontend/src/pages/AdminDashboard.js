@@ -10,7 +10,7 @@ import Payments from "./Payments";
 import Reports from "./Reports";
 import Settings from "./Settings";
 import Support from "./Support";
-import TicketScanner from "./TicketScanner"; // Add this import
+import TicketScanner from "./TicketScanner"; 
 
 const AdminDashboard = ({ onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
