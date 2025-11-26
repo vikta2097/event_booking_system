@@ -8,6 +8,7 @@ import BookingForm from "./BookingForm";
 import PaymentPage from "./PaymentPage";
 import BookingSuccess from "./BookingSuccess"; 
 import UserBookings from "./UserBookings";
+import ContactUs from "./ContactUs";   // <-- ADD THIS
 
 // Auth components
 import LoginForm from "../components/LoginForm";
@@ -19,9 +20,16 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   return (
     <Routes>
       {/* Public home */}
-      <Route path="/" element={<UserDashboardHome user={user} onLogout={onLogout} />} />
+      <Route 
+        path="/" 
+        element={<UserDashboardHome user={user} onLogout={onLogout} />} 
+      />
 
-
+      {/* Contact Page (Public) */}
+      <Route 
+        path="/contact" 
+        element={<ContactUs />} 
+      />
 
       {/* Login/Register */}
       <Route
@@ -34,6 +42,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           )
         }
       />
+
       <Route
         path="/register"
         element={
@@ -46,7 +55,10 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
       />
 
       {/* Event details - public */}
-      <Route path="/events/:id" element={<EventDetails user={user} />} />
+      <Route 
+        path="/events/:id" 
+        element={<EventDetails user={user} />} 
+      />
 
       {/* Protected routes */}
       <Route
@@ -63,6 +75,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           )
         }
       />
+
       <Route
         path="/payment/:bookingId"
         element={
@@ -77,6 +90,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           )
         }
       />
+
       <Route
         path="/booking-success/:bookingId"
         element={
@@ -91,6 +105,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           )
         }
       />
+
       <Route
         path="/my-bookings"
         element={

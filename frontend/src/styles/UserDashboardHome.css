@@ -93,3 +93,40 @@
 .register-link:hover {
   color: #005fcc;
 }
+
+.dashboard-footer {
+  margin-top: 40px;
+  padding: 20px 0;
+  text-align: center;
+  border-top: 1px solid #ddd;
+  color: #555;
+  background: #fafafa;
+}
+
+.footer-links {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.footer-link {
+  cursor: pointer;
+  color: #0066cc;
+  font-weight: 500;
+  transition: 0.2s ease;
+}
+
+.footer-link:hover {
+  color: #004a99;
+  text-decoration: underline;
+}
+
+.logout-link {
+  color: #d9534f;
+}
+
+.logout-link:hover {
+  color: #b52b27;
+}

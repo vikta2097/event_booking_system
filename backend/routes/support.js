@@ -8,20 +8,20 @@ const { verifyToken, verifyAdmin } = require("../auth");
 // ======================
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const { subject, description, priority } = req.body;
+    const { subject, message, priority } = req.body;
     const user_id = req.user.id;
 
-    if (!subject || !description) {
-      return res.status(400).json({ error: "subject and description are required" });
+    if (!subject || !message) {
+      return res.status(400).json({ error: "Subject and message are required" });
     }
 
     const result = await db.query(
-      "INSERT INTO support_tickets (user_id, subject, description, priority) VALUES ($1, $2, $3, $4) RETURNING id",
-      [user_id, subject, description, priority || "low"]
+      "INSERT INTO support_tickets (user_id, subject, message, priority, status) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [user_id, subject, message, priority || "low", "open"]
     );
 
     res.status(201).json({
-      message: "Ticket created",
+      message: "Ticket submitted successfully",
       ticket_id: result.rows[0].id,
     });
   } catch (err) {
@@ -102,12 +102,10 @@ router.get("/:id", verifyToken, async (req, res) => {
 
     const ticket = ticketResult.rows[0];
 
-    // Check access for regular users
     if (!isAdmin && ticket.user_id !== userId) {
       return res.status(403).json({ error: "Forbidden. Access denied." });
     }
 
-    // Fetch replies
     const repliesResult = await db.query(
       `SELECT r.*, u.fullname AS sender_name
        FROM support_replies r
@@ -136,10 +134,9 @@ router.post("/:id/reply", verifyToken, async (req, res) => {
     const { message } = req.body;
 
     if (!message) {
-      return res.status(400).json({ error: "message required" });
+      return res.status(400).json({ error: "Message is required" });
     }
 
-    // Check ticket exists
     const ticketResult = await db.query(
       "SELECT * FROM support_tickets WHERE id = $1", 
       [ticketId]
@@ -149,7 +146,6 @@ router.post("/:id/reply", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Ticket not found" });
     }
 
-    // Regular users can only reply to their own ticket
     if (sender_role !== "admin" && ticketResult.rows[0].user_id !== sender_id) {
       return res.status(403).json({ error: "Forbidden. Cannot reply to others' tickets." });
     }
@@ -159,7 +155,7 @@ router.post("/:id/reply", verifyToken, async (req, res) => {
       [ticketId, sender_id, sender_role, message]
     );
 
-    res.status(201).json({ message: "Reply added" });
+    res.status(201).json({ message: "Reply added successfully" });
   } catch (err) {
     console.error("Error adding reply:", err);
     res.status(500).json({ error: "Failed to add reply" });
@@ -175,7 +171,7 @@ router.put("/:id/status", verifyToken, verifyAdmin, async (req, res) => {
     const { status } = req.body;
 
     if (!status) {
-      return res.status(400).json({ error: "Status required" });
+      return res.status(400).json({ error: "Status is required" });
     }
 
     const validStatus = ["open", "in_progress", "resolved", "closed"];
@@ -184,7 +180,7 @@ router.put("/:id/status", verifyToken, verifyAdmin, async (req, res) => {
     }
 
     const result = await db.query(
-      "UPDATE support_tickets SET status = $1 WHERE id = $2",
+      "UPDATE support_tickets SET status = $1, updated_at = NOW() WHERE id = $2",
       [status, ticketId]
     );
 
@@ -192,7 +188,7 @@ router.put("/:id/status", verifyToken, verifyAdmin, async (req, res) => {
       return res.status(404).json({ error: "Ticket not found" });
     }
 
-    res.json({ message: "Status updated" });
+    res.json({ message: "Status updated successfully" });
   } catch (err) {
     console.error("Error updating status:", err);
     res.status(500).json({ error: "Failed to update status" });
@@ -215,7 +211,7 @@ router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
       return res.status(404).json({ error: "Ticket not found" });
     }
 
-    res.json({ message: "Ticket deleted" });
+    res.json({ message: "Ticket deleted successfully" });
   } catch (err) {
     console.error("Error deleting ticket:", err);
     res.status(500).json({ error: "Failed to delete ticket" });

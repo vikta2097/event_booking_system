@@ -12,7 +12,6 @@ const UserDashboardHome = ({ user, onLogout }) => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // Fetch events from backend
   const fetchEvents = async () => {
     setLoading(true);
     setError("");
@@ -32,7 +31,6 @@ const UserDashboardHome = ({ user, onLogout }) => {
     fetchEvents();
   }, []);
 
-  // Filter events locally
   const handleFilter = (filters) => {
     let filtered = [...events];
 
@@ -68,7 +66,6 @@ const UserDashboardHome = ({ user, onLogout }) => {
     setFilteredEvents(filtered);
   };
 
-  // Get user's display name
   const getUserDisplayName = () => {
     if (!user) return null;
     return (
@@ -85,14 +82,16 @@ const UserDashboardHome = ({ user, onLogout }) => {
 
   return (
     <div className="dashboard-home">
-      {/* Fixed header with welcome + buttons */}
+
       {user && (
         <div className="dashboard-header">
           <h2 className="welcome-title">Welcome back, {displayName}!</h2>
+
           <div className="dashboard-actions">
             <button onClick={() => navigate("/dashboard/my-bookings")}>
               🎟️ My Bookings
             </button>
+
             <button onClick={onLogout} className="logout-btn">
               🚪 Logout
             </button>
@@ -100,7 +99,6 @@ const UserDashboardHome = ({ user, onLogout }) => {
         </div>
       )}
 
-      {/* Prompt for guests */}
       {!user && (
         <div className="guest-notice">
           <p className="guest-note">
@@ -137,6 +135,38 @@ const UserDashboardHome = ({ user, onLogout }) => {
           <EventCard key={event.id} event={event} user={user} />
         ))}
       </div>
+
+      {/* ------------------------- FOOTER ADDED HERE ------------------------- */}
+      <footer className="dashboard-footer">
+        <div className="footer-links">
+          <span onClick={() => navigate("/dashboard")} className="footer-link">
+            Home
+          </span>
+
+          <span onClick={() => navigate("/dashboard/contact")} className="footer-link">
+            Contact Us
+          </span>
+
+          {user && (
+            <span
+              onClick={() => navigate("/dashboard/my-bookings")}
+              className="footer-link"
+            >
+              My Bookings
+            </span>
+          )}
+
+          {user && (
+            <span onClick={onLogout} className="footer-link logout-link">
+              Logout
+            </span>
+          )}
+        </div>
+
+        <p className="footer-copy">© {new Date().getFullYear()} Event Booking System</p>
+      </footer>
+      {/* --------------------------------------------------------------------- */}
+
     </div>
   );
 };

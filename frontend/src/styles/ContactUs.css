@@ -1,0 +1,272 @@
+/* Contact Us Page Container */
+.contact-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.contact-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+/* Contact Header */
+.contact-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-align: center;
+  padding: 50px 20px;
+}
+
+.contact-header h1 {
+  margin: 0 0 15px 0;
+  font-size: 42px;
+  font-weight: 700;
+}
+
+.contact-header p {
+  margin: 0;
+  font-size: 18px;
+  opacity: 0.95;
+}
+
+/* Contact Body - Two Column Layout */
+.contact-body {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 0;
+}
+
+/* Contact Info Section */
+.contact-info {
+  background: #f8f9fa;
+  padding: 40px 30px;
+  border-right: 1px solid #e9ecef;
+}
+
+.contact-info h3 {
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 30px;
+  gap: 15px;
+}
+
+.info-item i {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.info-item i::before {
+  content: "📧";
+  font-size: 20px;
+}
+
+.info-item:nth-child(2) i::before {
+  content: "📞";
+}
+
+.info-item:nth-child(3) i::before {
+  content: "📍";
+}
+
+.info-item:nth-child(4) i::before {
+  content: "🕐";
+}
+
+.info-item div h4 {
+  margin: 0 0 5px 0;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.info-item div p {
+  margin: 0;
+  color: #6c757d;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Contact Form Section */
+.contact-form-wrapper {
+  padding: 40px;
+}
+
+.contact-form-wrapper h3 {
+  color: #333;
+  margin-bottom: 25px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Form Styles */
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  color: #495057;
+  font-weight: 500;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 12px 15px;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 150px;
+  line-height: 1.6;
+}
+
+.form-group select {
+  cursor: pointer;
+  background-color: white;
+}
+
+/* Submit Button */
+.submit-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.submit-btn:active {
+  transform: translateY(0);
+}
+
+.submit-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Responsive Design */
+@media (max-width: 968px) {
+  .contact-body {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-info {
+    border-right: none;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .contact-header h1 {
+    font-size: 32px;
+  }
+
+  .contact-header p {
+    font-size: 16px;
+  }
+
+  .contact-form-wrapper,
+  .contact-info {
+    padding: 30px 25px;
+  }
+}
+
+@media (max-width: 576px) {
+  .contact-container {
+    padding: 20px 10px;
+  }
+
+  .contact-header {
+    padding: 35px 20px;
+  }
+
+  .contact-header h1 {
+    font-size: 28px;
+  }
+
+  .contact-form-wrapper,
+  .contact-info {
+    padding: 25px 20px;
+  }
+
+  .info-item {
+    margin-bottom: 25px;
+  }
+
+  .submit-btn {
+    padding: 12px 25px;
+    font-size: 15px;
+  }
+}
+
+/* Animation for form submission */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.contact-form {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Toast notification positioning (works with react-toastify) */
+.Toastify__toast-container {
+  z-index: 9999;
+}
