@@ -216,6 +216,90 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
 
 
 // ======================
+// CREATE new booking
+// ======================
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const { event_id, tickets } = req.body; 
+    const userId = req.user.id;
+
+    if (!event_id || !tickets || !Array.isArray(tickets) || tickets.length === 0) {
+      return res.status(400).json({ error: "event_id and tickets[] are required" });
+    }
+
+    // Fetch event
+    const eventResult = await db.query(
+      "SELECT id, price FROM events WHERE id = $1",
+      [event_id]
+    );
+
+    if (eventResult.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    let totalAmount = 0;
+
+    // Validate ticket types
+    for (const t of tickets) {
+      const ticketType = await db.query(
+        "SELECT id, price, quantity_available, quantity_sold FROM ticket_types WHERE id = $1 AND event_id = $2",
+        [t.ticket_type_id, event_id]
+      );
+
+      if (ticketType.rows.length === 0) {
+        return res.status(400).json({ error: "Invalid ticket type for this event" });
+      }
+
+      if (ticketType.rows[0].quantity_sold + t.quantity > ticketType.rows[0].quantity_available) {
+        return res.status(400).json({ error: "Not enough tickets available" });
+      }
+
+      totalAmount += ticketType.rows[0].price * t.quantity;
+    }
+
+    // Create booking
+    const booking = await db.query(
+      `INSERT INTO bookings (user_id, event_id, total_amount, status)
+       VALUES ($1, $2, $3, 'pending')
+       RETURNING id`,
+      [userId, event_id, totalAmount]
+    );
+
+    const bookingId = booking.rows[0].id;
+
+    // Insert booked tickets
+    for (const t of tickets) {
+      await db.query(
+        `INSERT INTO booking_tickets (booking_id, ticket_type_id, quantity, price)
+         VALUES ($1, $2, $3, 
+         (SELECT price FROM ticket_types WHERE id = $2))`,
+        [bookingId, t.ticket_type_id, t.quantity]
+      );
+
+      // Update ticket usage
+      await db.query(
+        `UPDATE ticket_types 
+         SET quantity_sold = quantity_sold + $1 
+         WHERE id = $2`,
+        [t.quantity, t.ticket_type_id]
+      );
+    }
+
+    res.status(201).json({
+      message: "Booking created successfully",
+      booking_id: bookingId,
+      total_amount: totalAmount,
+      status: "pending"
+    });
+
+  } catch (error) {
+    console.error("Error creating booking:", error);
+    res.status(500).json({ error: "Failed to create booking" });
+  }
+});
+
+
+// ======================
 // DELETE booking (Admin only)
 // ======================
 router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
