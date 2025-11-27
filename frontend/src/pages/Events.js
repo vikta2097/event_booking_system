@@ -46,6 +46,45 @@ const Events = ({ currentUser }) => {
     return "upcoming";
   };
 
+// Ticket form change
+const handleTicketChange = (e) => {
+  const { name, value } = e.target;
+  setTicketForm({ ...ticketForm, [name]: value });
+};
+
+// Submit ticket (add or edit)
+const handleTicketSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const payload = { ...ticketForm, price: Number(ticketForm.price), quantity_available: Number(ticketForm.quantity_available) };
+
+    if (editingTicket) {
+      await api.put(`/ticket-types/${editingTicket.id}`, payload, { headers: getAuthHeaders() });
+    } else {
+      await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: getAuthHeaders() });
+    }
+
+    fetchTicketTypes(editingEvent.id); // refresh ticket list
+    setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
+    setEditingTicket(null);
+  } catch (err) {
+    console.error("Ticket save failed", err);
+  }
+  
+};
+
+// Delete ticket
+const handleTicketDelete = async (ticketId) => {
+  if (!window.confirm("Are you sure you want to delete this ticket?")) return;
+  try {
+    await api.delete(`/ticket-types/${ticketId}`, { headers: getAuthHeaders() });
+    fetchTicketTypes(editingEvent.id); // refresh ticket list
+  } catch (err) {
+    console.error("Ticket delete failed", err);
+  }
+};
+
+
   // =======================
   // FETCH CATEGORIES
   // =======================
