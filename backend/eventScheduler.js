@@ -1,34 +1,47 @@
 const cron = require("node-cron");
-const db = require("./db"); // Your MySQL/Postgres/Mongo connection
+const db = require("./db");
 
-// Run every minute (for real deployment, you can change frequency)
+// Runs every minute
 cron.schedule("* * * * *", async () => {
   console.log(`[${new Date().toISOString()}] Running event status updater...`);
 
   try {
-    // Update expired events
+    // Expired events
     const expiredResult = await db.query(
-      `UPDATE events 
-       SET status = 'expired' 
-       WHERE end_date < NOW() AND status != 'expired'`
+      `UPDATE events
+       SET status = 'expired'
+       WHERE 
+         (event_date < CURRENT_DATE)
+         OR (event_date = CURRENT_DATE AND end_time < CURRENT_TIME)
+         AND status != 'expired'`
     );
-    console.log(`Expired events updated: ${expiredResult.affectedRows || 0}`);
 
-    // Update ongoing events
+    console.log(`Expired events updated: ${expiredResult.rowCount}`);
+
+    // Ongoing events
     const ongoingResult = await db.query(
-      `UPDATE events 
-       SET status = 'ongoing' 
-       WHERE start_date <= NOW() AND end_date >= NOW() AND status != 'ongoing'`
+      `UPDATE events
+       SET status = 'ongoing'
+       WHERE 
+         event_date = CURRENT_DATE
+         AND start_time <= CURRENT_TIME
+         AND end_time >= CURRENT_TIME
+         AND status != 'ongoing'`
     );
-    console.log(`Ongoing events updated: ${ongoingResult.affectedRows || 0}`);
 
-    // Update upcoming events (optional if you allow manual changes)
+    console.log(`Ongoing events updated: ${ongoingResult.rowCount}`);
+
+    // Upcoming events
     const upcomingResult = await db.query(
-      `UPDATE events 
-       SET status = 'upcoming' 
-       WHERE start_date > NOW() AND status != 'upcoming'`
+      `UPDATE events
+       SET status = 'upcoming'
+       WHERE 
+         (event_date > CURRENT_DATE)
+         OR (event_date = CURRENT_DATE AND start_time > CURRENT_TIME)
+         AND status != 'upcoming'`
     );
-    console.log(`Upcoming events updated: ${upcomingResult.affectedRows || 0}`);
+
+    console.log(`Upcoming events updated: ${upcomingResult.rowCount}`);
 
   } catch (err) {
     console.error("Error updating event statuses:", err);
