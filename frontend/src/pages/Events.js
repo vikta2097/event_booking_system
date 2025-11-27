@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import api from "../api"; // centralized axios instance
 import "../styles/Events.css";
 
@@ -19,7 +19,7 @@ const Events = ({ currentUser }) => {
   const [editingTicket, setEditingTicket] = useState(null);
   const [ticketForm, setTicketForm] = useState({ name: "", description: "", price: "", quantity_available: "" });
   const [ticketTypes, setTicketTypes] = useState([]);
-  const [ticketLoading, setTicketLoading] = useState(false);
+  const [, setTicketLoading] = useState(false); // kept for future loading indicator
 
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -49,7 +49,7 @@ const Events = ({ currentUser }) => {
   // =======================
   // FETCH CATEGORIES
   // =======================
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const res = await api.get("/categories", { headers: getAuthHeaders() });
       setCategories(res.data || []);
@@ -58,62 +58,57 @@ const Events = ({ currentUser }) => {
       console.error("Failed to fetch categories", err);
       return [];
     }
-  };
+  }, []);
 
   // =======================
   // FETCH EVENTS
   // =======================
- const fetchEvents = async () => {
-  try {
-    setLoading(true);
+  const fetchEvents = useCallback(async () => {
+    try {
+      setLoading(true);
+      const categoriesData = categories.length ? categories : await fetchCategories();
+      const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
 
-    // Fetch categories if not already loaded
-    const categoriesData = categories.length ? categories : await fetchCategories();
-    const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+      const url = currentUser?.role === "admin" ? "/events/admin/all" : "/events";
+      const res = await api.get(url, { headers: getAuthHeaders() });
 
-    // Determine which endpoint to call based on user role
-    const url = currentUser?.role === "admin" ? "/events/admin/all" : "/events";
-    const res = await api.get(url, { headers: getAuthHeaders() });
+      const enhancedEvents = (res.data || []).map((ev) => ({
+        ...ev,
+        status: formatEventStatus(ev),
+        category_name: categoryMap[ev.category_id] || "-",
+      }));
 
-    // Backend returns nested ticket_types for ticket endpoint only, here we just map events
-    const enhancedEvents = (res.data || []).map((ev) => ({
-      ...ev,
-      status: formatEventStatus(ev),
-      category_name: categoryMap[ev.category_id] || "-",
-    }));
+      setEvents((prev) => {
+        const isSame =
+          prev.length === enhancedEvents.length &&
+          prev.every((p, i) => p.id === enhancedEvents[i].id && p.status === enhancedEvents[i].status);
+        return isSame ? prev : enhancedEvents;
+      });
 
-    // Avoid unnecessary state updates
-    setEvents((prev) => {
-      const isSame = prev.length === enhancedEvents.length &&
-        prev.every((p, i) => p.id === enhancedEvents[i].id && p.status === enhancedEvents[i].status);
-      return isSame ? prev : enhancedEvents;
-    });
-
-    setError("");
-  } catch (err) {
-    console.error("Error fetching events:", err);
-    setError("Failed to fetch events");
-  } finally {
-    setLoading(false);
-  }
-};
+      setError("");
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      setError("Failed to fetch events");
+    } finally {
+      setLoading(false);
+    }
+  }, [categories, currentUser, fetchCategories]);
 
   // =======================
   // FETCH TICKET TYPES
   // =======================
-  const fetchTicketTypes = async (eventId) => {
-  try {
-    setTicketLoading(true);
-    const res = await api.get(`/events/${eventId}/ticket-types`, { headers: getAuthHeaders() });
-    setTicketTypes(Array.isArray(res.data) ? res.data : []); // <- remove .ticket_types
-  } catch (err) {
-    console.error("Failed to fetch ticket types:", err);
-    setTicketTypes([]);
-  } finally {
-    setTicketLoading(false);
-  }
-};
-
+  const fetchTicketTypes = useCallback(async (eventId) => {
+    try {
+      setTicketLoading(true);
+      const res = await api.get(`/events/${eventId}/ticket-types`, { headers: getAuthHeaders() });
+      setTicketTypes(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Failed to fetch ticket types:", err);
+      setTicketTypes([]);
+    } finally {
+      setTicketLoading(false);
+    }
+  }, []);
 
   // =======================
   // INITIAL LOAD
@@ -125,7 +120,7 @@ const Events = ({ currentUser }) => {
       await fetchEvents();
     };
     loadData();
-  }, [currentUser]);
+  }, [currentUser, fetchCategories, fetchEvents]);
 
   // =======================
   // FORM HANDLERS
@@ -193,46 +188,6 @@ const Events = ({ currentUser }) => {
     } catch (err) {
       console.error(err);
       setError("Failed to delete event");
-    }
-  };
-
-  // =======================
-  // TICKET HANDLERS
-  // =======================
-  const handleTicketChange = (e) => setTicketForm({ ...ticketForm, [e.target.name]: e.target.value });
-
-  const handleTicketSubmit = async (e) => {
-    e.preventDefault();
-    if (!editingEvent) return;
-
-    try {
-      const payload = {
-        ...ticketForm,
-        price: Number(ticketForm.price) || 0,
-        quantity_available: Number(ticketForm.quantity_available) || 0,
-      };
-
-      if (editingTicket) {
-        await api.put(`/ticket-types/${editingTicket.id}`, payload, { headers: getAuthHeaders() });
-      } else {
-        await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: getAuthHeaders() });
-      }
-
-      await fetchTicketTypes(editingEvent.id);
-      setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
-      setEditingTicket(null);
-    } catch (err) {
-      console.error("Failed to save ticket type", err);
-    }
-  };
-
-  const handleTicketDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this ticket type?")) return;
-    try {
-      await api.delete(`/ticket-types/${id}`, { headers: getAuthHeaders() });
-      if (editingEvent) await fetchTicketTypes(editingEvent.id);
-    } catch (err) {
-      console.error("Failed to delete ticket type", err);
     }
   };
 
