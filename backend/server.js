@@ -22,6 +22,7 @@ const supportRoutes = require("./routes/support");
 const settingsRoutes = require("./routes/settings");
 const ticketsRouter = require("./routes/tickets"); // unified tickets router
 const contactRoutes = require('./routes/contact');
+const testRoutes = require("./routes/test");
 
 const app = express();
 const server = http.createServer(app);
@@ -74,6 +75,7 @@ app.use("/api/support", supportRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/tickets", ticketsRouter);           
 app.use("/api/contact", contactRoutes);
+app.use("/api", testRoutes);
 
 // =======================
 // ✅ Token validation
