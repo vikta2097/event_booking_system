@@ -177,6 +177,31 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
   }
 });
 
+// GET all tickets for an event
+router.get("/events/:eventId/tickets", verifyToken, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    const query = `
+      SELECT t.id, t.ticket_type_id, tt.name as ticket_name, t.booking_id,
+             b.user_id, u.name as buyer_name, t.status, t.qr_code, t.created_at
+      FROM tickets t
+      JOIN ticket_types tt ON t.ticket_type_id = tt.id
+      JOIN bookings b ON t.booking_id = b.id
+      JOIN users u ON b.user_id = u.id
+      WHERE tt.event_id = $1
+      ORDER BY t.created_at DESC
+    `;
+
+    const result = await db.query(query, [eventId]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching tickets:", err);
+    res.status(500).json({ error: "Failed to fetch tickets" });
+  }
+});
+
+
 // ======================
 // DELETE ticket type
 // ======================
