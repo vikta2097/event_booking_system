@@ -8,7 +8,7 @@ const PaymentPage = ({ user }) => {
   const navigate = useNavigate();
 
   const [booking, setBooking] = useState(null);
-  const [payment, setPayment] = useState(null);
+  const [, setPayment] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
