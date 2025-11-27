@@ -1,11 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
-import api from "../api"; // centralized axios instance
+import api from "../api";
 import "../styles/Events.css";
 
 const Events = ({ currentUser }) => {
-  // =======================
-  // STATE VARIABLES
-  // =======================
   const [events, setEvents] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,9 +14,14 @@ const Events = ({ currentUser }) => {
 
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [editingTicket, setEditingTicket] = useState(null);
-  const [ticketForm, setTicketForm] = useState({ name: "", description: "", price: "", quantity_available: "" });
+  const [ticketForm, setTicketForm] = useState({ 
+    name: "", 
+    description: "", 
+    price: "", 
+    quantity_available: "" 
+  });
   const [ticketTypes, setTicketTypes] = useState([]);
-  const [, setTicketLoading] = useState(false); // kept for future loading indicator
+  const [, setTicketLoading] = useState(false);
 
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -46,48 +48,11 @@ const Events = ({ currentUser }) => {
     return "upcoming";
   };
 
-// Ticket form change
-const handleTicketChange = (e) => {
-  const { name, value } = e.target;
-  setTicketForm({ ...ticketForm, [name]: value });
-};
-
-// Submit ticket (add or edit)
-const handleTicketSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    const payload = { ...ticketForm, price: Number(ticketForm.price), quantity_available: Number(ticketForm.quantity_available) };
-
-    if (editingTicket) {
-      await api.put(`/ticket-types/${editingTicket.id}`, payload, { headers: getAuthHeaders() });
-    } else {
-      await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: getAuthHeaders() });
-    }
-
-    fetchTicketTypes(editingEvent.id); // refresh ticket list
-    setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
-    setEditingTicket(null);
-  } catch (err) {
-    console.error("Ticket save failed", err);
-  }
+  // =======================
+  // FETCH FUNCTIONS (useCallback with proper dependencies)
+  // =======================
   
-};
-
-// Delete ticket
-const handleTicketDelete = async (ticketId) => {
-  if (!window.confirm("Are you sure you want to delete this ticket?")) return;
-  try {
-    await api.delete(`/ticket-types/${ticketId}`, { headers: getAuthHeaders() });
-    fetchTicketTypes(editingEvent.id); // refresh ticket list
-  } catch (err) {
-    console.error("Ticket delete failed", err);
-  }
-};
-
-
-  // =======================
-  // FETCH CATEGORIES
-  // =======================
+  // ✅ Fetch categories - simple, no dependencies
   const fetchCategories = useCallback(async () => {
     try {
       const res = await api.get("/categories", { headers: getAuthHeaders() });
@@ -97,33 +62,31 @@ const handleTicketDelete = async (ticketId) => {
       console.error("Failed to fetch categories", err);
       return [];
     }
-  }, []);
+  }, []); // No dependencies needed
 
-  // =======================
-  // FETCH EVENTS
-  // =======================
+  // ✅ Fetch events - properly memoized
   const fetchEvents = useCallback(async () => {
+    if (!currentUser) return;
+    
     try {
       setLoading(true);
-      const categoriesData = categories.length ? categories : await fetchCategories();
+      
+      // Get fresh categories
+      const res = await api.get("/categories", { headers: getAuthHeaders() });
+      const categoriesData = res.data || [];
       const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
 
+      // Get events
       const url = currentUser?.role === "admin" ? "/events/admin/all" : "/events";
-      const res = await api.get(url, { headers: getAuthHeaders() });
+      const eventsRes = await api.get(url, { headers: getAuthHeaders() });
 
-      const enhancedEvents = (res.data || []).map((ev) => ({
+      const enhancedEvents = (eventsRes.data || []).map((ev) => ({
         ...ev,
         status: formatEventStatus(ev),
         category_name: categoryMap[ev.category_id] || "-",
       }));
 
-      setEvents((prev) => {
-        const isSame =
-          prev.length === enhancedEvents.length &&
-          prev.every((p, i) => p.id === enhancedEvents[i].id && p.status === enhancedEvents[i].status);
-        return isSame ? prev : enhancedEvents;
-      });
-
+      setEvents(enhancedEvents);
       setError("");
     } catch (err) {
       console.error("Error fetching events:", err);
@@ -131,11 +94,9 @@ const handleTicketDelete = async (ticketId) => {
     } finally {
       setLoading(false);
     }
-  }, [categories, currentUser, fetchCategories]);
+  }, [currentUser?.id, currentUser?.role]); // Only user ID and role
 
-  // =======================
-  // FETCH TICKET TYPES
-  // =======================
+  // ✅ Fetch ticket types
   const fetchTicketTypes = useCallback(async (eventId) => {
     try {
       setTicketLoading(true);
@@ -150,16 +111,81 @@ const handleTicketDelete = async (ticketId) => {
   }, []);
 
   // =======================
-  // INITIAL LOAD
+  // INITIAL LOAD - Only runs once when currentUser changes
   // =======================
   useEffect(() => {
     if (!currentUser) return;
+
     const loadData = async () => {
-      await fetchCategories();
-      await fetchEvents();
+      try {
+        // Fetch categories
+        const res = await api.get("/categories", { headers: getAuthHeaders() });
+        const categoriesData = res.data || [];
+        setCategories(categoriesData);
+        
+        // Fetch events
+        const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+        const url = currentUser?.role === "admin" ? "/events/admin/all" : "/events";
+        const eventsRes = await api.get(url, { headers: getAuthHeaders() });
+        
+        const enhancedEvents = (eventsRes.data || []).map((ev) => ({
+          ...ev,
+          status: formatEventStatus(ev),
+          category_name: categoryMap[ev.category_id] || "-",
+        }));
+        
+        setEvents(enhancedEvents);
+      } catch (err) {
+        console.error("Error loading data:", err);
+        setError("Failed to load data");
+      } finally {
+        setLoading(false);
+      }
     };
+
     loadData();
-  }, [currentUser, fetchCategories, fetchEvents]);
+  }, [currentUser?.id, currentUser?.role]); // ✅ Only depends on user ID and role
+
+  // =======================
+  // TICKET HANDLERS
+  // =======================
+  const handleTicketChange = (e) => {
+    const { name, value } = e.target;
+    setTicketForm({ ...ticketForm, [name]: value });
+  };
+
+  const handleTicketSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = { 
+        ...ticketForm, 
+        price: Number(ticketForm.price), 
+        quantity_available: Number(ticketForm.quantity_available) 
+      };
+
+      if (editingTicket) {
+        await api.put(`/ticket-types/${editingTicket.id}`, payload, { headers: getAuthHeaders() });
+      } else {
+        await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: getAuthHeaders() });
+      }
+
+      fetchTicketTypes(editingEvent.id);
+      setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
+      setEditingTicket(null);
+    } catch (err) {
+      console.error("Ticket save failed", err);
+    }
+  };
+
+  const handleTicketDelete = async (ticketId) => {
+    if (!window.confirm("Are you sure you want to delete this ticket?")) return;
+    try {
+      await api.delete(`/ticket-types/${ticketId}`, { headers: getAuthHeaders() });
+      fetchTicketTypes(editingEvent.id);
+    } catch (err) {
+      console.error("Ticket delete failed", err);
+    }
+  };
 
   // =======================
   // FORM HANDLERS
@@ -211,7 +237,7 @@ const handleTicketDelete = async (ticketId) => {
         await api.post("/events", payload, { headers: getAuthHeaders() });
       }
 
-      await fetchEvents();
+      await fetchEvents(); // ✅ Now safe to call
       setShowModal(false);
     } catch (err) {
       console.error(err);
@@ -223,7 +249,7 @@ const handleTicketDelete = async (ticketId) => {
     if (!window.confirm("Are you sure you want to delete this event?")) return;
     try {
       await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
-      await fetchEvents();
+      await fetchEvents(); // ✅ Now safe to call
     } catch (err) {
       console.error(err);
       setError("Failed to delete event");
@@ -278,6 +304,7 @@ const handleTicketDelete = async (ticketId) => {
   });
 
   if (!currentUser) return <p>Loading user...</p>;
+
 
   // =======================
   // RENDER
