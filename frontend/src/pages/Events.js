@@ -1,74 +1,62 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import api from "../api"; // centralized axios instance
 import "../styles/Events.css";
 
 const Events = ({ currentUser }) => {
+  // =======================
+  // STATE VARIABLES
+  // =======================
   const [events, setEvents] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Event modal
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category_id: "",
-    location: "",
-    event_date: "",
-    start_time: "",
-    end_time: "",
-    capacity: "",
-    price: "",
-    status: "upcoming",
-  });
+  const [formData, setFormData] = useState({});
 
-  // Ticket types
-  const [ticketTypes, setTicketTypes] = useState([]);
-  const [ticketForm, setTicketForm] = useState({
-    name: "",
-    description: "",
-    price: "",
-    quantity_available: "",
-  });
-  const [editingTicket, setEditingTicket] = useState(null);
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [editingTicket, setEditingTicket] = useState(null);
+  const [ticketForm, setTicketForm] = useState({ name: "", description: "", price: "", quantity_available: "" });
+  const [ticketTypes, setTicketTypes] = useState([]);
 
-  // Categories
-  const [showCategoryCard, setShowCategoryCard] = useState(false);
-  const [newCategory, setNewCategory] = useState("");
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [categoryError, setCategoryError] = useState("");
-
-  // Filter for events
   const [filterStatus, setFilterStatus] = useState("all");
 
-  useEffect(() => {
-    if (!currentUser) return;
-    fetchCategories(); // categories first, so we can map names
-    fetchEvents();
-  }, [currentUser]);
+  const [showCategoryCard, setShowCategoryCard] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [newCategory, setNewCategory] = useState("");
+  const [categoryError, setCategoryError] = useState("");
+
+  // =======================
+  // FETCH CATEGORIES
+  // =======================
+  const fetchCategories = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await api.get("/categories", { headers: { Authorization: `Bearer ${token}` } });
+      setCategories(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch categories", err);
+    }
+  }, []);
 
   // =======================
   // FETCH EVENTS
   // =======================
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
       const res = await api.get("/events", { headers: { Authorization: `Bearer ${token}` } });
 
-      // Map category names
       const categoryMap = categories.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
-
       const enhancedEvents = (res.data || []).map((ev) => {
         const now = new Date();
         const eventStart = new Date(`${ev.event_date}T${ev.start_time}`);
         const eventEnd = new Date(`${ev.event_date}T${ev.end_time}`);
-        let status = ev.status;
+        let status = ev.status || "upcoming";
 
-        if (ev.status !== "cancelled") {
+        if (status !== "cancelled") {
           if (now > eventEnd) status = "expired";
           else if (now >= eventStart && now <= eventEnd) status = "ongoing";
           else status = "upcoming";
@@ -85,23 +73,22 @@ const Events = ({ currentUser }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [categories]);
 
   // =======================
-  // FETCH CATEGORIES
+  // INITIAL LOAD
   // =======================
-  const fetchCategories = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await api.get("/categories", { headers: { Authorization: `Bearer ${token}` } });
-      setCategories(res.data || []);
-    } catch (err) {
-      console.error("Failed to fetch categories", err);
-    }
-  };
+  useEffect(() => {
+    if (!currentUser) return;
+    const loadData = async () => {
+      await fetchCategories();
+      await fetchEvents();
+    };
+    loadData();
+  }, [currentUser, fetchCategories, fetchEvents]);
 
   // =======================
-  // FETCH TICKET TYPES
+  // TICKET TYPES
   // =======================
   const fetchTicketTypes = async (eventId) => {
     try {
@@ -115,7 +102,7 @@ const Events = ({ currentUser }) => {
   };
 
   // =======================
-  // EVENT FORM HANDLERS
+  // FORM HANDLERS
   // =======================
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -153,6 +140,8 @@ const Events = ({ currentUser }) => {
     try {
       const token = localStorage.getItem("token");
       const payload = { ...formData, created_by: currentUser.id };
+      payload.price = Number(payload.price);
+      payload.capacity = Number(payload.capacity);
 
       if (editingEvent) {
         await api.put(`/events/${editingEvent.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
@@ -203,11 +192,9 @@ const Events = ({ currentUser }) => {
         await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: { Authorization: `Bearer ${token}` } });
       }
 
-      // Refresh ticket list and events
       await fetchTicketTypes(editingEvent.id);
       await fetchEvents();
 
-      // Reset form
       setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
       setEditingTicket(null);
     } catch (err) {
@@ -267,13 +254,16 @@ const Events = ({ currentUser }) => {
     }
   };
 
-  if (!currentUser) return <p>Loading user...</p>;
-
+  // =======================
+  // FILTERED EVENTS
+  // =======================
   const filteredEvents = events.filter((event) => {
     if (filterStatus === "active") return event.status === "upcoming" || event.status === "ongoing";
     if (filterStatus === "expired") return event.status === "expired";
     return true;
   });
+
+  if (!currentUser) return <p>Loading user...</p>;
 
   return (
     <div className="events-container">
