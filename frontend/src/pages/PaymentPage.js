@@ -13,9 +13,10 @@ const PaymentPage = ({ user }) => {
   const [error, setError] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pollCount, setPollCount] = useState(0);
+  const [isPolling, setIsPolling] = useState(false);
 
   const pollIntervalRef = useRef(null);
-  const MAX_POLL_ATTEMPTS = 40;
+  const MAX_POLL_ATTEMPTS = 60; // 3 minutes (60 * 3 seconds)
 
   // Load booking details
   useEffect(() => {
@@ -53,7 +54,8 @@ const PaymentPage = ({ user }) => {
         if (paymentData.status === "success") {
           navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
         } else if (paymentData.status === "pending") {
-          setPayment(paymentData); // start polling for pending payment
+          setPayment(paymentData);
+          setIsPolling(true); // Start polling for existing pending payment
         }
       } catch (err) {
         console.error("Error checking payment:", err);
@@ -68,54 +70,90 @@ const PaymentPage = ({ user }) => {
     if (user && user.phone) setPhoneNumber(user.phone);
   }, [user]);
 
-  // Poll payment status if pending
+  // Poll payment status - FIXED VERSION
   useEffect(() => {
-    if (!payment || payment.status !== "pending") return;
+    if (!isPolling) return;
+
+    console.log("Starting payment polling...");
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        setPollCount((prev) => prev + 1);
+        setPollCount((prev) => {
+          const newCount = prev + 1;
+          console.log(`Polling attempt ${newCount}/${MAX_POLL_ATTEMPTS}`);
+          return newCount;
+        });
 
+        // Check if max attempts reached
         if (pollCount >= MAX_POLL_ATTEMPTS) {
+          console.log("Max polling attempts reached");
           clearInterval(pollIntervalRef.current);
+          setIsPolling(false);
           setError(
-            "Payment verification timeout. Please check your M-Pesa messages or try again."
+            "Payment verification timeout. Please check your M-Pesa messages or contact support."
           );
-          setPayment(null);
           return;
         }
 
-        const res = await api.get(`/payments/${payment.id}`);
-        const updatedPayment = res.data;
+        // Poll the booking to check payment status
+        const bookingRes = await api.get(`/bookings/${bookingId}`);
+        const updatedBooking = bookingRes.data;
 
-        if (updatedPayment.status === "success") {
+        console.log("Booking status:", updatedBooking.booking_status);
+
+        // Check if booking is now confirmed
+        if (updatedBooking.booking_status === "confirmed") {
+          console.log("✅ Payment successful! Redirecting...");
           clearInterval(pollIntervalRef.current);
+          setIsPolling(false);
           navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
+          return;
         }
 
-        if (updatedPayment.status === "failed") {
-          clearInterval(pollIntervalRef.current);
-          setError("Payment failed or was cancelled. Please try again.");
-          setPayment(null);
+        // Also check payment status directly
+        const paymentRes = await api.get(`/payments/by-booking/${bookingId}`);
+        const updatedPayment = paymentRes.data;
+
+        if (updatedPayment) {
+          console.log("Payment status:", updatedPayment.status);
+
+          if (updatedPayment.status === "success") {
+            console.log("✅ Payment successful! Redirecting...");
+            clearInterval(pollIntervalRef.current);
+            setIsPolling(false);
+            navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
+            return;
+          }
+
+          if (updatedPayment.status === "failed") {
+            console.log("❌ Payment failed");
+            clearInterval(pollIntervalRef.current);
+            setIsPolling(false);
+            setError("Payment failed or was cancelled. Please try again.");
+            setPayment(null);
+            return;
+          }
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 3000);
+    }, 3000); // Poll every 3 seconds
 
     return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (pollIntervalRef.current) {
+        console.log("Cleaning up polling interval");
+        clearInterval(pollIntervalRef.current);
+      }
     };
-  }, [payment, pollCount, bookingId, navigate]);
+  }, [isPolling, pollCount, bookingId, navigate]);
 
   const handlePayment = async () => {
     if (!phoneNumber.trim()) {
       setError("Phone number is required");
       return;
     }
-// eslint-disable-next-line no-useless-escape
+
     const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
-    // eslint-disable-next-line no-useless-escape
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
     if (!phoneRegex.test(cleanPhone)) {
       setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
@@ -133,16 +171,14 @@ const PaymentPage = ({ user }) => {
       });
 
       const paymentData = res.data;
+      console.log("Payment initiated:", paymentData);
 
-      // Redirect if payment was instantly successful
-      if (paymentData.status === "success") {
-        navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
-      } else {
-        setPayment(paymentData); // pending payment
-        alert(
-          "STK Push sent to your phone. Please enter your M-Pesa PIN to complete payment."
-        );
-      }
+      setPayment(paymentData);
+      setIsPolling(true); // Start polling
+      
+      alert(
+        "STK Push sent to your phone. Please enter your M-Pesa PIN to complete payment."
+      );
     } catch (err) {
       console.error("Payment error:", err);
       setError(
@@ -153,17 +189,22 @@ const PaymentPage = ({ user }) => {
     }
   };
 
+  const handleCancelPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+    setIsPolling(false);
+    setPayment(null);
+    setError("");
+    setPollCount(0);
+  };
+
   if (!booking) {
     return (
       <div className="payment-page">
         <p className="loading-text">Loading booking details...</p>
       </div>
     );
-  }
-
-  // Only show payment form if booking is pending and no pending payment
-  if (booking.booking_status !== "pending" && !payment) {
-    return null;
   }
 
   return (
@@ -211,7 +252,7 @@ const PaymentPage = ({ user }) => {
           </div>
         )}
 
-        {!payment && (
+        {!isPolling && (
           <div className="payment-form">
             <div className="form-group">
               <label htmlFor="phone">M-Pesa Phone Number</label>
@@ -234,7 +275,7 @@ const PaymentPage = ({ user }) => {
           </div>
         )}
 
-        {payment?.status === "pending" && (
+        {isPolling && (
           <div className="payment-pending">
             <div className="spinner"></div>
             <h4>Waiting for Payment Confirmation</h4>
@@ -244,12 +285,7 @@ const PaymentPage = ({ user }) => {
               Checking payment status... ({pollCount}/{MAX_POLL_ATTEMPTS})
             </small>
             <button
-              onClick={() => {
-                setPayment(null);
-                setError("");
-                setPollCount(0);
-                if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-              }}
+              onClick={handleCancelPolling}
               className="btn-cancel"
             >
               Cancel & Try Again
