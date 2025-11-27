@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import api from "../api"; // centralized axios instance
 import "../styles/Events.css";
 
@@ -30,7 +30,7 @@ const Events = ({ currentUser }) => {
   // =======================
   // FETCH CATEGORIES
   // =======================
-  const fetchCategories = useCallback(async () => {
+  const fetchCategories = async () => {
     try {
       const token = localStorage.getItem("token");
       const res = await api.get("/categories", { headers: { Authorization: `Bearer ${token}` } });
@@ -38,18 +38,20 @@ const Events = ({ currentUser }) => {
     } catch (err) {
       console.error("Failed to fetch categories", err);
     }
-  }, []);
+  };
 
   // =======================
   // FETCH EVENTS
   // =======================
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
       const res = await api.get("/events", { headers: { Authorization: `Bearer ${token}` } });
 
+      // Map categories
       const categoryMap = categories.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+
       const enhancedEvents = (res.data || []).map((ev) => {
         const now = new Date();
         const eventStart = new Date(`${ev.event_date}T${ev.start_time}`);
@@ -65,7 +67,12 @@ const Events = ({ currentUser }) => {
         return { ...ev, status, category_name: categoryMap[ev.category_id] || "-" };
       });
 
-      setEvents(enhancedEvents);
+      // Only update if changed
+      setEvents((prev) => {
+        const isSame = JSON.stringify(prev) === JSON.stringify(enhancedEvents);
+        return isSame ? prev : enhancedEvents;
+      });
+
       setError("");
     } catch (err) {
       console.error(err);
@@ -73,19 +80,22 @@ const Events = ({ currentUser }) => {
     } finally {
       setLoading(false);
     }
-  }, [categories]);
+  };
 
   // =======================
   // INITIAL LOAD
   // =======================
   useEffect(() => {
     if (!currentUser) return;
+
     const loadData = async () => {
       await fetchCategories();
       await fetchEvents();
     };
+
     loadData();
-  }, [currentUser, fetchCategories, fetchEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
 
   // =======================
   // TICKET TYPES
@@ -193,8 +203,6 @@ const Events = ({ currentUser }) => {
       }
 
       await fetchTicketTypes(editingEvent.id);
-      await fetchEvents();
-
       setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
       setEditingTicket(null);
     } catch (err) {
@@ -207,8 +215,7 @@ const Events = ({ currentUser }) => {
     try {
       const token = localStorage.getItem("token");
       await api.delete(`/ticket-types/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      await fetchTicketTypes(editingEvent.id);
-      await fetchEvents();
+      if (editingEvent) await fetchTicketTypes(editingEvent.id);
     } catch (err) {
       console.error("Failed to delete ticket type", err);
     }
@@ -267,7 +274,7 @@ const Events = ({ currentUser }) => {
 
   return (
     <div className="events-container">
-      {/* Header */}
+      {/* Header and Filters */}
       <div className="events-header">
         <h2>Manage Events</h2>
         <button className="add-btn" onClick={() => openModal()}>+ Add Event</button>
@@ -284,8 +291,6 @@ const Events = ({ currentUser }) => {
           </button>
         )}
       </div>
-
-      {/* Filter */}
       <div className="filter-buttons">
         <button onClick={() => setFilterStatus("all")} className={filterStatus === "all" ? "active" : ""}>All</button>
         <button onClick={() => setFilterStatus("active")} className={filterStatus === "active" ? "active" : ""}>Active</button>
@@ -316,7 +321,6 @@ const Events = ({ currentUser }) => {
             <button type="submit">{editingCategory ? "Update" : "Add"}</button>
             <button type="button" onClick={() => setShowCategoryCard(false)}>Cancel</button>
           </form>
-
           <ul>
             {categories.map((c) => (
               <li key={c.id}>
@@ -336,7 +340,6 @@ const Events = ({ currentUser }) => {
               </li>
             ))}
           </ul>
-
           {categoryError && <p className="error">{categoryError}</p>}
         </div>
       )}
@@ -396,8 +399,8 @@ const Events = ({ currentUser }) => {
           </tbody>
         </table>
       )}
-
-      {/* Event Modal */}
+      
+    {/* Event Modal */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
