@@ -52,49 +52,52 @@ const Events = ({ currentUser }) => {
   // FETCH FUNCTIONS (useCallback with proper dependencies)
   // =======================
   
-  // ✅ Fetch categories - simple, no dependencies
-  const fetchCategories = useCallback(async () => {
-    try {
-      const res = await api.get("/categories", { headers: getAuthHeaders() });
-      setCategories(res.data || []);
-      return res.data || [];
-    } catch (err) {
-      console.error("Failed to fetch categories", err);
-      return [];
-    }
-  }, []); // No dependencies needed
+  
+  
+// Fetch categories - simple, no dependencies
+const fetchCategories = useCallback(async () => {
+  try {
+    const res = await api.get("/categories", { headers: getAuthHeaders() });
+    setCategories(res.data || []);
+    return res.data || [];
+  } catch (err) {
+    console.error("Failed to fetch categories", err);
+    return [];
+  }
+}, []); // No dependencies needed
 
-  // ✅ Fetch events - properly memoized
-  const fetchEvents = useCallback(async () => {
-    if (!currentUser) return;
-    
-    try {
-      setLoading(true);
-      
-      // Get fresh categories
-      const res = await api.get("/categories", { headers: getAuthHeaders() });
-      const categoriesData = res.data || [];
-      const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+  
+// Fetch events - properly memoized
+const fetchEvents = useCallback(async () => {
+  if (!currentUser) return;
 
-      // Get events
-      const url = currentUser?.role === "admin" ? "/events/admin/all" : "/events";
-      const eventsRes = await api.get(url, { headers: getAuthHeaders() });
+  try {
+    setLoading(true);
 
-      const enhancedEvents = (eventsRes.data || []).map((ev) => ({
-        ...ev,
-        status: formatEventStatus(ev),
-        category_name: categoryMap[ev.category_id] || "-",
-      }));
+    // Get fresh categories
+    const res = await api.get("/categories", { headers: getAuthHeaders() });
+    const categoriesData = res.data || [];
+    const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
 
-      setEvents(enhancedEvents);
-      setError("");
-    } catch (err) {
-      console.error("Error fetching events:", err);
-      setError("Failed to fetch events");
-    } finally {
-      setLoading(false);
-    }
-  }, [currentUser?.id, currentUser?.role]); // Only user ID and role
+    // Get events
+    const url = currentUser.role === "admin" ? "/events/admin/all" : "/events";
+    const eventsRes = await api.get(url, { headers: getAuthHeaders() });
+
+    const enhancedEvents = (eventsRes.data || []).map((ev) => ({
+      ...ev,
+      status: formatEventStatus(ev),
+      category_name: categoryMap[ev.category_id] || "-",
+    }));
+
+    setEvents(enhancedEvents);
+    setError("");
+  } catch (err) {
+    console.error("Error fetching events:", err);
+    setError("Failed to fetch events");
+  } finally {
+    setLoading(false);
+  }
+}, [currentUser]); // ✅ Include currentUser as dependency
 
   // ✅ Fetch ticket types
   const fetchTicketTypes = useCallback(async (eventId) => {
@@ -113,39 +116,42 @@ const Events = ({ currentUser }) => {
   // =======================
   // INITIAL LOAD - Only runs once when currentUser changes
   // =======================
-  useEffect(() => {
-    if (!currentUser) return;
+  // =======================
+// INITIAL LOAD - Only runs when currentUser changes
+// =======================
+useEffect(() => {
+  if (!currentUser) return;
 
-    const loadData = async () => {
-      try {
-        // Fetch categories
-        const res = await api.get("/categories", { headers: getAuthHeaders() });
-        const categoriesData = res.data || [];
-        setCategories(categoriesData);
-        
-        // Fetch events
-        const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
-        const url = currentUser?.role === "admin" ? "/events/admin/all" : "/events";
-        const eventsRes = await api.get(url, { headers: getAuthHeaders() });
-        
-        const enhancedEvents = (eventsRes.data || []).map((ev) => ({
-          ...ev,
-          status: formatEventStatus(ev),
-          category_name: categoryMap[ev.category_id] || "-",
-        }));
-        
-        setEvents(enhancedEvents);
-      } catch (err) {
-        console.error("Error loading data:", err);
-        setError("Failed to load data");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadData = async () => {
+    try {
+      // Fetch categories
+      const res = await api.get("/categories", { headers: getAuthHeaders() });
+      const categoriesData = res.data || [];
+      setCategories(categoriesData);
 
-    loadData();
-  }, [currentUser?.id, currentUser?.role]); // ✅ Only depends on user ID and role
+      // Fetch events
+      const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+      const url = currentUser.role === "admin" ? "/events/admin/all" : "/events";
+      const eventsRes = await api.get(url, { headers: getAuthHeaders() });
 
+      const enhancedEvents = (eventsRes.data || []).map((ev) => ({
+        ...ev,
+        status: formatEventStatus(ev),
+        category_name: categoryMap[ev.category_id] || "-",
+      }));
+
+      setEvents(enhancedEvents);
+      setError("");
+    } catch (err) {
+      console.error("Error loading data:", err);
+      setError("Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadData();
+}, [currentUser]);
   // =======================
   // TICKET HANDLERS
   // =======================
