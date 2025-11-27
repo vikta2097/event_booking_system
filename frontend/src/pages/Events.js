@@ -19,6 +19,7 @@ const Events = ({ currentUser }) => {
   const [editingTicket, setEditingTicket] = useState(null);
   const [ticketForm, setTicketForm] = useState({ name: "", description: "", price: "", quantity_available: "" });
   const [ticketTypes, setTicketTypes] = useState([]);
+  const [ticketLoading, setTicketLoading] = useState(false);
 
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -28,88 +29,103 @@ const Events = ({ currentUser }) => {
   const [categoryError, setCategoryError] = useState("");
 
   // =======================
+  // HELPER FUNCTIONS
+  // =======================
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return { Authorization: `Bearer ${token}` };
+  };
+
+  const formatEventStatus = (event) => {
+    if (event.status === "cancelled") return "cancelled";
+    const now = new Date();
+    const start = new Date(`${event.event_date}T${event.start_time}`);
+    const end = new Date(`${event.event_date}T${event.end_time}`);
+    if (now > end) return "expired";
+    if (now >= start && now <= end) return "ongoing";
+    return "upcoming";
+  };
+
+  // =======================
   // FETCH CATEGORIES
   // =======================
   const fetchCategories = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await api.get("/categories", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get("/categories", { headers: getAuthHeaders() });
       setCategories(res.data || []);
+      return res.data || [];
     } catch (err) {
       console.error("Failed to fetch categories", err);
+      return [];
     }
   };
 
   // =======================
   // FETCH EVENTS
   // =======================
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const res = await api.get("/events", { headers: { Authorization: `Bearer ${token}` } });
+ const fetchEvents = async () => {
+  try {
+    setLoading(true);
 
-      // Map categories
-      const categoryMap = categories.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+    // Fetch categories if not already loaded
+    const categoriesData = categories.length ? categories : await fetchCategories();
+    const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
 
-      const enhancedEvents = (res.data || []).map((ev) => {
-        const now = new Date();
-        const eventStart = new Date(`${ev.event_date}T${ev.start_time}`);
-        const eventEnd = new Date(`${ev.event_date}T${ev.end_time}`);
-        let status = ev.status || "upcoming";
+    // Determine which endpoint to call based on user role
+    const url = currentUser?.role === "admin" ? "/events/admin/all" : "/events";
+    const res = await api.get(url, { headers: getAuthHeaders() });
 
-        if (status !== "cancelled") {
-          if (now > eventEnd) status = "expired";
-          else if (now >= eventStart && now <= eventEnd) status = "ongoing";
-          else status = "upcoming";
-        }
+    // Backend returns nested ticket_types for ticket endpoint only, here we just map events
+    const enhancedEvents = (res.data || []).map((ev) => ({
+      ...ev,
+      status: formatEventStatus(ev),
+      category_name: categoryMap[ev.category_id] || "-",
+    }));
 
-        return { ...ev, status, category_name: categoryMap[ev.category_id] || "-" };
-      });
+    // Avoid unnecessary state updates
+    setEvents((prev) => {
+      const isSame = prev.length === enhancedEvents.length &&
+        prev.every((p, i) => p.id === enhancedEvents[i].id && p.status === enhancedEvents[i].status);
+      return isSame ? prev : enhancedEvents;
+    });
 
-      // Only update if changed
-      setEvents((prev) => {
-        const isSame = JSON.stringify(prev) === JSON.stringify(enhancedEvents);
-        return isSame ? prev : enhancedEvents;
-      });
+    setError("");
+  } catch (err) {
+    console.error("Error fetching events:", err);
+    setError("Failed to fetch events");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      setError("");
-    } catch (err) {
-      console.error(err);
-      setError("Failed to fetch events");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // =======================
+  // FETCH TICKET TYPES
+  // =======================
+  const fetchTicketTypes = async (eventId) => {
+  try {
+    setTicketLoading(true);
+    const res = await api.get(`/events/${eventId}/ticket-types`, { headers: getAuthHeaders() });
+    setTicketTypes(Array.isArray(res.data) ? res.data : []); // <- remove .ticket_types
+  } catch (err) {
+    console.error("Failed to fetch ticket types:", err);
+    setTicketTypes([]);
+  } finally {
+    setTicketLoading(false);
+  }
+};
+
 
   // =======================
   // INITIAL LOAD
   // =======================
   useEffect(() => {
     if (!currentUser) return;
-
     const loadData = async () => {
       await fetchCategories();
       await fetchEvents();
     };
-
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
-
-  // =======================
-  // TICKET TYPES
-  // =======================
-  const fetchTicketTypes = async (eventId) => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await api.get(`/events/${eventId}/ticket-types`, { headers: { Authorization: `Bearer ${token}` } });
-      setTicketTypes(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Failed to fetch ticket types", err);
-      setTicketTypes([]);
-    }
-  };
 
   // =======================
   // FORM HANDLERS
@@ -148,15 +164,17 @@ const Events = ({ currentUser }) => {
     if (!currentUser) return;
 
     try {
-      const token = localStorage.getItem("token");
-      const payload = { ...formData, created_by: currentUser.id };
-      payload.price = Number(payload.price);
-      payload.capacity = Number(payload.capacity);
+      const payload = {
+        ...formData,
+        created_by: currentUser.id,
+        price: Number(formData.price) || 0,
+        capacity: Number(formData.capacity) || 0,
+      };
 
       if (editingEvent) {
-        await api.put(`/events/${editingEvent.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        await api.put(`/events/${editingEvent.id}`, payload, { headers: getAuthHeaders() });
       } else {
-        await api.post("/events", payload, { headers: { Authorization: `Bearer ${token}` } });
+        await api.post("/events", payload, { headers: getAuthHeaders() });
       }
 
       await fetchEvents();
@@ -170,8 +188,7 @@ const Events = ({ currentUser }) => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this event?")) return;
     try {
-      const token = localStorage.getItem("token");
-      await api.delete(`/events/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
       await fetchEvents();
     } catch (err) {
       console.error(err);
@@ -180,7 +197,7 @@ const Events = ({ currentUser }) => {
   };
 
   // =======================
-  // TICKET FORM HANDLERS
+  // TICKET HANDLERS
   // =======================
   const handleTicketChange = (e) => setTicketForm({ ...ticketForm, [e.target.name]: e.target.value });
 
@@ -189,17 +206,16 @@ const Events = ({ currentUser }) => {
     if (!editingEvent) return;
 
     try {
-      const token = localStorage.getItem("token");
       const payload = {
         ...ticketForm,
-        price: Number(ticketForm.price),
-        quantity_available: Number(ticketForm.quantity_available),
+        price: Number(ticketForm.price) || 0,
+        quantity_available: Number(ticketForm.quantity_available) || 0,
       };
 
       if (editingTicket) {
-        await api.put(`/ticket-types/${editingTicket.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        await api.put(`/ticket-types/${editingTicket.id}`, payload, { headers: getAuthHeaders() });
       } else {
-        await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: getAuthHeaders() });
       }
 
       await fetchTicketTypes(editingEvent.id);
@@ -213,8 +229,7 @@ const Events = ({ currentUser }) => {
   const handleTicketDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this ticket type?")) return;
     try {
-      const token = localStorage.getItem("token");
-      await api.delete(`/ticket-types/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/ticket-types/${id}`, { headers: getAuthHeaders() });
       if (editingEvent) await fetchTicketTypes(editingEvent.id);
     } catch (err) {
       console.error("Failed to delete ticket type", err);
@@ -229,8 +244,7 @@ const Events = ({ currentUser }) => {
     if (!newCategory.trim()) return;
 
     try {
-      const token = localStorage.getItem("token");
-      await api.post("/categories", { name: newCategory }, { headers: { Authorization: `Bearer ${token}` } });
+      await api.post("/categories", { name: newCategory }, { headers: getAuthHeaders() });
       setNewCategory("");
       setShowCategoryCard(false);
       await fetchCategories();
@@ -240,9 +254,9 @@ const Events = ({ currentUser }) => {
   };
 
   const handleCategoryUpdate = async (id, name) => {
+    if (!name.trim()) return;
     try {
-      const token = localStorage.getItem("token");
-      await api.put(`/categories/${id}`, { name }, { headers: { Authorization: `Bearer ${token}` } });
+      await api.put(`/categories/${id}`, { name }, { headers: getAuthHeaders() });
       setEditingCategory(null);
       await fetchCategories();
     } catch (err) {
@@ -253,8 +267,7 @@ const Events = ({ currentUser }) => {
   const handleCategoryDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this category?")) return;
     try {
-      const token = localStorage.getItem("token");
-      await api.delete(`/categories/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/categories/${id}`, { headers: getAuthHeaders() });
       await fetchCategories();
     } catch (err) {
       setCategoryError("Failed to delete category");
@@ -272,9 +285,12 @@ const Events = ({ currentUser }) => {
 
   if (!currentUser) return <p>Loading user...</p>;
 
+  // =======================
+  // RENDER
+  // =======================
   return (
     <div className="events-container">
-      {/* Header and Filters */}
+      {/* Header */}
       <div className="events-header">
         <h2>Manage Events</h2>
         <button className="add-btn" onClick={() => openModal()}>+ Add Event</button>
@@ -291,6 +307,8 @@ const Events = ({ currentUser }) => {
           </button>
         )}
       </div>
+
+      {/* Filters */}
       <div className="filter-buttons">
         <button onClick={() => setFilterStatus("all")} className={filterStatus === "all" ? "active" : ""}>All</button>
         <button onClick={() => setFilterStatus("active")} className={filterStatus === "active" ? "active" : ""}>Active</button>
@@ -399,14 +417,14 @@ const Events = ({ currentUser }) => {
           </tbody>
         </table>
       )}
-      
-    {/* Event Modal */}
+
+      {/* Event Modal */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
             <h3>{editingEvent ? "Edit Event" : "Add New Event"}</h3>
             <form onSubmit={handleSubmit}>
-              {/* form fields as before */}
+              {/* Form fields */}
               <label>Title</label>
               <input type="text" name="title" value={formData.title} onChange={handleChange} required />
               <label>Description</label>
@@ -414,9 +432,7 @@ const Events = ({ currentUser }) => {
               <label>Category</label>
               <select name="category_id" value={formData.category_id} onChange={handleChange}>
                 <option value="">Select Category</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <label>Location</label>
               <input type="text" name="location" value={formData.location} onChange={handleChange} />
