@@ -116,7 +116,7 @@
   max-width: 90%;
   padding: 20px;
   border-radius: 10px;
-  /*animation: fadeIn 0.3s ease;*/
+  animation: fadeIn 0.3s ease;
   max-height: 90vh;
   overflow-y: auto;
 }
