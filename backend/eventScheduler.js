@@ -1,4 +1,4 @@
-const cron = require("node-cron");
+/*const cron = require("node-cron");
 const db = require("./db");
 
 // Runs every minute
@@ -47,3 +47,5 @@ cron.schedule("* * * * *", async () => {
     console.error("Error updating event statuses:", err);
   }
 });
+*/
+console.log("Event scheduler disabled for testing");
