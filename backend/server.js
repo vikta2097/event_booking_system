@@ -16,13 +16,15 @@ const categoriesRouter = require("./routes/categories");
 const ticketTypesRouter = require("./routes/ticketTypes");
 const dashboardRouter = require("./routes/dashboard");
 const paymentsRouter = require("./routes/payments");
-const mpesaCallbackRoute = require("./routes/mpesaCallback"); // renamed for clarity
 const reportsRouter = require("./routes/reports");
 const supportRoutes = require("./routes/support");
 const settingsRoutes = require("./routes/settings");
-const ticketsRouter = require("./routes/tickets"); // unified tickets router
+const ticketsRouter = require("./routes/tickets");
 const contactRoutes = require('./routes/contact');
 const testRoutes = require("./routes/test");
+
+// M-Pesa callback
+const mpesaCallback = require("./routes/mpesaCallback");
 
 const app = express();
 const server = http.createServer(app);
@@ -68,14 +70,16 @@ app.use("/api/events", eventsRouter);
 app.use("/api/categories", categoriesRouter);
 app.use("/api", ticketTypesRouter);
 app.use("/api/dashboard", dashboardRouter);
-app.use("/api/payments", paymentsRouter);         
-app.use("/api/payments/mpesa-callback", mpesaCallbackRoute); 
+app.use("/api/payments", paymentsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/support", supportRoutes);
 app.use("/api/settings", settingsRoutes);
-app.use("/api/tickets", ticketsRouter);           
+app.use("/api/tickets", ticketsRouter);
 app.use("/api/contact", contactRoutes);
 app.use("/api", testRoutes);
+
+// ✅ Register M-Pesa callback properly
+mpesaCallback(app, db); // this registers POST /mpesa/callback internally
 
 // =======================
 // ✅ Token validation
