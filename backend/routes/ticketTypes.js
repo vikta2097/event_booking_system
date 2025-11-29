@@ -6,34 +6,46 @@ const { verifyToken, verifyAdmin } = require("../auth");
 // ======================
 // GET ticket types for an event (public)
 // ======================
+// ======================
+// GET ticket types for an event (public, accurate availability)
+// ======================
 router.get("/events/:eventId/ticket-types", async (req, res) => {
   try {
     const { eventId } = req.params;
 
     const query = `
       SELECT 
-        id,
-        event_id,
-        name,
-        description,
-        price,
-        quantity_available,
-        COALESCE(quantity_sold, 0) as quantity_sold
-      FROM ticket_types
-      WHERE event_id = $1
-      ORDER BY price ASC
+        tt.id,
+        tt.event_id,
+        tt.name,
+        tt.description,
+        tt.price,
+        tt.quantity_available,
+        COALESCE(
+          (
+            SELECT COUNT(*) 
+            FROM tickets t
+            JOIN bookings b ON t.booking_id = b.id
+            WHERE t.ticket_type_id = tt.id
+              AND b.status = 'paid'
+          ), 0
+        ) AS quantity_sold
+      FROM ticket_types tt
+      WHERE tt.event_id = $1
+      ORDER BY tt.price ASC
     `;
 
     const result = await db.query(query, [eventId]);
-    
+
     console.log(`📋 Fetched ${result.rows.length} ticket types for event ${eventId}`);
-    
+
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching ticket types:", err);
     res.status(500).json({ error: "Failed to fetch ticket types" });
   }
 });
+
 
 // ======================
 // GET single ticket type
