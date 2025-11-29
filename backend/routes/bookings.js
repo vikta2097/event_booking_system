@@ -219,21 +219,28 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
 // CREATE new booking
 // ======================
 router.post("/", verifyToken, async (req, res) => {
+  const client = await db.getClient(); // Use transaction
+  
   try {
     const { event_id, tickets } = req.body; 
     const userId = req.user.id;
+
+    console.log('📥 Booking request received:', { userId, event_id, tickets });
 
     if (!event_id || !tickets || !Array.isArray(tickets) || tickets.length === 0) {
       return res.status(400).json({ error: "event_id and tickets[] are required" });
     }
 
+    await client.query("BEGIN");
+
     // Fetch event
-    const eventResult = await db.query(
+    const eventResult = await client.query(
       "SELECT id, price FROM events WHERE id = $1",
       [event_id]
     );
 
     if (eventResult.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Event not found" });
     }
 
@@ -241,35 +248,44 @@ router.post("/", verifyToken, async (req, res) => {
 
     // Validate ticket types
     for (const t of tickets) {
-      const ticketType = await db.query(
+      const ticketType = await client.query(
         "SELECT id, price, quantity_available, quantity_sold FROM ticket_types WHERE id = $1 AND event_id = $2",
         [t.ticket_type_id, event_id]
       );
 
       if (ticketType.rows.length === 0) {
-        return res.status(400).json({ error: "Invalid ticket type for this event" });
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: `Invalid ticket type: ${t.ticket_type_id}` });
       }
 
-      if (ticketType.rows[0].quantity_sold + t.quantity > ticketType.rows[0].quantity_available) {
-        return res.status(400).json({ error: "Not enough tickets available" });
+      const available = ticketType.rows[0].quantity_available - ticketType.rows[0].quantity_sold;
+      if (t.quantity > available) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ 
+          error: `Not enough tickets available. Only ${available} tickets left for this type.` 
+        });
       }
 
       totalAmount += ticketType.rows[0].price * t.quantity;
     }
 
+    // Generate unique reference
+    const reference = 'BK-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+
     // Create booking
-    const booking = await db.query(
-      `INSERT INTO bookings (user_id, event_id, total_amount, status)
-       VALUES ($1, $2, $3, 'pending')
-       RETURNING id`,
-      [userId, event_id, totalAmount]
+    const booking = await client.query(
+      `INSERT INTO bookings (user_id, event_id, total_amount, status, reference, booking_date)
+       VALUES ($1, $2, $3, 'pending', $4, NOW())
+       RETURNING id, reference`,
+      [userId, event_id, totalAmount, reference]
     );
 
     const bookingId = booking.rows[0].id;
+    console.log('✅ Booking created:', { bookingId, reference: booking.rows[0].reference });
 
     // Insert booked tickets
     for (const t of tickets) {
-      await db.query(
+      await client.query(
         `INSERT INTO booking_tickets (booking_id, ticket_type_id, quantity, price)
          VALUES ($1, $2, $3, 
          (SELECT price FROM ticket_types WHERE id = $2))`,
@@ -277,24 +293,37 @@ router.post("/", verifyToken, async (req, res) => {
       );
 
       // Update ticket usage
-      await db.query(
+      await client.query(
         `UPDATE ticket_types 
          SET quantity_sold = quantity_sold + $1 
          WHERE id = $2`,
         [t.quantity, t.ticket_type_id]
       );
+      
+      console.log(`✅ Added ${t.quantity} tickets of type ${t.ticket_type_id}`);
     }
 
+    await client.query("COMMIT");
+
+    // IMPORTANT: Return the correct structure
     res.status(201).json({
+      success: true,
       message: "Booking created successfully",
-      booking_id: bookingId,
+      booking_id: bookingId,  // Frontend expects this
+      reference: booking.rows[0].reference,
       total_amount: totalAmount,
       status: "pending"
     });
 
   } catch (error) {
-    console.error("Error creating booking:", error);
-    res.status(500).json({ error: "Failed to create booking" });
+    await client.query("ROLLBACK");
+    console.error("❌ Error creating booking:", error);
+    res.status(500).json({ 
+      error: "Failed to create booking",
+      details: error.message 
+    });
+  } finally {
+    client.release();
   }
 });
 
