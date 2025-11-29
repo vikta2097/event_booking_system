@@ -23,9 +23,7 @@ const PaymentPage = ({ user }) => {
   useEffect(() => {
     const loadBooking = async () => {
       try {
-        const res = await api.get(`/bookings/${bookingId}`, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
-        });
+        const res = await api.get(`/bookings/${bookingId}`);
         const bookingData = res.data;
         setBooking(bookingData);
 
@@ -46,9 +44,7 @@ const PaymentPage = ({ user }) => {
 
     const checkExistingPayment = async () => {
       try {
-        const res = await api.get(`/payments/by-booking/${bookingId}`, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
-        });
+        const res = await api.get(`/payments/by-booking/${bookingId}`);
         const paymentData = res.data;
 
         if (!paymentData) return;
@@ -91,9 +87,7 @@ const PaymentPage = ({ user }) => {
         }
 
         // Fetch latest booking
-        const bookingRes = await api.get(`/bookings/${bookingId}`, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
-        });
+        const bookingRes = await api.get(`/bookings/${bookingId}`);
         const updatedBooking = bookingRes.data;
 
         if (updatedBooking.booking_status === "confirmed") {
@@ -104,9 +98,7 @@ const PaymentPage = ({ user }) => {
         }
 
         // Fetch latest payment
-        const paymentRes = await api.get(`/payments/by-booking/${bookingId}`, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
-        });
+        const paymentRes = await api.get(`/payments/by-booking/${bookingId}`);
         const updatedPayment = paymentRes.data;
 
         if (updatedPayment?.status === "success") {
@@ -227,7 +219,6 @@ const PaymentPage = ({ user }) => {
             </strong>
           </div>
 
-          {/* Display payment info to use 'payment' state */}
           {payment && !isPolling && (
             <div className="payment-info">
               <p>Payment status: {payment.status}</p>
