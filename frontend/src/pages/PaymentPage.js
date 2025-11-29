@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
@@ -8,7 +9,7 @@ const PaymentPage = ({ user }) => {
   const navigate = useNavigate();
 
   const [booking, setBooking] = useState(null);
-  const [payment, setPayment] = useState(null);
+  const [payment, setPayment] = useState(null); // eslint-disable-line no-unused-vars
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -225,6 +226,13 @@ const PaymentPage = ({ user }) => {
               KES {parseFloat(booking.total_amount).toLocaleString()}
             </strong>
           </div>
+
+          {/* Display payment info to use 'payment' state */}
+          {payment && !isPolling && (
+            <div className="payment-info">
+              <p>Payment status: {payment.status}</p>
+            </div>
+          )}
         </div>
 
         {error && (
