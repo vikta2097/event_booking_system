@@ -13,55 +13,97 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
   const client = await db.getClient();
   
   try {
-    const { qr_code } = req.body;
+    const { qr_code, manual_code } = req.body;
 
-    if (!qr_code) {
+    // Must provide either QR code or manual code
+    if (!qr_code && !manual_code) {
       return res.status(400).json({ 
         valid: false, 
-        message: "QR code is required" 
+        message: "Either QR code or manual code is required" 
       });
     }
 
     await client.query("BEGIN");
 
-    // Find ticket by QR code with event and booking info
-    const ticketResult = await client.query(`
-      SELECT 
-        t.id,
-        t.qr_code,
-        t.status,
-        t.used_at,
-        t.booking_id,
-        t.ticket_type_id,
-        tt.name AS ticket_type_name,
-        b.reference AS booking_reference,
-        b.status AS booking_status,
-        b.user_id,
-        e.id AS event_id,
-        e.title AS event_title,
-        e.event_date,
-        e.start_time,
-        e.end_time,
-        e.venue,
-        e.location,
-        u.fullname AS attendee_name,
-        u.email AS attendee_email,
-        u.phone AS attendee_phone
-      FROM tickets t
-      JOIN bookings b ON t.booking_id = b.id
-      JOIN events e ON b.event_id = e.id
-      JOIN ticket_types tt ON t.ticket_type_id = tt.id
-      JOIN usercredentials u ON b.user_id = u.id
-      WHERE t.qr_code = $1
-      FOR UPDATE
-    `, [qr_code]);
+    // Find ticket by either QR code OR manual code
+    let ticketResult;
+    if (qr_code) {
+      ticketResult = await client.query(`
+        SELECT 
+          t.id,
+          t.qr_code,
+          t.manual_code,
+          t.status,
+          t.used_at,
+          t.booking_id,
+          t.ticket_type_id,
+          tt.name AS ticket_type_name,
+          b.reference AS booking_reference,
+          b.status AS booking_status,
+          b.user_id,
+          e.id AS event_id,
+          e.title AS event_title,
+          e.event_date,
+          e.start_time,
+          e.end_time,
+          e.venue,
+          e.location,
+          u.fullname AS attendee_name,
+          u.email AS attendee_email,
+          u.phone AS attendee_phone
+        FROM tickets t
+        JOIN bookings b ON t.booking_id = b.id
+        JOIN events e ON b.event_id = e.id
+        JOIN ticket_types tt ON t.ticket_type_id = tt.id
+        JOIN usercredentials u ON b.user_id = u.id
+        WHERE t.qr_code = $1
+        FOR UPDATE
+      `, [qr_code]);
+    } else {
+      // Normalize manual code (remove spaces, convert to uppercase)
+      const normalizedCode = manual_code.replace(/[\s\-]/g, '').toUpperCase();
+      
+      ticketResult = await client.query(`
+        SELECT 
+          t.id,
+          t.qr_code,
+          t.manual_code,
+          t.status,
+          t.used_at,
+          t.booking_id,
+          t.ticket_type_id,
+          tt.name AS ticket_type_name,
+          b.reference AS booking_reference,
+          b.status AS booking_status,
+          b.user_id,
+          e.id AS event_id,
+          e.title AS event_title,
+          e.event_date,
+          e.start_time,
+          e.end_time,
+          e.venue,
+          e.location,
+          u.fullname AS attendee_name,
+          u.email AS attendee_email,
+          u.phone AS attendee_phone
+        FROM tickets t
+        JOIN bookings b ON t.booking_id = b.id
+        JOIN events e ON b.event_id = e.id
+        JOIN ticket_types tt ON t.ticket_type_id = tt.id
+        JOIN usercredentials u ON b.user_id = u.id
+        WHERE REPLACE(REPLACE(t.manual_code, '-', ''), ' ', '') = $1
+        FOR UPDATE
+      `, [normalizedCode]);
+    }
 
     // Ticket not found
     if (ticketResult.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ 
         valid: false, 
-        message: "Invalid ticket - QR code not found" 
+        message: qr_code 
+          ? "Invalid ticket - QR code not found" 
+          : "Invalid ticket - Manual code not found"
       });
     }
 
@@ -88,6 +130,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
         message: "Ticket already used",
         ticket: {
           id: ticket.id,
+          manual_code: ticket.manual_code,
           ticket_type: ticket.ticket_type_name,
           used_at: ticket.used_at,
           attendee_name: ticket.attendee_name,
@@ -137,6 +180,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
       message: "Ticket validated successfully",
       ticket: {
         id: ticket.id,
+        manual_code: ticket.manual_code,
         ticket_type: ticket.ticket_type_name,
         booking_reference: ticket.booking_reference,
         event_title: ticket.event_title,
@@ -312,7 +356,6 @@ router.post("/generate/:bookingId", verifyToken, verifyAdmin, async (req, res) =
   try {
     await client.query("BEGIN");
 
-    // Check booking is confirmed
     const bookingRes = await client.query(
       "SELECT * FROM bookings WHERE id = $1 AND status = 'confirmed'",
       [bookingId]
@@ -322,7 +365,6 @@ router.post("/generate/:bookingId", verifyToken, verifyAdmin, async (req, res) =
       throw new Error("Booking not found or not confirmed");
     }
 
-    // Check if tickets already exist
     const existingTickets = await client.query(
       "SELECT id FROM tickets WHERE booking_id = $1",
       [bookingId]
@@ -332,7 +374,6 @@ router.post("/generate/:bookingId", verifyToken, verifyAdmin, async (req, res) =
       throw new Error("Tickets already generated for this booking");
     }
 
-    // Get booked ticket types
     const bookedTickets = await client.query(
       "SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1",
       [bookingId]
@@ -342,22 +383,20 @@ router.post("/generate/:bookingId", verifyToken, verifyAdmin, async (req, res) =
       throw new Error("No ticket types found for this booking");
     }
 
-    // Generate tickets
-    const crypto = require("crypto");
+    const { generateTicketCodes } = require("../utils/ticketUtils");
     let totalGenerated = 0;
 
     for (const bt of bookedTickets.rows) {
       for (let i = 0; i < bt.quantity; i++) {
-        const qrCode = "TKT-" + crypto.randomBytes(16).toString("hex").toUpperCase();
+        const { qr_code, manual_code } = generateTicketCodes();
         await client.query(
-          "INSERT INTO tickets (booking_id, ticket_type_id, qr_code, status) VALUES ($1, $2, $3, 'valid')",
-          [bookingId, bt.ticket_type_id, qrCode]
+          "INSERT INTO tickets (booking_id, ticket_type_id, qr_code, manual_code, status) VALUES ($1, $2, $3, $4, 'valid')",
+          [bookingId, bt.ticket_type_id, qr_code, manual_code]
         );
         totalGenerated++;
       }
     }
 
-    // Update payment record
     await client.query(
       "UPDATE payments SET tickets_generated = true WHERE booking_id = $1",
       [bookingId]
@@ -402,20 +441,21 @@ router.get("/by-booking/:bookingId", verifyToken, async (req, res) => {
     }
 
     const result = await db.query(`
-      SELECT 
-        t.id, 
-        t.qr_code, 
-        t.ticket_type_id, 
-        t.status,
-        tt.name AS ticket_type_name, 
-        tt.price,
-        bt.quantity
-      FROM tickets t
-      LEFT JOIN ticket_types tt ON t.ticket_type_id = tt.id
-      LEFT JOIN booking_tickets bt ON bt.booking_id = t.booking_id 
-        AND bt.ticket_type_id = t.ticket_type_id
-      WHERE t.booking_id = $1
-    `, [bookingId]);
+  SELECT 
+    t.id, 
+    t.qr_code,
+    t.manual_code,
+    t.ticket_type_id, 
+    t.status,
+    tt.name AS ticket_type_name, 
+    tt.price,
+    bt.quantity
+  FROM tickets t
+  LEFT JOIN ticket_types tt ON t.ticket_type_id = tt.id
+  LEFT JOIN booking_tickets bt ON bt.booking_id = t.booking_id 
+    AND bt.ticket_type_id = t.ticket_type_id
+  WHERE t.booking_id = $1
+`, [bookingId]);
 
     res.json(result.rows);
   } catch (err) {

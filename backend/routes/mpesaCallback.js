@@ -1,5 +1,5 @@
-// mpesaCallback.js - IMPROVED VERSION
-const { generateTicketQR } = require("../utils/ticketUtils");
+// mpesaCallback.js - UPDATED WITH MANUAL CODES
+const { generateTicketCodes } = require("../utils/ticketUtils");
 
 module.exports = (app, db) => {
   app.post("/mpesa/callback", async (req, res) => {
@@ -99,13 +99,14 @@ module.exports = (app, db) => {
 
             for (const bt of bookedTickets.rows) {
               for (let i = 0; i < bt.quantity; i++) {
-                const qrCode = generateTicketQR();
+                const { qr_code, manual_code } = generateTicketCodes();
                 await client.query(
-                  `INSERT INTO tickets (booking_id, ticket_type_id, qr_code, status, created_at)
-                   VALUES ($1, $2, $3, 'valid', NOW())`,
-                  [payment.booking_id, bt.ticket_type_id, qrCode]
+                  `INSERT INTO tickets (booking_id, ticket_type_id, qr_code, manual_code, status, created_at)
+                   VALUES ($1, $2, $3, $4, 'valid', NOW())`,
+                  [payment.booking_id, bt.ticket_type_id, qr_code, manual_code]
                 );
                 totalTicketsGenerated++;
+                console.log(`   ✓ Generated ticket: QR=${qr_code.substring(0, 15)}... Manual=${manual_code}`);
               }
               console.log(`   ✓ Generated ${bt.quantity} ticket(s) for type ${bt.ticket_type_id}`);
             }

@@ -355,9 +355,33 @@ const BookingSuccess = ({ user }) => {
                     )}
                   </div>
 
+                  {/* Manual Entry Code - NEW */}
+                  {ticket.manual_code && (
+                    <div className="manual-code-section">
+                      <label>🔑 Manual Entry Code:</label>
+                      <div className="manual-code-display">
+                        <code>{ticket.manual_code}</code>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(ticket.manual_code);
+                            alert('Code copied to clipboard!');
+                          }}
+                          className="btn-copy-code"
+                          title="Copy code"
+                        >
+                          📋
+                        </button>
+                      </div>
+                      <p className="manual-code-hint">
+                        Enter this code at the venue if QR scan isn't available
+                      </p>
+                    </div>
+                  )}
+
                   <div id={`ticket-${ticket.id}`} className="ticket-qr">
                     {/* stable id so our DOM selection is reliable */}
                     <QRCodeSVG id={`qr-${ticket.id}`} value={ticket.qr_code} size={150} level="H" includeMargin />
+                    <p className="qr-hint">Scan QR code at venue</p>
                   </div>
 
                   <div className="ticket-actions">

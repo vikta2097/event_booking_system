@@ -4,7 +4,7 @@ const db = require("../db");
 const { verifyToken, verifyAdmin } = require("../auth");
 const { stkPush } = require("./mpesa");
 const crypto = require("crypto");
-const { generateTicketQR } = require("../utils/ticketUtils");
+const { generateTicketCodes } = require("../utils/ticketUtils");
 
 // Generate a unique transaction reference
 const generateTransactionRef = () => {
@@ -136,10 +136,10 @@ router.get("/:id", verifyToken, async (req, res) => {
       return res.status(403).json({ error: "Forbidden. Access denied." });
     }
 
-    // Fetch tickets if generated
+    // Fetch tickets if generated - UPDATED: Include manual_code
     if (payment.tickets_generated) {
       const ticketsRes = await db.query(
-        "SELECT id AS ticket_id, ticket_type_id, qr_code FROM tickets WHERE booking_id = $1",
+        "SELECT id AS ticket_id, ticket_type_id, qr_code, manual_code FROM tickets WHERE booking_id = $1",
         [payment.booking_id]
       );
       payment.tickets = ticketsRes.rows;
@@ -288,7 +288,7 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
     if (status === 'success') {
       await client.query("UPDATE bookings SET status = 'confirmed' WHERE id = $1", [payment.booking_id]);
 
-      // Generate tickets if not already
+      // Generate tickets if not already - UPDATED: Generate both QR and manual codes
       if (!payment.tickets_generated) {
         const bookedTickets = await client.query(
           "SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1",
@@ -297,10 +297,10 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
 
         for (const bt of bookedTickets.rows) {
           for (let i = 0; i < bt.quantity; i++) {
-            const qrCode = generateTicketQR();
+            const { qr_code, manual_code } = generateTicketCodes();
             await client.query(
-              "INSERT INTO tickets (booking_id, ticket_type_id, qr_code) VALUES ($1, $2, $3)",
-              [payment.booking_id, bt.ticket_type_id, qrCode]
+              "INSERT INTO tickets (booking_id, ticket_type_id, qr_code, manual_code) VALUES ($1, $2, $3, $4)",
+              [payment.booking_id, bt.ticket_type_id, qr_code, manual_code]
             );
           }
         }
@@ -320,5 +320,6 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
     client.release();
   }
 });
+
 
 module.exports = router;
