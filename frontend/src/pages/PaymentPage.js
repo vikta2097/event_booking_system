@@ -8,37 +8,71 @@ const PaymentPage = ({ user }) => {
   const navigate = useNavigate();
 
   const [booking, setBooking] = useState(null);
-  const [, setPayment] = useState(null);
+  const [payment, setPayment] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pollCount, setPollCount] = useState(0);
   const [isPolling, setIsPolling] = useState(false);
+  const [loadRetries, setLoadRetries] = useState(0);
 
   const pollIntervalRef = useRef(null);
   const MAX_POLL_ATTEMPTS = 60; // 3 minutes (60 * 3 seconds)
+  const MAX_LOAD_RETRIES = 3;
 
-  // Load booking details
+  // Load booking details with retry
   useEffect(() => {
     const loadBooking = async () => {
       try {
+        console.log('📥 Fetching booking:', bookingId);
+        setError("Loading booking details... (server may be waking up, please wait)");
+        
         const res = await api.get(`/bookings/${bookingId}`, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+          headers: { 
+            "Cache-Control": "no-cache", 
+            "Pragma": "no-cache" 
+          }
         });
+        
+        console.log('✅ Booking loaded:', res.data);
         const bookingData = res.data;
         setBooking(bookingData);
+        setError(""); // Clear loading message
 
         if (bookingData.booking_status === "confirmed") {
+          console.log('🎉 Booking already confirmed, redirecting...');
           navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
         }
       } catch (err) {
-        console.error("Error loading booking:", err);
-        setError("Failed to load booking details.");
+        console.error("❌ Error loading booking:", err);
+        
+        if (err.code === 'ERR_NETWORK') {
+          if (loadRetries < MAX_LOAD_RETRIES) {
+            setError(
+              `Cannot connect to server (attempt ${loadRetries + 1}/${MAX_LOAD_RETRIES}). ` +
+              `The server is sleeping. Retrying in 5 seconds...`
+            );
+            setTimeout(() => {
+              setLoadRetries(prev => prev + 1);
+            }, 5000);
+          } else {
+            setError(
+              "Cannot connect to server after multiple attempts. " +
+              "Please click 'Retry Loading' button below or wait 30 seconds and refresh."
+            );
+          }
+        } else if (err.response?.status === 404) {
+          setError("Booking not found. It may have been deleted or never created.");
+        } else if (err.response?.status === 403) {
+          setError("Access denied. This booking doesn't belong to you.");
+        } else {
+          setError(`Failed to load booking: ${err.response?.data?.error || err.message}`);
+        }
       }
     };
 
     loadBooking();
-  }, [bookingId, navigate]);
+  }, [bookingId, navigate, loadRetries]);
 
   // Check for existing payment
   useEffect(() => {
@@ -138,9 +172,8 @@ const PaymentPage = ({ user }) => {
       setError("Phone number is required");
       return;
     }
-    // eslint-disable-next-line no-useless-escape
+    
     const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
-    // eslint-disable-next-line no-useless-escape
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
     if (!phoneRegex.test(cleanPhone)) {
       setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
@@ -166,9 +199,17 @@ const PaymentPage = ({ user }) => {
       );
     } catch (err) {
       console.error("Payment error:", err);
-      setError(
-        err.response?.data?.error || "Payment initiation failed. Please try again."
-      );
+      
+      if (err.code === 'ERR_NETWORK') {
+        setError(
+          "Cannot connect to server. The server may be sleeping. " +
+          "Please wait 30 seconds and try again."
+        );
+      } else {
+        setError(
+          err.response?.data?.error || "Payment initiation failed. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -182,10 +223,33 @@ const PaymentPage = ({ user }) => {
     setPollCount(0);
   };
 
-  if (!booking) {
+  const handleRetryLoading = () => {
+    setLoadRetries(0);
+    window.location.reload();
+  };
+
+  if (!booking && !error) {
     return (
       <div className="payment-page">
         <p className="loading-text">Loading booking details...</p>
+      </div>
+    );
+  }
+
+  if (error && !booking) {
+    return (
+      <div className="payment-page">
+        <div className="error-message">
+          <span>⚠️ {error}</span>
+        </div>
+        {error.includes('Cannot connect') && (
+          <button onClick={handleRetryLoading} className="btn-retry">
+            🔄 Retry Loading
+          </button>
+        )}
+        <button onClick={() => navigate('/dashboard')} className="btn-secondary">
+          ← Back to Dashboard
+        </button>
       </div>
     );
   }
