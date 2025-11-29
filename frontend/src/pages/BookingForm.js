@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
@@ -29,15 +30,26 @@ const BookingForm = ({ user }) => {
       
       // Handle different response structures
       const ticketArray = ticketsRes.data.ticket_types || ticketsRes.data || [];
-      setTickets(ticketArray);
+      
+      // ✅ FIX: Ensure quantity_sold defaults to 0
+      const normalizedTickets = ticketArray.map(ticket => ({
+        ...ticket,
+        quantity_sold: ticket.quantity_sold || 0,
+        quantity_available: ticket.quantity_available || 0
+      }));
+      
+      setTickets(normalizedTickets);
 
       // Initialize ticket selection
       const initialSelection = {};
-      ticketArray.forEach(t => { initialSelection[t.id] = 0; });
+      normalizedTickets.forEach(t => { initialSelection[t.id] = 0; });
       setSelectedTickets(initialSelection);
       
       setStatusMessage(""); // Clear loading message
       setError(""); // Clear any previous errors
+      
+      // Debug log
+      console.log('📋 Loaded tickets:', normalizedTickets);
 
     } catch (err) {
       console.error("Error loading event:", err);
@@ -64,7 +76,11 @@ const BookingForm = ({ user }) => {
     const ticket = tickets.find(t => t.id === ticketId);
     if (!ticket) return;
     
-    const available = ticket.quantity_available - ticket.quantity_sold;
+    // ✅ FIX: Safe calculation with default values
+    const quantitySold = ticket.quantity_sold || 0;
+    const quantityAvailable = ticket.quantity_available || 0;
+    const available = quantityAvailable - quantitySold;
+    
     const quantity = Math.max(0, Math.min(qty, available));
     
     setSelectedTickets(prev => ({ ...prev, [ticketId]: quantity }));
@@ -95,7 +111,7 @@ const BookingForm = ({ user }) => {
     // eslint-disable-next-line no-useless-escape
     const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
     // eslint-disable-next-line no-useless-escape
-    const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+    const cleanPhone = phoneNumber.replace(/[\s\-()]/g, "");
     if (!phoneRegex.test(cleanPhone)) {
       setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
       return;
@@ -228,8 +244,19 @@ const BookingForm = ({ user }) => {
         
         {tickets.length > 0 ? (
           tickets.map(ticket => {
-            const available = ticket.quantity_available - ticket.quantity_sold;
+            // ✅ FIX: Safe calculation with defaults
+            const quantitySold = ticket.quantity_sold || 0;
+            const quantityAvailable = ticket.quantity_available || 0;
+            const available = quantityAvailable - quantitySold;
             const isAvailable = available > 0;
+            
+            // Debug log for troubleshooting
+            console.log(`Ticket ${ticket.name}:`, {
+              quantity_available: quantityAvailable,
+              quantity_sold: quantitySold,
+              available,
+              isAvailable
+            });
             
             return (
               <div key={ticket.id} className={`ticket-item ${!isAvailable ? 'sold-out' : ''}`}>
