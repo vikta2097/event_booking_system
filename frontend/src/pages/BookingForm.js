@@ -92,7 +92,9 @@ const BookingForm = ({ user }) => {
     }
 
     // Validate Kenyan phone number
+    // eslint-disable-next-line no-useless-escape
     const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
+    // eslint-disable-next-line no-useless-escape
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
     if (!phoneRegex.test(cleanPhone)) {
       setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
