@@ -8,22 +8,22 @@ const PaymentPage = ({ user }) => {
   const navigate = useNavigate();
 
   const [booking, setBooking] = useState(null);
-  const [, setPayment] = useState(null);
+  const [payment, setPayment] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [pollCount, setPollCount] = useState(0);
   const [isPolling, setIsPolling] = useState(false);
 
   const pollIntervalRef = useRef(null);
-  const MAX_POLL_ATTEMPTS = 60; // 3 minutes (60 * 3 seconds)
+  const pollCountRef = useRef(0); // Use ref to track count reliably
+  const MAX_POLL_ATTEMPTS = 60; // 3 minutes (60 * 3 sec)
 
   // Load booking details
   useEffect(() => {
     const loadBooking = async () => {
       try {
         const res = await api.get(`/bookings/${bookingId}`, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
         });
         const bookingData = res.data;
         setBooking(bookingData);
@@ -36,7 +36,6 @@ const PaymentPage = ({ user }) => {
         setError("Failed to load booking details.");
       }
     };
-
     loadBooking();
   }, [bookingId, navigate]);
 
@@ -47,7 +46,7 @@ const PaymentPage = ({ user }) => {
     const checkExistingPayment = async () => {
       try {
         const res = await api.get(`/payments/by-booking/${bookingId}`, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
         });
         const paymentData = res.data;
 
@@ -58,6 +57,7 @@ const PaymentPage = ({ user }) => {
         } else if (paymentData.status === "pending") {
           setPayment(paymentData);
           setIsPolling(true);
+          pollCountRef.current = 0;
         }
       } catch (err) {
         console.error("Error checking payment:", err);
@@ -78,9 +78,9 @@ const PaymentPage = ({ user }) => {
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        setPollCount((prev) => prev + 1);
+        pollCountRef.current += 1;
 
-        if (pollCount >= MAX_POLL_ATTEMPTS) {
+        if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
           clearInterval(pollIntervalRef.current);
           setIsPolling(false);
           setError(
@@ -89,9 +89,9 @@ const PaymentPage = ({ user }) => {
           return;
         }
 
-        // Always fetch fresh booking
+        // Fetch latest booking
         const bookingRes = await api.get(`/bookings/${bookingId}`, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
         });
         const updatedBooking = bookingRes.data;
 
@@ -102,9 +102,9 @@ const PaymentPage = ({ user }) => {
           return;
         }
 
-        // Always fetch fresh payment
+        // Fetch latest payment
         const paymentRes = await api.get(`/payments/by-booking/${bookingId}`, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
         });
         const updatedPayment = paymentRes.data;
 
@@ -122,7 +122,6 @@ const PaymentPage = ({ user }) => {
           setPayment(null);
           return;
         }
-
       } catch (err) {
         console.error("Polling error:", err);
       }
@@ -131,7 +130,7 @@ const PaymentPage = ({ user }) => {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [isPolling, pollCount, bookingId, navigate]);
+  }, [isPolling, bookingId, navigate]);
 
   const handlePayment = async () => {
     if (!phoneNumber.trim()) {
@@ -149,7 +148,7 @@ const PaymentPage = ({ user }) => {
 
     setLoading(true);
     setError("");
-    setPollCount(0);
+    pollCountRef.current = 0;
 
     try {
       const res = await api.post("/payments/mpesa", {
@@ -157,8 +156,7 @@ const PaymentPage = ({ user }) => {
         phone: cleanPhone,
       });
 
-      const paymentData = res.data;
-      setPayment(paymentData);
+      setPayment(res.data);
       setIsPolling(true);
 
       alert(
@@ -179,7 +177,7 @@ const PaymentPage = ({ user }) => {
     setIsPolling(false);
     setPayment(null);
     setError("");
-    setPollCount(0);
+    pollCountRef.current = 0;
   };
 
   if (!booking) {
@@ -265,7 +263,7 @@ const PaymentPage = ({ user }) => {
             <p>Please check your phone for the M-Pesa prompt</p>
             <p>Enter your M-Pesa PIN to complete the payment</p>
             <small>
-              Checking payment status... ({pollCount}/{MAX_POLL_ATTEMPTS})
+              Checking payment status... ({pollCountRef.current}/{MAX_POLL_ATTEMPTS})
             </small>
             <button onClick={handleCancelPolling} className="btn-cancel">
               Cancel & Try Again
