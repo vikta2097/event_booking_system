@@ -103,6 +103,7 @@ const fetchEvents = useCallback(async () => {
   // ✅ Fetch ticket types
   const fetchTicketTypes = useCallback(async (eventId) => {
   if (!eventId) return;
+
   try {
     setTicketLoading(true);
     setTicketError("");
@@ -111,12 +112,15 @@ const fetchEvents = useCallback(async () => {
       headers: getAuthHeaders(),
     });
 
-    if (Array.isArray(res.data)) {
-      setTicketTypes(res.data);
+    const list = res.data?.ticket_types;
+
+    if (Array.isArray(list)) {
+      setTicketTypes(list);
     } else {
       setTicketTypes([]);
       setTicketError("Unexpected response from server.");
     }
+
   } catch (err) {
     console.error("Failed to fetch ticket types:", err);
     setTicketTypes([]);
@@ -125,6 +129,7 @@ const fetchEvents = useCallback(async () => {
     setTicketLoading(false);
   }
 }, []);
+
 
 
   // =======================
