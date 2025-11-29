@@ -21,7 +21,8 @@ const Events = ({ currentUser }) => {
     quantity_available: "" 
   });
   const [ticketTypes, setTicketTypes] = useState([]);
-  const [, setTicketLoading] = useState(false);
+  const [ticketLoading, setTicketLoading] = useState(false);
+  const [ticketError, setTicketError] = useState("");
 
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -101,17 +102,30 @@ const fetchEvents = useCallback(async () => {
 
   // ✅ Fetch ticket types
   const fetchTicketTypes = useCallback(async (eventId) => {
-    try {
-      setTicketLoading(true);
-      const res = await api.get(`/events/${eventId}/ticket-types`, { headers: getAuthHeaders() });
-      setTicketTypes(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Failed to fetch ticket types:", err);
+  if (!eventId) return;
+  try {
+    setTicketLoading(true);
+    setTicketError("");
+
+    const res = await api.get(`/events/${eventId}/ticket-types`, {
+      headers: getAuthHeaders(),
+    });
+
+    if (Array.isArray(res.data)) {
+      setTicketTypes(res.data);
+    } else {
       setTicketTypes([]);
-    } finally {
-      setTicketLoading(false);
+      setTicketError("Unexpected response from server.");
     }
-  }, []);
+  } catch (err) {
+    console.error("Failed to fetch ticket types:", err);
+    setTicketTypes([]);
+    setTicketError("Failed to load tickets.");
+  } finally {
+    setTicketLoading(false);
+  }
+}, []);
+
 
   // =======================
   // INITIAL LOAD - Only runs once when currentUser changes
@@ -506,62 +520,70 @@ useEffect(() => {
 
       {/* Ticket Modal */}
       {showTicketModal && editingEvent && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Manage Tickets for {editingEvent.title}</h3>
-            <form onSubmit={handleTicketSubmit}>
-              <label>Name</label>
-              <input type="text" name="name" value={ticketForm.name} onChange={handleTicketChange} required />
-              <label>Description</label>
-              <textarea name="description" value={ticketForm.description} onChange={handleTicketChange} />
-              <label>Price (KES)</label>
-              <input type="number" name="price" value={ticketForm.price} onChange={handleTicketChange} required />
-              <label>Quantity Available</label>
-              <input type="number" name="quantity_available" value={ticketForm.quantity_available} onChange={handleTicketChange} required />
-              <div className="modal-actions">
-                <button type="submit" className="save-btn">{editingTicket ? "Update" : "Add Ticket"}</button>
-                <button type="button" className="cancel-btn" onClick={() => {
-                  setShowTicketModal(false);
-                  setEditingTicket(null);
-                  setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
-                }}>Close</button>
-              </div>
-            </form>
+  <div className="modal-overlay">
+    <div className="modal">
+      <h3>Manage Tickets for {editingEvent.title}</h3>
 
-            {/* Ticket List */}
-            <table className="tickets-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Description</th>
-                  <th>Price</th>
-                  <th>Quantity</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ticketTypes.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: "center" }}>No tickets found.</td></tr>
-                ) : ticketTypes.map((t) => (
-                  <tr key={t.id}>
-                    <td>{t.name}</td>
-                    <td>{t.description}</td>
-                    <td>KES {t.price}</td>
-                    <td>{t.quantity_available}</td>
-                    <td>
-                      <button className="edit-btn" onClick={() => {
-                        setEditingTicket(t);
-                        setTicketForm({ name: t.name, description: t.description, price: t.price, quantity_available: t.quantity_available });
-                      }}>Edit</button>
-                      <button className="delete-btn" onClick={() => handleTicketDelete(t.id)}>Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Ticket Form */}
+      <form onSubmit={handleTicketSubmit}>
+        <label>Name</label>
+        <input type="text" name="name" value={ticketForm.name} onChange={handleTicketChange} required />
+        <label>Description</label>
+        <textarea name="description" value={ticketForm.description} onChange={handleTicketChange} />
+        <label>Price (KES)</label>
+        <input type="number" name="price" value={ticketForm.price} onChange={handleTicketChange} required />
+        <label>Quantity Available</label>
+        <input type="number" name="quantity_available" value={ticketForm.quantity_available} onChange={handleTicketChange} required />
+        <div className="modal-actions">
+          <button type="submit" className="save-btn">{editingTicket ? "Update" : "Add Ticket"}</button>
+          <button type="button" className="cancel-btn" onClick={() => {
+            setShowTicketModal(false);
+            setEditingTicket(null);
+            setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
+          }}>Close</button>
         </div>
+      </form>
+
+      {/* Ticket List */}
+      {ticketLoading ? (
+        <p style={{ textAlign: "center" }}>Loading tickets...</p>
+      ) : ticketError ? (
+        <p className="error" style={{ textAlign: "center" }}>{ticketError}</p>
+      ) : (
+        <table className="tickets-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Price</th>
+              <th>Quantity</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ticketTypes.length === 0 ? (
+              <tr><td colSpan={5} style={{ textAlign: "center" }}>No tickets found.</td></tr>
+            ) : ticketTypes.map((t) => (
+              <tr key={t.id}>
+                <td>{t.name}</td>
+                <td>{t.description}</td>
+                <td>KES {t.price}</td>
+                <td>{t.quantity_available}</td>
+                <td>
+                  <button className="edit-btn" onClick={() => {
+                    setEditingTicket(t);
+                    setTicketForm({ name: t.name, description: t.description, price: t.price, quantity_available: t.quantity_available });
+                  }}>Edit</button>
+                  <button className="delete-btn" onClick={() => handleTicketDelete(t.id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
+    </div>
+  </div>
+)}
     </div>
   );
 };
