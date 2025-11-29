@@ -15,43 +15,43 @@ const TicketScanner = () => {
   const isProcessing = useRef(false);
 
   const validateTicket = async (code, isManual = false) => {
-  // Prevent duplicate processing
-  if (isProcessing.current) return;
-  
-  isProcessing.current = true;
-  setLoading(true);
-  setError("");
-  setScanResult(null);
-
-  try {
-    // Determine if it's a QR code or manual code
-    const payload = isManual || code.includes('-') && code.length < 20
-      ? { manual_code: code }
-      : { qr_code: code };
-
-    const response = await api.post("/tickets/validate", payload);
+    // Prevent duplicate processing
+    if (isProcessing.current) return;
     
-    setScanResult({
-      success: response.data.valid,
-      message: response.data.message,
-      ticket: response.data.ticket,
-    });
-    
-    playSound(response.data.valid ? "success" : "error");
-  } catch (err) {
-    const errorData = err.response?.data;
-    setScanResult({
-      success: false,
-      message: errorData?.message || "Validation failed",
-      ticket: errorData?.ticket || null,
-    });
-    playSound("error");
-  } finally {
-    setLoading(false);
-    isProcessing.current = false;
-  }
-};
+    isProcessing.current = true;
+    setLoading(true);
+    setError("");
+    setScanResult(null);
 
+    try {
+      // Determine if it's a QR code or manual code
+      // FIXED: Added parentheses to clarify operator precedence
+      const payload = (isManual || (code.includes('-') && code.length < 20))
+        ? { manual_code: code }
+        : { qr_code: code };
+
+      const response = await api.post("/tickets/validate", payload);
+      
+      setScanResult({
+        success: response.data.valid,
+        message: response.data.message,
+        ticket: response.data.ticket,
+      });
+      
+      playSound(response.data.valid ? "success" : "error");
+    } catch (err) {
+      const errorData = err.response?.data;
+      setScanResult({
+        success: false,
+        message: errorData?.message || "Validation failed",
+        ticket: errorData?.ticket || null,
+      });
+      playSound("error");
+    } finally {
+      setLoading(false);
+      isProcessing.current = false;
+    }
+  };
 
   const playSound = (type) => {
     const audio = new Audio(
@@ -106,13 +106,14 @@ const TicketScanner = () => {
   }, [scannerActive]);
 
   const handleManualSubmit = (e) => {
-  e.preventDefault();
-  if (manualCode.trim() && !loading) {
-    // Remove spaces and hyphens, convert to uppercase
-    const cleanedCode = manualCode.trim().replace(/[\s\-]/g, '').toUpperCase();
-    validateTicket(cleanedCode, true);
-  }
-};
+    e.preventDefault();
+    if (manualCode.trim() && !loading) {
+      // Remove spaces and hyphens, convert to uppercase
+      // FIXED: Removed unnecessary escape for hyphen in character class
+      const cleanedCode = manualCode.trim().replace(/[\s-]/g, '').toUpperCase();
+      validateTicket(cleanedCode, true);
+    }
+  };
 
   const handleScanAnother = () => {
     setScanResult(null);
@@ -145,162 +146,161 @@ const TicketScanner = () => {
   };
 
   return (
-  <div className="ticket-scanner">
-    <div className="scanner-header">
-      <h2>🎫 Ticket Validation</h2>
-      <button onClick={toggleScanner} className="btn-toggle">
-        {scannerActive ? "📝 Use Manual Entry" : "📷 Use Camera Scanner"}
-      </button>
-    </div>
-
-    {scannerActive && !scanResult && (
-      <div className="scanner-container">
-        <div id="qr-reader"></div>
-        <p className="scanner-hint">📱 Point camera at QR code to scan</p>
+    <div className="ticket-scanner">
+      <div className="scanner-header">
+        <h2>🎫 Ticket Validation</h2>
+        <button onClick={toggleScanner} className="btn-toggle">
+          {scannerActive ? "📝 Use Manual Entry" : "📷 Use Camera Scanner"}
+        </button>
       </div>
-    )}
 
-    {!scannerActive && !scanResult && (
-      <form onSubmit={handleManualSubmit} className="manual-entry">
-        <div className="form-group">
-          <label htmlFor="qr-code">Enter Ticket Code</label>
-          <input
-            id="qr-code"
-            type="text"
-            value={manualCode}
-            onChange={(e) => setManualCode(e.target.value.toUpperCase())}
-            placeholder="XXXX-XXXX-XXXX or TKT-..."
-            autoFocus
-            disabled={loading}
-            maxLength={50}
-          />
-          <p className="input-hint">
-            Enter either the manual code (e.g., AB3C-5D7E-9FGH) or QR code
-          </p>
+      {scannerActive && !scanResult && (
+        <div className="scanner-container">
+          <div id="qr-reader"></div>
+          <p className="scanner-hint">📱 Point camera at QR code to scan</p>
         </div>
-        <button
-          type="submit"
-          disabled={loading || !manualCode.trim()}
-          className="btn-validate"
-        >
-          {loading ? "⏳ Validating..." : "✓ Validate Ticket"}
-        </button>
-      </form>
-    )}
+      )}
 
-    {loading && (
-      <div className="loading-state">
-        <div className="spinner"></div>
-        <p>Validating ticket...</p>
-      </div>
-    )}
-
-    {scanResult && (
-      <div className={`scan-result ${scanResult.success ? "success" : "error"}`}>
-        <div className="result-icon">{scanResult.success ? "✅" : "❌"}</div>
-
-        <h3>{scanResult.message}</h3>
-
-        {scanResult.ticket && (
-          <div className="ticket-details">
-            {scanResult.ticket.attendee_name && (
-              <div className="detail-row">
-                <span className="label">👤 Attendee:</span>
-                <span className="value">{scanResult.ticket.attendee_name}</span>
-              </div>
-            )}
-            {scanResult.ticket.ticket_type && (
-              <div className="detail-row">
-                <span className="label">🎟️ Ticket Type:</span>
-                <span className="value">{scanResult.ticket.ticket_type}</span>
-              </div>
-            )}
-            {scanResult.ticket.event_title && (
-              <div className="detail-row">
-                <span className="label">🎉 Event:</span>
-                <span className="value">{scanResult.ticket.event_title}</span>
-              </div>
-            )}
-            {scanResult.ticket.booking_reference && (
-              <div className="detail-row">
-                <span className="label">📋 Booking Ref:</span>
-                <span className="value">#{scanResult.ticket.booking_reference}</span>
-              </div>
-            )}
-            {scanResult.ticket.venue && (
-              <div className="detail-row">
-                <span className="label">📍 Venue:</span>
-                <span className="value">{scanResult.ticket.venue}</span>
-              </div>
-            )}
-            {scanResult.ticket.event_date && (
-              <div className="detail-row">
-                <span className="label">📅 Event Date:</span>
-                <span className="value">
-                  {new Date(scanResult.ticket.event_date).toLocaleDateString("en-US", {
-                    weekday: "short",
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-            )}
-            {scanResult.ticket.start_time && (
-              <div className="detail-row">
-                <span className="label">⏰ Time:</span>
-                <span className="value">{scanResult.ticket.start_time}</span>
-              </div>
-            )}
-            {scanResult.ticket.manual_code && (
-              <div className="detail-row highlight">
-                <span className="label">🔑 Manual Code:</span>
-                <span className="value code-display">{scanResult.ticket.manual_code}</span>
-              </div>
-            )}
-            {scanResult.ticket.used_at && (
-              <div className="detail-row warning">
-                <span className="label">⚠️ Previously Used At:</span>
-                <span className="value">
-                  {new Date(scanResult.ticket.used_at).toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-            )}
-            {scanResult.ticket.validated_at && scanResult.success && (
-              <div className="detail-row success-info">
-                <span className="label">✓ Validated At:</span>
-                <span className="value">
-                  {new Date(scanResult.ticket.validated_at).toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-            )}
+      {!scannerActive && !scanResult && (
+        <form onSubmit={handleManualSubmit} className="manual-entry">
+          <div className="form-group">
+            <label htmlFor="qr-code">Enter Ticket Code</label>
+            <input
+              id="qr-code"
+              type="text"
+              value={manualCode}
+              onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+              placeholder="XXXX-XXXX-XXXX or TKT-..."
+              autoFocus
+              disabled={loading}
+              maxLength={50}
+            />
+            <p className="input-hint">
+              Enter either the manual code (e.g., AB3C-5D7E-9FGH) or QR code
+            </p>
           </div>
-        )}
+          <button
+            type="submit"
+            disabled={loading || !manualCode.trim()}
+            className="btn-validate"
+          >
+            {loading ? "⏳ Validating..." : "✓ Validate Ticket"}
+          </button>
+        </form>
+      )}
 
-        <button onClick={handleScanAnother} className="btn-scan-another">
-          {scannerActive ? "📷 Scan Another Ticket" : "📝 Validate Another"}
-        </button>
-      </div>
-    )}
+      {loading && (
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>Validating ticket...</p>
+        </div>
+      )}
 
-    {error && (
-      <div className="error-message">
-        <span>⚠️ {error}</span>
-      </div>
-    )}
-  </div>
-);
+      {scanResult && (
+        <div className={`scan-result ${scanResult.success ? "success" : "error"}`}>
+          <div className="result-icon">{scanResult.success ? "✅" : "❌"}</div>
+
+          <h3>{scanResult.message}</h3>
+
+          {scanResult.ticket && (
+            <div className="ticket-details">
+              {scanResult.ticket.attendee_name && (
+                <div className="detail-row">
+                  <span className="label">👤 Attendee:</span>
+                  <span className="value">{scanResult.ticket.attendee_name}</span>
+                </div>
+              )}
+              {scanResult.ticket.ticket_type && (
+                <div className="detail-row">
+                  <span className="label">🎟️ Ticket Type:</span>
+                  <span className="value">{scanResult.ticket.ticket_type}</span>
+                </div>
+              )}
+              {scanResult.ticket.event_title && (
+                <div className="detail-row">
+                  <span className="label">🎉 Event:</span>
+                  <span className="value">{scanResult.ticket.event_title}</span>
+                </div>
+              )}
+              {scanResult.ticket.booking_reference && (
+                <div className="detail-row">
+                  <span className="label">📋 Booking Ref:</span>
+                  <span className="value">#{scanResult.ticket.booking_reference}</span>
+                </div>
+              )}
+              {scanResult.ticket.venue && (
+                <div className="detail-row">
+                  <span className="label">📍 Venue:</span>
+                  <span className="value">{scanResult.ticket.venue}</span>
+                </div>
+              )}
+              {scanResult.ticket.event_date && (
+                <div className="detail-row">
+                  <span className="label">📅 Event Date:</span>
+                  <span className="value">
+                    {new Date(scanResult.ticket.event_date).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+              )}
+              {scanResult.ticket.start_time && (
+                <div className="detail-row">
+                  <span className="label">⏰ Time:</span>
+                  <span className="value">{scanResult.ticket.start_time}</span>
+                </div>
+              )}
+              {scanResult.ticket.manual_code && (
+                <div className="detail-row highlight">
+                  <span className="label">🔑 Manual Code:</span>
+                  <span className="value code-display">{scanResult.ticket.manual_code}</span>
+                </div>
+              )}
+              {scanResult.ticket.used_at && (
+                <div className="detail-row warning">
+                  <span className="label">⚠️ Previously Used At:</span>
+                  <span className="value">
+                    {new Date(scanResult.ticket.used_at).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              )}
+              {scanResult.ticket.validated_at && scanResult.success && (
+                <div className="detail-row success-info">
+                  <span className="label">✓ Validated At:</span>
+                  <span className="value">
+                    {new Date(scanResult.ticket.validated_at).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <button onClick={handleScanAnother} className="btn-scan-another">
+            {scannerActive ? "📷 Scan Another Ticket" : "📝 Validate Another"}
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-message">
+          <span>⚠️ {error}</span>
+        </div>
+      )}
+    </div>
+  );
 };
-
 
 export default TicketScanner;
