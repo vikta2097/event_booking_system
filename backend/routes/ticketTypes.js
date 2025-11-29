@@ -18,13 +18,16 @@ router.get("/events/:eventId/ticket-types", async (req, res) => {
         description,
         price,
         quantity_available,
-        quantity_sold
+        COALESCE(quantity_sold, 0) as quantity_sold
       FROM ticket_types
       WHERE event_id = $1
       ORDER BY price ASC
     `;
 
     const result = await db.query(query, [eventId]);
+    
+    console.log(`📋 Fetched ${result.rows.length} ticket types for event ${eventId}`);
+    
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching ticket types:", err);
@@ -38,7 +41,16 @@ router.get("/events/:eventId/ticket-types", async (req, res) => {
 router.get("/ticket-types/:id", async (req, res) => {
   try {
     const query = `
-      SELECT * FROM ticket_types WHERE id = $1
+      SELECT 
+        id,
+        event_id,
+        name,
+        description,
+        price,
+        quantity_available,
+        COALESCE(quantity_sold, 0) as quantity_sold
+      FROM ticket_types 
+      WHERE id = $1
     `;
     const result = await db.query(query, [req.params.id]);
 
@@ -61,10 +73,21 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
     const { eventId } = req.params;
     const { name, description, price, quantity_available } = req.body;
 
+    console.log('📥 Creating ticket type:', { eventId, name, price, quantity_available });
+
     if (!name || price === undefined || !quantity_available) {
       return res.status(400).json({ 
-        error: "Name, price, and quantity are required" 
+        error: "Name, price, and quantity_available are required" 
       });
+    }
+
+    // Validate price and quantity
+    if (price < 0) {
+      return res.status(400).json({ error: "Price cannot be negative" });
+    }
+
+    if (quantity_available < 1) {
+      return res.status(400).json({ error: "Quantity must be at least 1" });
     }
 
     // Verify event exists and user has permission
@@ -82,6 +105,7 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
       });
     }
 
+    // CRITICAL FIX: Explicitly set quantity_sold to 0
     const query = `
       INSERT INTO ticket_types 
       (event_id, name, description, price, quantity_available, quantity_sold)
@@ -93,9 +117,11 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
       eventId,
       name,
       description || null,
-      price,
-      quantity_available
+      parseFloat(price),
+      parseInt(quantity_available)
     ]);
+
+    console.log('✅ Ticket type created:', result.rows[0]);
 
     res.status(201).json({
       message: "Ticket type created successfully",
@@ -103,7 +129,10 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
     });
   } catch (err) {
     console.error("Error creating ticket type:", err);
-    res.status(500).json({ error: "Failed to create ticket type" });
+    res.status(500).json({ 
+      error: "Failed to create ticket type",
+      details: err.message 
+    });
   }
 });
 
@@ -113,6 +142,8 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
 router.put("/ticket-types/:id", verifyToken, async (req, res) => {
   try {
     const { name, description, price, quantity_available } = req.body;
+
+    console.log('📝 Updating ticket type:', req.params.id, req.body);
 
     // Get ticket type and verify permissions
     const checkQuery = `
@@ -132,6 +163,16 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
       return res.status(403).json({ error: "Permission denied" });
     }
 
+    // Validate if reducing quantity below sold amount
+    if (quantity_available !== undefined) {
+      const currentSold = ticketType.quantity_sold || 0;
+      if (parseInt(quantity_available) < currentSold) {
+        return res.status(400).json({ 
+          error: `Cannot reduce quantity below ${currentSold} (already sold)` 
+        });
+      }
+    }
+
     const updateFields = [];
     const values = [];
     let paramCount = 1;
@@ -146,11 +187,11 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
     }
     if (price !== undefined) {
       updateFields.push(`price = $${paramCount++}`);
-      values.push(price);
+      values.push(parseFloat(price));
     }
     if (quantity_available !== undefined) {
       updateFields.push(`quantity_available = $${paramCount++}`);
-      values.push(quantity_available);
+      values.push(parseInt(quantity_available));
     }
 
     if (updateFields.length === 0) {
@@ -167,6 +208,9 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
     `;
 
     const result = await db.query(query, values);
+    
+    console.log('✅ Ticket type updated:', result.rows[0]);
+    
     res.json({
       message: "Ticket type updated successfully",
       ticketType: result.rows[0]
@@ -177,18 +221,20 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
   }
 });
 
+// ======================
 // GET all tickets for an event
+// ======================
 router.get("/events/:eventId/tickets", verifyToken, async (req, res) => {
   try {
     const { eventId } = req.params;
 
     const query = `
       SELECT t.id, t.ticket_type_id, tt.name as ticket_name, t.booking_id,
-             b.user_id, u.name as buyer_name, t.status, t.qr_code, t.created_at
+             b.user_id, u.fullname as buyer_name, t.status, t.qr_code, t.created_at
       FROM tickets t
       JOIN ticket_types tt ON t.ticket_type_id = tt.id
       JOIN bookings b ON t.booking_id = b.id
-      JOIN users u ON b.user_id = u.id
+      JOIN usercredentials u ON b.user_id = u.id
       WHERE tt.event_id = $1
       ORDER BY t.created_at DESC
     `;
@@ -200,7 +246,6 @@ router.get("/events/:eventId/tickets", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch tickets" });
   }
 });
-
 
 // ======================
 // DELETE ticket type
@@ -238,6 +283,8 @@ router.delete("/ticket-types/:id", verifyToken, async (req, res) => {
     }
 
     await db.query(`DELETE FROM ticket_types WHERE id = $1`, [req.params.id]);
+
+    console.log('🗑️ Ticket type deleted:', req.params.id);
 
     res.json({ message: "Ticket type deleted successfully" });
   } catch (err) {
