@@ -6,13 +6,17 @@
   margin: 0 auto;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: #333;
+  background-color: #fdfdfd;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
 .reports-container h2 {
   text-align: center;
-  margin-bottom: 20px;
-  font-size: 28px;
+  margin-bottom: 25px;
+  font-size: 30px;
   color: #2c3e50;
+  font-weight: 600;
 }
 
 /* ===========================
@@ -21,32 +25,42 @@
 .report-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 25px;
   align-items: center;
+  justify-content: center;
 }
 
 .report-filters input,
 .report-filters select {
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid #ccc;
   border-radius: 6px;
   font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.report-filters input:focus,
+.report-filters select:focus {
+  outline: none;
+  border-color: #3498db;
 }
 
 .report-filters button {
-  padding: 8px 16px;
+  padding: 10px 18px;
   background-color: #3498db;
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  transition: background-color 0.2s;
+  font-weight: 500;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .report-filters button:hover {
   background-color: #2980b9;
+  transform: translateY(-1px);
 }
 
 .report-filters button:disabled {
@@ -60,7 +74,8 @@
 .error {
   color: #e74c3c;
   font-weight: bold;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
+  text-align: center;
 }
 
 /* ===========================
@@ -69,15 +84,19 @@
 .report-stats {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 20px;
-  padding: 12px;
+  margin-bottom: 25px;
+  padding: 15px;
   background-color: #ecf0f1;
-  border-radius: 8px;
+  border-radius: 10px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .report-stats div {
   font-size: 16px;
   font-weight: 500;
+  min-width: 140px;
+  text-align: center;
 }
 
 /* ===========================
@@ -88,6 +107,7 @@
   max-width: 100%;
   border-radius: 8px;
   border: 1px solid #ddd;
+  margin-bottom: 30px;
 }
 
 /* ===========================
@@ -96,12 +116,12 @@
 .report-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px; /* ensures horizontal scroll if screen is smaller */
+  min-width: 900px;
 }
 
 .report-table th,
 .report-table td {
-  padding: 10px 12px;
+  padding: 10px 14px;
   text-align: left;
   border-bottom: 1px solid #ddd;
 }
@@ -113,6 +133,7 @@
   position: sticky;
   top: 0;
   z-index: 2;
+  text-align: center;
 }
 
 .report-table tr:nth-child(even) {
@@ -125,12 +146,29 @@
 
 .report-table td {
   font-size: 14px;
+  text-align: center;
+}
+
+/* ===========================
+   Analytics Chart
+=========================== */
+.analytics-chart {
+  margin-bottom: 30px;
+  padding: 15px;
+  background-color: #ecf0f1;
+  border-radius: 10px;
+}
+
+.analytics-chart h3 {
+  text-align: center;
+  margin-bottom: 15px;
+  color: #2c3e50;
 }
 
 /* ===========================
    Responsive
 =========================== */
-@media (max-width: 768px) {
+@media (max-width: 992px) {
   .report-filters {
     flex-direction: column;
     align-items: stretch;
@@ -138,12 +176,23 @@
 
   .report-stats {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    align-items: center;
   }
 
   .report-table th,
   .report-table td {
     font-size: 12px;
     padding: 8px;
+  }
+
+  .analytics-chart {
+    height: 250px;
+  }
+}
+
+@media (max-width: 576px) {
+  .report-table {
+    min-width: 700px;
   }
 }

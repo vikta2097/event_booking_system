@@ -1,61 +1,52 @@
 import React, { useEffect, useState } from "react";
-import api from "../api"; // centralized axios instance
+import api from "../api"; 
 import "../styles/Reports.css";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 
-const Reports = ({ currentUser }) => {
+const Reports = () => {
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState({ totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
-  const [filters, setFilters] = useState({ startDate: "", endDate: "", eventId: "", paymentStatus: "" });
+  const [analytics, setAnalytics] = useState([]);
+  const [filters, setFilters] = useState({ startDate: "", endDate: "", eventId: "", paymentStatus: "", symbol: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const fetchReports = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.get("/reports", { params: filters });
+      setReports(res.data?.reports || []);
+      setStats(res.data?.stats || { totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
+      setAnalytics(res.data?.analytics || []);
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.error || "Failed to load reports.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const res = await api.get("/reports", { params: filters });
-        setReports(res.data?.reports || []);
-        setStats(res.data?.stats || { totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
-      } catch (err) {
-        console.error(err);
-        setError(err.response?.data?.error || "Failed to load reports.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    fetchReports();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once on mount
+  }, []);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
+    setFilters(prev => ({ ...prev, [name]: value }));
   };
 
   const handleFilterSubmit = (e) => {
     e.preventDefault();
-    // Re-fetch reports with new filters
-    const fetchFilteredReports = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const res = await api.get("/reports", { params: filters });
-        setReports(res.data?.reports || []);
-        setStats(res.data?.stats || { totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
-      } catch (err) {
-        console.error(err);
-        setError(err.response?.data?.error || "Failed to load reports.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFilteredReports();
+    fetchReports();
   };
 
   return (
     <div className="reports-container">
-      <h2>Detailed Reports</h2>
+      <h2>Detailed Reports & Analytics</h2>
 
       <form className="report-filters" onSubmit={handleFilterSubmit}>
         <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} />
@@ -67,12 +58,27 @@ const Reports = ({ currentUser }) => {
           <option value="pending">Pending</option>
           <option value="failed">Failed</option>
         </select>
-        <button type="submit" disabled={loading}>
-          {loading ? "Loading..." : "Filter"}
-        </button>
+        <input type="text" name="symbol" placeholder="Stock Symbol for Analytics" value={filters.symbol} onChange={handleFilterChange} />
+        <button type="submit" disabled={loading}>{loading ? "Loading..." : "Filter"}</button>
       </form>
 
       {error && <p className="error">{error}</p>}
+
+      {analytics.length > 0 && (
+        <div className="analytics-chart">
+          <h3>Analytics for {filters.symbol.toUpperCase()}</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={analytics}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="open" stroke="#8884d8" name="Open" />
+              <Line type="monotone" dataKey="close" stroke="#82ca9d" name="Close" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <div className="report-stats">
         <div><strong>Total Revenue:</strong> KES {parseFloat(stats.totalRevenue || 0).toLocaleString()}</div>
@@ -98,21 +104,19 @@ const Reports = ({ currentUser }) => {
           <tbody>
             {reports.length === 0 ? (
               <tr><td colSpan="9">No records found.</td></tr>
-            ) : (
-              reports.map((r) => (
-                <tr key={r.booking_id}>
-                  <td>{r.booking_id}</td>
-                  <td>{r.user_name || "N/A"}</td>
-                  <td>{r.event_title || "N/A"}</td>
-                  <td>{r.event_date ? new Date(r.event_date).toLocaleDateString() : "N/A"}</td>
-                  <td>{r.seats || 0}</td>
-                  <td>{r.booking_date ? new Date(r.booking_date).toLocaleDateString() : "N/A"}</td>
-                  <td>KES {parseFloat(r.booking_amount || 0).toLocaleString()}</td>
-                  <td>{r.payment_status || "N/A"}</td>
-                  <td>{r.booking_status || "N/A"}</td>
-                </tr>
-              ))
-            )}
+            ) : reports.map(r => (
+              <tr key={r.booking_id}>
+                <td>{r.booking_id}</td>
+                <td>{r.user_name || "N/A"}</td>
+                <td>{r.event_title || "N/A"}</td>
+                <td>{r.event_date ? new Date(r.event_date).toLocaleDateString() : "N/A"}</td>
+                <td>{r.seats || 0}</td>
+                <td>{r.booking_date ? new Date(r.booking_date).toLocaleDateString() : "N/A"}</td>
+                <td>KES {parseFloat(r.booking_amount || 0).toLocaleString()}</td>
+                <td>{r.payment_status || "N/A"}</td>
+                <td>{r.booking_status || "N/A"}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
