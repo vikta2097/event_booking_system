@@ -52,7 +52,7 @@ const guestResponses = {
   
   login: "To log in:\n\n1. Click 'Login' at the top\n2. Enter your email and password\n3. Click 'Sign In'\n\nForgot your password? Use the 'Forgot Password' link on the login page.",
   
-  contact: "You can reach us at:\n\n📧 Email: support@eventbooking.com\n📞 Phone: +254 123 456 789\n\nOr use our Contact Form in the menu to send us a message directly!",
+  contact: "You can reach us at:\n\n📧 Email: victorlabs854@gmail.com\n📞 Phone: +254 759205319\n\nOr use our Contact Form in the menu to send us a message directly!",
   
   unknown: "I'm not sure I understand. As a guest, I can help you with:\n\n• Viewing upcoming events\n• Registration information\n• Login assistance\n• Contact information\n\nWhat would you like to know?"
 };
