@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db"); // your Postgres pool/connection
+const db = require("../db"); // Postgres pool/connection
 const { verifyToken } = require("../auth"); // optional JWT auth
 
 // ======================
@@ -23,7 +23,7 @@ const intents = {
   payments_admin: ["pending payments", "payment status", "all payments"],
 };
 
-// Detect intent from user message
+// Detect intent
 function detectIntent(message) {
   const lower = message.toLowerCase();
   for (const [intent, keywords] of Object.entries(intents)) {
@@ -33,10 +33,10 @@ function detectIntent(message) {
 }
 
 // ======================
-// DATABASE QUERY HANDLERS
+// DATABASE HANDLERS
 // ======================
 
-// Get upcoming events
+// Upcoming events
 async function getUpcomingEvents() {
   try {
     const result = await db.query(`
@@ -46,26 +46,14 @@ async function getUpcomingEvents() {
       ORDER BY event_date ASC
       LIMIT 5
     `);
-
-    if (result.rows.length === 0) return "No upcoming events at the moment.";
-
-    let message = "📅 **Upcoming Events:**\n\n";
-    result.rows.forEach((e, idx) => {
-      message += `${idx + 1}. **${e.title}**\n`;
-      message += `   📍 ${e.location || "TBA"}\n`;
-      message += `   📆 ${new Date(e.event_date).toLocaleDateString()}\n`;
-      message += `   💰 KES ${e.price}\n\n`;
-    });
-    message += "To book, visit the events page and select your tickets.";
-    return message;
-
+    return result.rows;
   } catch (err) {
-    console.error("Error fetching events:", err);
-    return "Sorry, I couldn't fetch events right now.";
+    console.error(err);
+    return [];
   }
 }
 
-// Get user bookings
+// User bookings
 async function getUserBookings(userId) {
   try {
     const result = await db.query(`
@@ -76,28 +64,14 @@ async function getUserBookings(userId) {
       ORDER BY b.created_at DESC
       LIMIT 5
     `, [userId]);
-
-    if (result.rows.length === 0) return "You have no bookings yet.";
-
-    let message = "🎟️ **Your Recent Bookings:**\n\n";
-    result.rows.forEach((b, idx) => {
-      const statusEmoji = b.status === "confirmed" ? "✅" : b.status === "pending" ? "⏳" : "❌";
-      message += `${idx + 1}. ${statusEmoji} **${b.title}**\n`;
-      message += `   📋 Ref: ${b.reference}\n`;
-      message += `   📆 ${new Date(b.event_date).toLocaleDateString()}\n`;
-      message += `   💰 KES ${b.total_amount}\n`;
-      message += `   Status: ${b.status}\n\n`;
-    });
-    message += "Need help with a booking? Ask for cancellation or details!";
-    return message;
-
+    return result.rows;
   } catch (err) {
-    console.error("Error fetching bookings:", err);
-    return "Sorry, I couldn't fetch your bookings.";
+    console.error(err);
+    return [];
   }
 }
 
-// Get admin stats (summary info only)
+// Admin stats
 async function getAdminStats() {
   try {
     const events = await db.query("SELECT COUNT(*) FROM events");
@@ -105,23 +79,26 @@ async function getAdminStats() {
     const payments = await db.query("SELECT COUNT(*) as total, SUM(amount) as revenue FROM payments WHERE status='success'");
     const users = await db.query("SELECT COUNT(*) as total, SUM(CASE WHEN role='admin' THEN 1 ELSE 0 END) as admins, SUM(CASE WHEN role='user' THEN 1 ELSE 0 END) as regular FROM usercredentials");
 
-    return `📊 **Dashboard Summary:**\n\n` +
-           `📅 Total Events: ${events.rows[0].count}\n` +
-           `🎟️ Total Bookings: ${bookings.rows[0].count}\n` +
-           `💰 Total Revenue: KES ${payments.rows[0].revenue || 0}\n` +
-           `✅ Successful Payments: ${payments.rows[0].total}\n` +
-           `👥 Total Users: ${users.rows[0].total} (Admins: ${users.rows[0].admins}, Users: ${users.rows[0].regular})`;
+    return {
+      totalEvents: parseInt(events.rows[0].count, 10),
+      totalBookings: parseInt(bookings.rows[0].count, 10),
+      totalRevenue: parseFloat(payments.rows[0].revenue) || 0,
+      successfulPayments: parseInt(payments.rows[0].total, 10),
+      totalUsers: parseInt(users.rows[0].total, 10),
+      admins: parseInt(users.rows[0].admins, 10),
+      regularUsers: parseInt(users.rows[0].regular, 10),
+    };
   } catch (err) {
     console.error(err);
-    return "Sorry, I couldn't fetch stats.";
+    return null;
   }
 }
 
 // ======================
-// RESPONSE HANDLERS
+// RESPONSES
 // ======================
 const guestResponses = {
-  greeting: "👋 Hello! I can show events, registration info, login help, or contact info.",
+  greeting: "Hello! I can show events, registration info, login help, or contact info.",
   help: "I can guide you on viewing events, registering, or contacting support.",
   events: "upcoming_events",
   register: "To register: click Register, fill your info, verify email, start booking!",
@@ -131,23 +108,23 @@ const guestResponses = {
 };
 
 const userResponses = {
-  greeting: "👋 Welcome back! I can show your bookings, payments, events, cancellations, and contact support.",
+  greeting: "Welcome back! I can show your bookings, payments, events, cancellations, and support.",
   help: "Ask me about your bookings, payment instructions, or contact options.",
   events: "upcoming_events",
   bookings: "user_bookings",
-  payment: "💳 Payment instructions:\n- M-Pesa: Select at checkout, follow prompts.\n- Card: Enter card details.\nCheck your payment status anytime!",
+  payment: "Payment instructions:\n- M-Pesa: Select at checkout, follow prompts.\n- Card: Enter card details.",
   cancel: "To cancel a booking, go to My Bookings and select a pending booking.",
-  contact: "📧 Reach support via contact form or email.",
+  contact: "Reach support via contact form or email.",
   unknown: "I can help with bookings, payments, cancellations, events, and support."
 };
 
 const adminResponses = {
-  greeting: "👨‍💼 Hello Admin! I can show stats, recent bookings, payment summary, and ticket validation guidance.",
+  greeting: "Hello Admin! I can show stats, recent bookings, payments, and ticket validation guidance.",
   help: "Ask me about stats, bookings, payments, ticket validation, or user info.",
   stats: "admin_stats",
   bookings: "admin_bookings",
   payments_admin: "admin_payments",
-  validate: "To validate tickets: scan QR code or check booking reference in system.",
+  validate: "To validate tickets: scan QR code or check booking reference.",
   users: "I can give you a summary of users.",
   unknown: "I can help with stats, bookings, payments, ticket validation, and users."
 };
@@ -162,17 +139,49 @@ router.post("/chat", async (req, res) => {
 
     const intent = detectIntent(message);
     let responses = role === "admin" ? adminResponses : role === "user" ? userResponses : guestResponses;
-    let response = responses[intent] || responses.unknown;
+    let responseText = responses[intent] || responses.unknown;
 
-    // Handle dynamic content
-    if (response === "upcoming_events") response = await getUpcomingEvents();
-    if (response === "user_bookings" && userId) response = await getUserBookings(userId);
-    if (response === "admin_stats") response = await getAdminStats();
+    // Dynamic content
+    let events = [];
+    let bookings = [];
+    let stats = null;
+
+    if (responseText === "upcoming_events") {
+      events = await getUpcomingEvents();
+      responseText = events.length ? "Here are upcoming events:" : "No upcoming events.";
+    }
+    if (responseText === "user_bookings" && userId) {
+      bookings = await getUserBookings(userId);
+      responseText = bookings.length ? "Here are your recent bookings:" : "You have no bookings yet.";
+    }
+    if (responseText === "admin_stats" && role === "admin") {
+      stats = await getAdminStats();
+      responseText = stats ? "Here is the dashboard summary:" : "No stats available.";
+    }
+
+    // Contextual suggestions
+    let suggestions = [];
+    switch (intent) {
+      case "bookings":
+        suggestions = ["Cancel booking", "Upcoming events"];
+        break;
+      case "events":
+        suggestions = ["Book event", "Show my bookings"];
+        break;
+      case "stats":
+        suggestions = ["Recent bookings", "Payment summary"];
+        break;
+      default:
+        suggestions = ["Help", "Events", "Bookings", "Contact support"];
+    }
 
     res.json({
-      response,
+      response: responseText,
       intent,
-      suggestions: ["Help", "Events", "Bookings", "Contact support"]
+      events,
+      bookings,
+      stats,
+      suggestions
     });
 
   } catch (err) {
