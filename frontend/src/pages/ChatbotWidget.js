@@ -1,123 +1,205 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import api from "../api"; // your configured axios instance
+import api from "../api";
 import "../styles/ChatbotWidget.css";
-import { format } from "date-fns";
 
-const ChatbotWidget = ({ user, role }) => {
+const ChatbotWidget = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
-  const [events, setEvents] = useState([]);
-  const [bookings, setBookings] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [reminders, setReminders] = useState([]);
-  const [stats, setStats] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const messagesEndRef = useRef(null);
+
+  // Determine user role
+  const role = user?.role || "guest";
+  const userId = user?.id || user?.user_id;
+  const userName = user?.fullname || user?.full_name || user?.name || user?.username || "there";
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Wrap fetchData in useCallback to satisfy ESLint
-  const fetchData = useCallback(async () => {
-    try {
-      setTyping(true);
-      const [eventsRes, bookingsRes, categoriesRes, remindersRes, statsRes] =
-        await Promise.all([
-          api.get("/events"),
-          api.get("/bookings"),
-          api.get("/categories"),
-          api.get("/reminders"),
-          role === "admin" ? api.get("/admin/stats") : Promise.resolve({ data: [] }),
-        ]);
+  useEffect(scrollToBottom, [messages]);
 
-      setEvents(eventsRes.data);
-      setBookings(bookingsRes.data);
-      setCategories(categoriesRes.data);
-      setReminders(remindersRes.data);
-      if (role === "admin") setStats(statsRes.data);
-
-      setTyping(false);
-      addMessage("bot", "Here is the latest info.");
-    } catch (err) {
-      setTyping(false);
-      addMessage("bot", "Failed to fetch data. Try again.");
-    }
-  }, [role]);
-
+  // Send greeting when chat opens
   useEffect(() => {
-    if (isOpen) {
-      fetchData();
+    if (isOpen && messages.length === 0) {
+      sendGreeting();
     }
-  }, [isOpen, fetchData]);
+  }, [isOpen]);
 
-  useEffect(scrollToBottom, [messages, events, bookings, reminders, stats]);
+  const sendGreeting = () => {
+    const greetings = {
+      guest: "Hello! 👋 Welcome to our Event Booking System. I can help you explore events, learn about registration, or answer questions. What would you like to know?",
+      user: `Welcome back, ${userName}! 👋 I can help with your bookings, payments, finding events, and more.`,
+      admin: `Hello Admin${userName !== "there" ? ", " + userName : ""}! 👨‍💼 I can show stats, manage bookings, track payments, and more.`
+    };
 
-  const addMessage = (sender, text, extra = {}) => {
-    setMessages((prev) => [...prev, { sender, text, ...extra }]);
+    addMessage("bot", greetings[role]);
+
+    // Set initial suggestions based on role
+    const initialSuggestions = {
+      guest: ["Show events", "How to register", "Contact support"],
+      user: ["My bookings", "Find events", "How to pay"],
+      admin: ["Dashboard stats", "Manage bookings", "View users"]
+    };
+
+    setSuggestions(initialSuggestions[role]);
   };
 
-  const handleInputSend = async () => {
-    if (!input.trim()) return;
-    addMessage("user", input);
-    const messageToSend = input;
+  const addMessage = (sender, text, data = {}) => {
+    const timestamp = new Date();
+    setMessages(prev => [...prev, { sender, text, timestamp, ...data }]);
+    
+    if (!isOpen && sender === "bot") {
+      setUnreadCount(prev => prev + 1);
+    }
+  };
+
+  const handleSend = async (messageText = input) => {
+    if (!messageText.trim()) return;
+
+    const userMessage = messageText.trim();
+    addMessage("user", userMessage);
     setInput("");
     setTyping(true);
+    setSuggestions([]);
 
     try {
-      const res = await api.post("/chatbot/message", { message: messageToSend });
-      if (res.data?.responses) {
-        res.data.responses.forEach((r) => addMessage("bot", r));
+      const response = await api.post("/chatbot/chat", {
+        message: userMessage,
+        role: role,
+        userId: userId
+      });
+
+      const data = response.data;
+
+      // Add bot response
+      if (data.response) {
+        addMessage("bot", data.response, {
+          events: data.events || [],
+          bookings: data.bookings || [],
+          stats: data.stats,
+          categories: data.categories || [],
+          reminders: data.reminders || []
+        });
       }
-    } catch (err) {
-      addMessage("bot", "Sorry, something went wrong.");
+
+      // Update suggestions
+      if (data.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions);
+      }
+
+    } catch (error) {
+      console.error("Chatbot error:", error);
+      addMessage("bot", "Sorry, I encountered an error. Please try again or contact support at victorlabs854@gmail.com");
+      
+      // Reset suggestions on error
+      const fallbackSuggestions = {
+        guest: ["Show events", "How to register", "Contact support"],
+        user: ["My bookings", "Find events", "How to pay"],
+        admin: ["Dashboard stats", "Manage bookings", "View users"]
+      };
+      setSuggestions(fallbackSuggestions[role]);
+    } finally {
+      setTyping(false);
     }
-    setTyping(false);
   };
 
-  const handleBookEvent = async (eventId) => {
-    setTyping(true);
-    try {
-      await api.post(`/bookings`, { eventId }); // no need to assign 'res'
-      addMessage("bot", `Event booked successfully!`);
-      fetchData();
-    } catch (err) {
-      addMessage("bot", `Failed to book event.`);
-    }
-    setTyping(false);
+  const handleSuggestionClick = (suggestion) => {
+    handleSend(suggestion);
   };
 
-  const handleCancelBooking = async (bookingId) => {
-    setTyping(true);
-    try {
-      await api.delete(`/bookings/${bookingId}`);
-      addMessage("bot", `Booking cancelled successfully.`);
-      fetchData();
-    } catch (err) {
-      addMessage("bot", `Failed to cancel booking.`);
-    }
-    setTyping(false);
-  };
-
-  const handleClearContext = async () => {
+  const handleClearChat = async () => {
     setMessages([]);
+    setSuggestions([]);
+    
     try {
-      await api.post("/chatbot/clear");
-      addMessage("bot", "Chat context cleared.");
-    } catch (err) {
-      addMessage("bot", "Failed to clear context.");
+      if (userId) {
+        await api.post("/chatbot/clear", { userId });
+      }
+      sendGreeting();
+    } catch (error) {
+      console.error("Clear chat error:", error);
+      addMessage("bot", "Chat cleared locally.");
+      sendGreeting();
     }
+  };
+
+  const handleToggle = () => {
+    setIsOpen(prev => !prev);
+    if (!isOpen) {
+      setUnreadCount(0);
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("en-KE", {
+      style: "currency",
+      currency: "KES"
+    }).format(amount);
+  };
+
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatTime = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    } catch {
+      return "";
+    }
+  };
+
+  const handleEventAction = (eventId, action) => {
+    if (action === "book") {
+      handleSend(`Book event ${eventId}`);
+    } else if (action === "details") {
+      handleSend(`Tell me about event ${eventId}`);
+    }
+  };
+
+  const handleBookingAction = (bookingRef, action) => {
+    if (action === "cancel") {
+      handleSend(`Cancel booking ${bookingRef}`);
+    } else if (action === "status") {
+      handleSend(`Status of ${bookingRef}`);
+    }
+  };
+
+  const handleCategoryClick = (categoryName) => {
+    handleSend(`Show ${categoryName} events`);
   };
 
   return (
     <>
-      <button className="chatbot-button" onClick={() => setIsOpen((o) => !o)}>
+      {/* Floating Button */}
+      <button className="chatbot-button" onClick={handleToggle}>
         <span className="chatbot-icon">🤖</span>
+        {unreadCount > 0 && (
+          <span className="chatbot-badge">{unreadCount}</span>
+        )}
       </button>
 
+      {/* Chat Widget */}
       {isOpen && (
         <div className="chatbot-widget">
+          {/* Header */}
           <div className="chatbot-header">
             <div className="chatbot-title">
               <span className="chatbot-avatar">🤖</span>
@@ -127,17 +209,183 @@ const ChatbotWidget = ({ user, role }) => {
               </div>
             </div>
             <div className="chatbot-controls">
-              <button onClick={handleClearContext}>🗑</button>
-              <button onClick={() => setIsOpen(false)}>✖</button>
+              <button onClick={handleClearChat} title="Clear chat">🗑️</button>
+              <button onClick={handleToggle} title="Close">✖</button>
             </div>
           </div>
 
+          {/* Messages */}
           <div className="chatbot-messages">
-            {messages.map((m, idx) => (
-              <div key={idx} className={`message ${m.sender}`}>
-                <div className="message-avatar">{m.sender === "user" ? "U" : "B"}</div>
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`message ${msg.sender}`}>
+                <div className="message-avatar">
+                  {msg.sender === "user" ? "U" : "B"}
+                </div>
                 <div className="message-content">
-                  <div className="message-text">{m.text}</div>
+                  <div className="message-text">{msg.text}</div>
+
+                  {/* Events List */}
+                  {msg.events && msg.events.length > 0 && (
+                    <div className="event-list">
+                      {msg.events.map((event) => (
+                        <div key={event.id} className="event-card">
+                          <div className="event-header">
+                            <h5>{event.title}</h5>
+                            <div className="event-price">
+                              {formatCurrency(event.price)}
+                            </div>
+                          </div>
+                          <div className="event-details">
+                            <p>📅 {formatDate(event.event_date)}</p>
+                            <p>📍 {event.location}</p>
+                            {event.category && <p>🏷️ {event.category}</p>}
+                            {event.capacity && <p>👥 Capacity: {event.capacity}</p>}
+                          </div>
+                          <div className="event-actions">
+                            <button 
+                              className="btn-book"
+                              onClick={() => handleEventAction(event.id, "book")}
+                              disabled={role === "guest"}
+                              title={role === "guest" ? "Please login to book" : "Book this event"}
+                            >
+                              {role === "guest" ? "Login to Book" : "Book Now"}
+                            </button>
+                            <button 
+                              className="btn-details"
+                              onClick={() => handleEventAction(event.id, "details")}
+                            >
+                              Details
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Bookings List */}
+                  {msg.bookings && msg.bookings.length > 0 && (
+                    <div className="booking-list">
+                      {msg.bookings.map((booking) => (
+                        <div key={booking.id} className="booking-card">
+                          <div className="booking-header">
+                            <h5>{booking.title}</h5>
+                            <span className={`status-badge ${booking.status}`}>
+                              {booking.status}
+                            </span>
+                          </div>
+                          <div className="booking-details">
+                            <p>📋 Ref: {booking.reference}</p>
+                            <p>📅 {formatDate(booking.event_date)}</p>
+                            <p>📍 {booking.location}</p>
+                            <p>🎟️ Seats: {booking.seats}</p>
+                            <p>
+                              💳 Payment: 
+                              <span className={`payment-status ${booking.payment_status || 'pending'}`}>
+                                {booking.payment_status || 'pending'}
+                              </span>
+                            </p>
+                            <p>💰 {formatCurrency(booking.total_amount)}</p>
+                          </div>
+                          <div className="booking-actions">
+                            {booking.status === "confirmed" && (
+                              <button 
+                                className="btn-cancel"
+                                onClick={() => handleBookingAction(booking.reference, "cancel")}
+                              >
+                                Cancel
+                              </button>
+                            )}
+                            <button 
+                              className="btn-view"
+                              onClick={() => handleBookingAction(booking.reference, "status")}
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Categories */}
+                  {msg.categories && msg.categories.length > 0 && (
+                    <div className="category-list">
+                      {msg.categories.map((category) => (
+                        <button
+                          key={category.id}
+                          className="category-chip"
+                          onClick={() => handleCategoryClick(category.name)}
+                        >
+                          {category.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Reminders */}
+                  {msg.reminders && msg.reminders.length > 0 && (
+                    <div className="reminders-section">
+                      <h5>⏰ Upcoming Events</h5>
+                      <div className="reminder-list">
+                        {msg.reminders.map((reminder) => (
+                          <div key={reminder.id} className="reminder-card">
+                            <p className="reminder-title">{reminder.title}</p>
+                            <p className="reminder-date">
+                              📅 {formatDate(reminder.event_date)}
+                              {reminder.start_time && ` at ${formatTime(reminder.start_time)}`}
+                            </p>
+                            <p className="reminder-location">📍 {reminder.location}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Admin Stats */}
+                  {msg.stats && (
+                    <div className="stats-grid">
+                      <div className="stat-card">
+                        <span className="stat-value">{msg.stats.totalEvents || 0}</span>
+                        <span className="stat-label">Total Events</span>
+                      </div>
+                      <div className="stat-card">
+                        <span className="stat-value">{msg.stats.totalBookings || 0}</span>
+                        <span className="stat-label">Bookings</span>
+                      </div>
+                      <div className="stat-card">
+                        <span className="stat-value">
+                          {formatCurrency(msg.stats.totalRevenue || 0)}
+                        </span>
+                        <span className="stat-label">Revenue</span>
+                      </div>
+                      <div className="stat-card">
+                        <span className="stat-value">{msg.stats.totalUsers || 0}</span>
+                        <span className="stat-label">Users</span>
+                      </div>
+                      {msg.stats.successfulPayments !== undefined && (
+                        <div className="stat-card">
+                          <span className="stat-value">{msg.stats.successfulPayments}</span>
+                          <span className="stat-label">Paid</span>
+                        </div>
+                      )}
+                      {msg.stats.admins !== undefined && (
+                        <div className="stat-card">
+                          <span className="stat-value">{msg.stats.admins}</span>
+                          <span className="stat-label">Admins</span>
+                        </div>
+                      )}
+                      {msg.stats.regularUsers !== undefined && (
+                        <div className="stat-card">
+                          <span className="stat-value">{msg.stats.regularUsers}</span>
+                          <span className="stat-label">Regular Users</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="message-time">
+                    {formatTime(msg.timestamp)}
+                  </div>
                 </div>
               </div>
             ))}
@@ -150,109 +398,46 @@ const ChatbotWidget = ({ user, role }) => {
               </div>
             )}
 
-            {/* Events */}
-            {events.length > 0 && (
-              <div className="event-list">
-                {events.map((e) => (
-                  <div key={e.id} className="event-card">
-                    <div className="event-header">
-                      <h5>{e.name}</h5>
-                      <div className="event-price">
-                        {new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(e.price)}
-                      </div>
-                    </div>
-                    <div className="event-details">
-                      <p>Date: {format(new Date(e.date), "dd MMM yyyy")}</p>
-                      <p>Location: {e.location}</p>
-                    </div>
-                    <div className="event-actions">
-                      <button className="btn-book" onClick={() => handleBookEvent(e.id)}>Book</button>
-                      <button className="btn-details" onClick={() => addMessage("bot", `Event details: ${e.description}`)}>View</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Bookings */}
-            {bookings.length > 0 && (
-              <div className="booking-list">
-                {bookings.map((b) => (
-                  <div key={b.id} className="booking-card">
-                    <div className="booking-header">
-                      <h5>{b.event_name}</h5>
-                      <span className={`status-badge ${b.status}`}>{b.status}</span>
-                    </div>
-                    <div className="booking-details">
-                      <p>Date: {format(new Date(b.date), "dd MMM yyyy")}</p>
-                      <p>Location: {b.location}</p>
-                      <p>Payment: <span className={`payment-status ${b.payment_status}`}>{b.payment_status}</span></p>
-                    </div>
-                    <div className="booking-actions">
-                      {b.status === "confirmed" && (
-                        <button className="btn-cancel" onClick={() => handleCancelBooking(b.id)}>Cancel</button>
-                      )}
-                      <button className="btn-view" onClick={() => addMessage("bot", `Booking details: ${b.details}`)}>View</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Categories */}
-            {categories.length > 0 && (
-              <div className="category-list">
-                {categories.map((c) => (
-                  <div key={c.id} className="category-chip" onClick={() => addMessage("bot", `Filter by ${c.name}`)}>
-                    {c.name}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Reminders */}
-            {reminders.length > 0 && (
-              <div className="reminders-section">
-                <h5>Reminders</h5>
-                <div className="reminder-list">
-                  {reminders.map((r) => (
-                    <div key={r.id} className="reminder-card">
-                      <p className="reminder-title">{r.title}</p>
-                      <p className="reminder-date">{format(new Date(r.date), "dd MMM yyyy HH:mm")}</p>
-                      <p className="reminder-location">{r.location}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Admin Stats */}
-            {role === "admin" && stats.length > 0 && (
-              <div className="stats-grid">
-                {stats.map((s) => (
-                  <div key={s.label} className="stat-card">
-                    <span className="stat-value">{s.value}</span>
-                    <span className="stat-label">{s.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div ref={messagesEndRef}></div>
+            <div ref={messagesEndRef} />
           </div>
 
+          {/* Suggestions */}
+          {suggestions.length > 0 && !typing && (
+            <div className="chatbot-suggestions">
+              <div className="suggestions-label">Quick Actions:</div>
+              <div className="suggestions-chips">
+                {suggestions.map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    className="suggestion-chip"
+                    onClick={() => handleSuggestionClick(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Input */}
           <div className="chatbot-input">
             <input
               type="text"
               placeholder="Type a message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleInputSend()}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
               disabled={typing}
             />
-            <button onClick={handleInputSend} disabled={typing}>➤</button>
+            <button 
+              onClick={() => handleSend()} 
+              disabled={typing || !input.trim()}
+            >
+              ➤
+            </button>
           </div>
 
+          {/* Footer */}
           <div className="chatbot-footer">
             EventBot • Powered by Your System
           </div>
