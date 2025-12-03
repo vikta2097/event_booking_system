@@ -1,82 +1,99 @@
-/* Floating Button */
+/* ==================== FLOATING BUTTON ==================== */
 .chatbot-button {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 60px;
-  height: 60px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .chatbot-button:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 8px 30px rgba(102, 126, 234, 0.7);
+}
+
+.chatbot-button:active {
+  transform: scale(0.95);
 }
 
 .chatbot-icon {
-  font-size: 28px;
+  font-size: 32px;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 
 .chatbot-badge {
   position: absolute;
   top: -5px;
   right: -5px;
-  background: #ff4757;
+  background: linear-gradient(135deg, #ff6b6b, #ff4757);
   color: white;
   font-size: 10px;
   font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  padding: 3px 7px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
+  animation: pulse-badge 2s infinite;
 }
 
-/* Chat Widget */
+@keyframes pulse-badge {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* ==================== CHAT WIDGET ==================== */
 .chatbot-widget {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 380px;
+  width: 420px;
   max-width: calc(100vw - 48px);
-  height: 600px;
+  height: 650px;
   max-height: calc(100vh - 100px);
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border-radius: 20px;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   z-index: 1000;
   overflow: hidden;
-  animation: slideUp 0.3s ease;
+  animation: slideUpFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes slideUp {
+@keyframes slideUpFadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(30px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
-/* Header */
+/* ==================== HEADER ==================== */
 .chatbot-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 16px;
+  padding: 18px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .chatbot-title {
@@ -86,32 +103,41 @@
 }
 
 .chatbot-avatar {
-  font-size: 32px;
+  font-size: 36px;
+  animation: rotate 10s linear infinite;
 }
 
-.chatbot-title h4 {
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.chatbot-info h4 {
   margin: 0;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .chatbot-status {
   font-size: 12px;
-  opacity: 0.9;
+  opacity: 0.95;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  margin-top: 2px;
 }
 
 .chatbot-status::before {
   content: "●";
   color: #4ade80;
-  animation: pulse 2s infinite;
+  font-size: 14px;
+  animation: pulse-dot 2s infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.8); }
 }
 
 .chatbot-controls {
@@ -120,43 +146,51 @@
 }
 
 .chatbot-controls button {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
   border: none;
   color: white;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 16px;
-  transition: background 0.2s;
+  font-size: 18px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chatbot-controls button:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
 }
 
-/* Messages */
+.chatbot-controls button:active {
+  transform: scale(0.95);
+}
+
+/* ==================== MESSAGES ==================== */
 .chatbot-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
-  background: #f8f9fa;
+  padding: 20px;
+  background: linear-gradient(to bottom, #f8f9fa, #ffffff);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .message {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: flex-start;
-  animation: messageIn 0.3s ease;
+  animation: messageSlideIn 0.3s ease;
 }
 
-@keyframes messageIn {
+@keyframes messageSlideIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(15px);
   }
   to {
     opacity: 1;
@@ -169,68 +203,75 @@
 }
 
 .message-avatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 18px;
   flex-shrink: 0;
   color: white;
   font-weight: bold;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .message.user .message-avatar {
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
 }
 
 .message-content {
-  max-width: 70%;
+  max-width: 75%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .message-text {
   background: white;
-  padding: 12px 16px;
-  border-radius: 16px;
+  padding: 14px 18px;
+  border-radius: 18px;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
   white-space: pre-line;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .message.user .message-text {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  border: none;
 }
 
 .message-time {
   font-size: 11px;
-  color: #999;
-  padding: 0 4px;
+  color: #9ca3af;
+  padding: 0 6px;
+  font-weight: 500;
 }
 
 .message.user .message-time {
   text-align: right;
 }
 
-/* Typing Indicator */
+/* ==================== TYPING INDICATOR ==================== */
 .typing-indicator {
   display: flex;
-  gap: 4px;
-  padding: 12px 16px;
+  gap: 5px;
+  padding: 14px 18px;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  width: fit-content;
 }
 
 .typing-indicator span {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   background: #667eea;
   border-radius: 50%;
   animation: typing 1.4s infinite;
@@ -247,102 +288,399 @@
 @keyframes typing {
   0%, 60%, 100% {
     transform: translateY(0);
-    opacity: 0.5;
+    opacity: 0.6;
   }
   30% {
-    transform: translateY(-8px);
+    transform: translateY(-10px);
     opacity: 1;
   }
 }
 
-/* Suggestions */
-.chatbot-suggestions {
+/* ==================== EVENT & BOOKING CARDS ==================== */
+.event-list, .booking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.event-card, .booking-card {
+  background: linear-gradient(to bottom right, #ffffff, #f8f9fa);
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s;
+}
+
+.event-card:hover, .booking-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.event-header, .booking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 10px;
+}
+
+.event-header h5, .booking-header h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  flex: 1;
+}
+
+.event-price {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.confirmed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.event-details, .booking-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.event-details p, .booking-details p {
+  margin: 0;
+  font-size: 13px;
+  color: #4b5563;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.payment-status {
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.payment-status.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.payment-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.payment-status.failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.event-actions, .booking-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.event-actions button, .booking-actions button {
+  flex: 1;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-book, .btn-view {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.btn-book:hover, .btn-view:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-details {
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #4b5563;
+}
+
+.btn-details:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.btn-cancel {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.btn-cancel:hover {
+  background: #fecaca;
+}
+
+/* ==================== CATEGORIES ==================== */
+.category-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.category-chip {
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
   padding: 8px 16px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.category-chip:hover {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* ==================== REMINDERS ==================== */
+.reminders-section {
+  margin-top: 10px;
+  padding: 12px;
+  background: #fef3c7;
+  border-radius: 12px;
+  border: 1px solid #fde047;
+}
+
+.reminders-section h5 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #92400e;
+}
+
+.reminder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reminder-card {
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #fde047;
+}
+
+.reminder-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 6px 0;
+  font-size: 13px;
+}
+
+.reminder-date, .reminder-location {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ==================== ADMIN STATS ==================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 14px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.stat-value {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 11px;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ==================== SUGGESTIONS ==================== */
+.chatbot-suggestions {
+  padding: 12px 16px;
   background: white;
   border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggestions-label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.suggestions-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .suggestion-chip {
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
+  background: linear-gradient(to right, #f3f4f6, #e5e7eb);
+  border: 1px solid #d1d5db;
   border-radius: 20px;
-  padding: 6px 12px;
+  padding: 8px 14px;
   font-size: 13px;
   color: #374151;
   cursor: pointer;
   transition: all 0.2s;
+  font-weight: 500;
 }
 
 .suggestion-chip:hover {
-  background: #667eea;
+  background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
   border-color: #667eea;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-/* Input */
+/* ==================== INPUT ==================== */
 .chatbot-input {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 14px 16px;
   background: white;
   border-top: 1px solid #e5e7eb;
 }
 
 .chatbot-input input {
   flex: 1;
-  border: 1px solid #e5e7eb;
+  border: 2px solid #e5e7eb;
   border-radius: 24px;
-  padding: 10px 16px;
+  padding: 12px 18px;
   font-size: 14px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  font-family: inherit;
 }
 
 .chatbot-input input:focus {
   border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.chatbot-input input:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
 }
 
 .chatbot-input button {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .chatbot-input button:hover:not(:disabled) {
   transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.5);
+}
+
+.chatbot-input button:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .chatbot-input button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
-/* Footer */
+/* ==================== FOOTER ==================== */
 .chatbot-footer {
-  padding: 8px 16px;
-  background: #f8f9fa;
+  padding: 10px 16px;
+  background: linear-gradient(to right, #f8f9fa, #f3f4f6);
   text-align: center;
   font-size: 11px;
-  color: #999;
+  color: #6b7280;
   border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
 }
 
-/* Scrollbar */
+.footer-divider {
+  color: #d1d5db;
+}
+
+/* ==================== SCROLLBAR ==================== */
 .chatbot-messages::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .chatbot-messages::-webkit-scrollbar-track {
@@ -350,15 +688,15 @@
 }
 
 .chatbot-messages::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: linear-gradient(to bottom, #cbd5e1, #94a3b8);
+  border-radius: 4px;
 }
 
 .chatbot-messages::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: linear-gradient(to bottom, #94a3b8, #64748b);
 }
 
-/* Mobile Responsive */
+/* ==================== MOBILE RESPONSIVE ==================== */
 @media (max-width: 480px) {
   .chatbot-widget {
     width: 100%;
@@ -370,13 +708,62 @@
   }
 
   .chatbot-button {
-    bottom: 16px;
-    right: 16px;
-    width: 56px;
-    height: 56px;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
   }
 
   .message-content {
-    max-width: 80%;
+    max-width: 85%;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .event-actions, .booking-actions {
+    flex-direction: column;
+  }
+}
+
+/* ==================== DARK MODE SUPPORT ==================== */
+@media (prefers-color-scheme: dark) {
+  .chatbot-widget {
+    background: #1f2937;
+  }
+
+  .chatbot-messages {
+    background: linear-gradient(to bottom, #111827, #1f2937);
+  }
+
+  .message-text {
+    background: #374151;
+    color: #f3f4f6;
+    border-color: #4b5563;
+  }
+
+  .event-card, .booking-card {
+    background: #374151;
+    border-color: #4b5563;
+  }
+
+  .event-header h5, .booking-header h5 {
+    color: #f3f4f6;
+  }
+
+  .event-details p, .booking-details p {
+    color: #d1d5db;
+  }
+
+  .chatbot-input input {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f3f4f6;
+  }
+
+  .chatbot-footer {
+    background: #111827;
+    color: #9ca3af;
   }
 }
