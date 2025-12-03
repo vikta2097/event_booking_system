@@ -22,6 +22,8 @@ const settingsRoutes = require("./routes/settings");
 const ticketsRouter = require("./routes/tickets");
 const contactRoutes = require('./routes/contact');
 const testRoutes = require("./routes/test");
+const chatbotRoutes = require("./routes/chatbot");
+
 
 // M-Pesa callback
 const mpesaCallback = require("./routes/mpesaCallback");
@@ -77,6 +79,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/contact", contactRoutes);
 app.use("/api", testRoutes);
+app.use("/api/chatbot", chatbotRoutes);
 
 // ✅ Register M-Pesa callback properly
 mpesaCallback(app, db); // this registers POST /mpesa/callback internally

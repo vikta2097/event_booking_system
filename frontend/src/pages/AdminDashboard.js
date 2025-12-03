@@ -12,6 +12,11 @@ import Settings from "./Settings";
 import Support from "./Support";
 import TicketScanner from "./TicketScanner"; 
 
+import ChatbotWidget from "./ChatbotWidget";
+
+
+
+
 const AdminDashboard = ({ onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -49,6 +54,7 @@ const AdminDashboard = ({ onLogout }) => {
           </Routes>
         </div>
       </main>
+      <ChatbotWidget user={currentUser} />
     </div>
   );
 };

@@ -4,6 +4,7 @@ import EventCard from "./EventCard";
 import EventFilters from "./EventFilters";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
+import ChatbotWidget from "./ChatbotWidget";
 
 const UserDashboardHome = ({ user, onLogout }) => {
   const [events, setEvents] = useState([]);
@@ -165,7 +166,7 @@ const UserDashboardHome = ({ user, onLogout }) => {
 
         <p className="footer-copy">© {new Date().getFullYear()} Event Booking System</p>
       </footer>
-      {/* --------------------------------------------------------------------- */}
+      <ChatbotWidget user={user} />
 
     </div>
   );
