@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import api from "../api"; // your configured axios instance
 import "../styles/ChatbotWidget.css";
 import { format } from "date-fns";
@@ -19,15 +19,8 @@ const ChatbotWidget = ({ user, role }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchData();
-    }
-  }, [isOpen]);
-
-  useEffect(scrollToBottom, [messages, events, bookings, reminders, stats]);
-
-  const fetchData = async () => {
+  // Wrap fetchData in useCallback to satisfy ESLint
+  const fetchData = useCallback(async () => {
     try {
       setTyping(true);
       const [eventsRes, bookingsRes, categoriesRes, remindersRes, statsRes] =
@@ -51,7 +44,15 @@ const ChatbotWidget = ({ user, role }) => {
       setTyping(false);
       addMessage("bot", "Failed to fetch data. Try again.");
     }
-  };
+  }, [role]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchData();
+    }
+  }, [isOpen, fetchData]);
+
+  useEffect(scrollToBottom, [messages, events, bookings, reminders, stats]);
 
   const addMessage = (sender, text, extra = {}) => {
     setMessages((prev) => [...prev, { sender, text, ...extra }]);
@@ -60,12 +61,12 @@ const ChatbotWidget = ({ user, role }) => {
   const handleInputSend = async () => {
     if (!input.trim()) return;
     addMessage("user", input);
+    const messageToSend = input;
     setInput("");
     setTyping(true);
 
-    // send to backend chatbot API
     try {
-      const res = await api.post("/chatbot/message", { message: input });
+      const res = await api.post("/chatbot/message", { message: messageToSend });
       if (res.data?.responses) {
         res.data.responses.forEach((r) => addMessage("bot", r));
       }
@@ -78,7 +79,7 @@ const ChatbotWidget = ({ user, role }) => {
   const handleBookEvent = async (eventId) => {
     setTyping(true);
     try {
-      const res = await api.post(`/bookings`, { eventId });
+      await api.post(`/bookings`, { eventId }); // no need to assign 'res'
       addMessage("bot", `Event booked successfully!`);
       fetchData();
     } catch (err) {
