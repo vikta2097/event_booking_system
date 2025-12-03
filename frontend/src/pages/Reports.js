@@ -9,7 +9,7 @@ const Reports = () => {
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState({ totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
   const [analytics, setAnalytics] = useState([]);
-  const [filters, setFilters] = useState({ startDate: "", endDate: "", eventId: "", paymentStatus: "", symbol: "" });
+  const [filters, setFilters] = useState({ startDate: "", endDate: "", eventId: "", paymentStatus: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -20,7 +20,16 @@ const Reports = () => {
       const res = await api.get("/reports", { params: filters });
       setReports(res.data?.reports || []);
       setStats(res.data?.stats || { totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
-      setAnalytics(res.data?.analytics || []);
+
+      // Prepare analytics: group by booking_date and sum revenue/bookings
+      const data = {};
+      res.data?.reports.forEach(r => {
+        const date = new Date(r.booking_date).toLocaleDateString();
+        if (!data[date]) data[date] = { date, revenue: 0, bookings: 0 };
+        data[date].revenue += parseFloat(r.booking_amount) || 0;
+        data[date].bookings += 1;
+      });
+      setAnalytics(Object.values(data));
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.error || "Failed to load reports.");
@@ -58,7 +67,6 @@ const Reports = () => {
           <option value="pending">Pending</option>
           <option value="failed">Failed</option>
         </select>
-        <input type="text" name="symbol" placeholder="Stock Symbol for Analytics" value={filters.symbol} onChange={handleFilterChange} />
         <button type="submit" disabled={loading}>{loading ? "Loading..." : "Filter"}</button>
       </form>
 
@@ -66,15 +74,15 @@ const Reports = () => {
 
       {analytics.length > 0 && (
         <div className="analytics-chart">
-          <h3>Analytics for {filters.symbol.toUpperCase()}</h3>
+          <h3>Revenue & Bookings Over Time</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={analytics}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="open" stroke="#8884d8" name="Open" />
-              <Line type="monotone" dataKey="close" stroke="#82ca9d" name="Close" />
+              <Line type="monotone" dataKey="revenue" stroke="#8884d8" name="Revenue (KES)" />
+              <Line type="monotone" dataKey="bookings" stroke="#82ca9d" name="Bookings" />
             </LineChart>
           </ResponsiveContainer>
         </div>
