@@ -18,53 +18,53 @@ const ChatbotWidget = ({ user }) => {
 
   const role = getUserRole();
 
+  // Get initial greeting based on role
+  const getInitialGreeting = () => {
+    if (role === "admin") {
+      return "👨‍💼 Hello Admin! I'm your assistant. I can help you manage events, bookings, payments, and more. What do you need?";
+    } else if (role === "user") {
+      const userName = user?.fullname || user?.full_name || user?.name || "";
+      return `👋 Welcome back${userName ? ", " + userName : ""}! I can help you find events, check bookings, or answer questions. How can I assist you?`;
+    } else {
+      return "👋 Welcome! I'm here to help you explore events and answer your questions. What would you like to know?";
+    }
+  };
+
+  // Get initial suggestions based on role
+  const getInitialSuggestions = () => {
+    if (role === "admin") {
+      return [
+        "Show dashboard stats",
+        "View recent bookings",
+        "Payment summary",
+        "Help"
+      ];
+    } else if (role === "user") {
+      return [
+        "Show my bookings",
+        "Upcoming events",
+        "How to pay",
+        "Contact support"
+      ];
+    } else {
+      return [
+        "Show upcoming events",
+        "How to register",
+        "How to login",
+        "Contact information"
+      ];
+    }
+  };
+
   // Initialize chat on mount
   useEffect(() => {
-    // Get initial greeting based on role
-    const getGreeting = () => {
-      if (role === "admin") {
-        return "👨‍💼 Hello Admin! I'm your assistant. I can help you manage events, bookings, payments, and more. What do you need?";
-      } else if (role === "user") {
-        const userName = user?.fullname || user?.full_name || user?.name || "";
-        return `👋 Welcome back${userName ? ", " + userName : ""}! I can help you find events, check bookings, or answer questions. How can I assist you?`;
-      } else {
-        return "👋 Welcome! I'm here to help you explore events and answer your questions. What would you like to know?";
-      }
-    };
-
-    // Get initial suggestions based on role
-    const getSuggestions = () => {
-      if (role === "admin") {
-        return [
-          "Show dashboard stats",
-          "View recent bookings",
-          "Payment summary",
-          "Help"
-        ];
-      } else if (role === "user") {
-        return [
-          "Show my bookings",
-          "Upcoming events",
-          "How to pay",
-          "Contact support"
-        ];
-      } else {
-        return [
-          "Show upcoming events",
-          "How to register",
-          "How to login",
-          "Contact information"
-        ];
-      }
-    };
-
-    const greeting = getGreeting();
+    const greeting = getInitialGreeting();
     setMessages([{ 
       sender: "bot", 
       text: greeting, 
       timestamp: new Date() 
     }]);
-    setSuggestions(getSuggestions());
+    setSuggestions(getInitialSuggestions());
   }, [user, role]);
 
   // Auto-scroll to bottom when messages change
@@ -139,48 +139,13 @@ const ChatbotWidget = ({ user }) => {
 
   // Clear chat and reset to initial state
   const handleClearChat = () => {
-    // Get greeting based on current role
-    let greeting;
-    if (role === "admin") {
-      greeting = "👨‍💼 Hello Admin! I'm your assistant. I can help you manage events, bookings, payments, and more. What do you need?";
-    } else if (role === "user") {
-      const userName = user?.fullname || user?.full_name || user?.name || "";
-      greeting = `👋 Welcome back${userName ? ", " + userName : ""}! I can help you find events, check bookings, or answer questions. How can I assist you?`;
-    } else {
-      greeting = "👋 Welcome! I'm here to help you explore events and answer your questions. What would you like to know?";
-    }
-
-    // Get suggestions based on current role
-    let initialSuggestions;
-    if (role === "admin") {
-      initialSuggestions = [
-        "Show dashboard stats",
-        "View recent bookings",
-        "Payment summary",
-        "Help"
-      ];
-    } else if (role === "user") {
-      initialSuggestions = [
-        "Show my bookings",
-        "Upcoming events",
-        "How to pay",
-        "Contact support"
-      ];
-    } else {
-      initialSuggestions = [
-        "Show upcoming events",
-        "How to register",
-        "How to login",
-        "Contact information"
-      ];
-    }
-
+    const greeting = getInitialGreeting();
     setMessages([{ 
       sender: "bot", 
       text: greeting, 
       timestamp: new Date() 
     }]);
-    setSuggestions(initialSuggestions);
+    setSuggestions(getInitialSuggestions());
     setInput("");
   };
 
