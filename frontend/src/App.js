@@ -6,7 +6,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
 import "./styles/responsive.css";
 
-
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 
 function App() {
@@ -82,7 +81,6 @@ function App() {
   const isAuthenticated = !!token;
 
   if (!authChecked) {
-    // Prevent rendering routes until localStorage is read
     return <div>Loading...</div>;
   }
 
@@ -110,7 +108,7 @@ function App() {
           }
         />
 
-        {/* Admin dashboard and nested routes */}
+        {/* Admin dashboard */}
         <Route
           path="/admin/dashboard/*"
           element={
@@ -122,24 +120,20 @@ function App() {
           }
         />
 
-        {/* User dashboard and nested routes */}
+        {/* User dashboard - accessible to all */}
         <Route
           path="/dashboard/*"
           element={
-            isAuthenticated ? (
-              <UserDashboard
-                user={user}
-                token={token}
-                onLogout={handleLogout}
-                onLoginSuccess={handleLogin}
-              />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            <UserDashboard
+              user={user}        // null if not logged in
+              token={token}      // null if not logged in
+              onLogout={handleLogout}
+              onLoginSuccess={handleLogin}
+            />
           }
         />
 
-        {/* Catch-all redirect for invalid URLs */}
+        {/* Catch-all redirect */}
         <Route
           path="*"
           element={
@@ -150,7 +144,7 @@ function App() {
                 <Navigate to="/dashboard" replace />
               )
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/dashboard" replace />
             )
           }
         />
