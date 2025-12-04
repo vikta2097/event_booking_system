@@ -3,10 +3,13 @@ import React, { useEffect, useState, useMemo } from "react";
 import api from "../api";
 import "../styles/Reports.css";
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  Line,
+  PieChart, Pie, Cell,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer
 } from "recharts";
+
+
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
