@@ -4,6 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import AuthForm from "./components/AuthForm";
 import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
+import "./styles/responsive.css";
+
 
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 
