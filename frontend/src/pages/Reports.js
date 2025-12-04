@@ -53,23 +53,12 @@ const Reports = () => {
     const start = new Date();
 
     switch (range) {
-      case "today":
-        start.setHours(0, 0, 0, 0);
-        break;
-      case "7days":
-        start.setDate(start.getDate() - 7);
-        break;
-      case "30days":
-        start.setDate(start.getDate() - 30);
-        break;
-      case "90days":
-        start.setDate(start.getDate() - 90);
-        break;
-      case "year":
-        start.setFullYear(start.getFullYear() - 1);
-        break;
-      default:
-        return;
+      case "today": start.setHours(0, 0, 0, 0); break;
+      case "7days": start.setDate(start.getDate() - 7); break;
+      case "30days": start.setDate(start.getDate() - 30); break;
+      case "90days": start.setDate(start.getDate() - 90); break;
+      case "year": start.setFullYear(start.getFullYear() - 1); break;
+      default: return;
     }
 
     setDateRange(range);
@@ -80,31 +69,39 @@ const Reports = () => {
     }));
   };
 
-  // Enhance analytics with predictions (optional frontend-only enhancement)
+  // Enhanced analytics with predictions
   const enhancedAnalytics = useMemo(() => {
-    if (!analytics?.timeSeriesData || analytics.timeSeriesData.length < 3) return analytics;
+    if (!analytics) return null;
 
-    const timeSeriesWithPredictions = [...analytics.timeSeriesData];
-    const n = timeSeriesWithPredictions.length;
-    
-    // Simple linear regression for revenue predictions
-    const sumX = timeSeriesWithPredictions.reduce((sum, _, i) => sum + i, 0);
-    const sumY = timeSeriesWithPredictions.reduce((sum, d) => sum + d.revenue, 0);
-    const sumXY = timeSeriesWithPredictions.reduce((sum, d, i) => sum + (i * d.revenue), 0);
-    const sumX2 = timeSeriesWithPredictions.reduce((sum, _, i) => sum + (i * i), 0);
+    const safeAnalytics = {
+      timeSeriesData: analytics.timeSeriesData || [],
+      dayOfWeekData: analytics.dayOfWeekData || [],
+      paymentStatus: analytics.paymentStatus || [],
+      bookingStatus: analytics.bookingStatus || [],
+      eventPerformance: analytics.eventPerformance || [],
+      suspiciousBookings: analytics.suspiciousBookings || [],
+      revenueGrowth: analytics.revenueGrowth || 0,
+      bookingsGrowth: analytics.bookingsGrowth || 0,
+      avgBookingValue: analytics.avgBookingValue || 0
+    };
+
+    if (safeAnalytics.timeSeriesData.length < 3) return safeAnalytics;
+
+    // Simple linear regression for predictions
+    const data = [...safeAnalytics.timeSeriesData];
+    const n = data.length;
+    const sumX = data.reduce((sum, _, i) => sum + i, 0);
+    const sumY = data.reduce((sum, d) => sum + d.revenue, 0);
+    const sumXY = data.reduce((sum, d, i) => sum + (i * d.revenue), 0);
+    const sumX2 = data.reduce((sum, _, i) => sum + (i * i), 0);
 
     const denom = (n * sumX2 - sumX * sumX);
     const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
     const intercept = (sumY - slope * sumX) / n;
 
-    timeSeriesWithPredictions.forEach((d, i) => {
-      d.prediction = Math.max(0, slope * i + intercept);
-    });
+    data.forEach((d, i) => d.prediction = Math.max(0, slope * i + intercept));
 
-    return {
-      ...analytics,
-      timeSeriesData: timeSeriesWithPredictions
-    };
+    return { ...safeAnalytics, timeSeriesData: data };
   }, [analytics]);
 
   // AI-Powered Insights
@@ -117,13 +114,13 @@ const Reports = () => {
       items.push({
         type: 'positive',
         title: 'Strong Revenue Growth',
-        message: `Revenue is up ${enhancedAnalytics.revenueGrowth}% compared to the previous period. Keep up the momentum!`
+        message: `Revenue is up ${enhancedAnalytics.revenueGrowth}% compared to previous period.`
       });
     } else if (enhancedAnalytics.revenueGrowth < -10) {
       items.push({
         type: 'warning',
         title: 'Revenue Decline Detected',
-        message: `Revenue is down ${Math.abs(enhancedAnalytics.revenueGrowth)}%. Consider campaigns or reviewing pricing.`
+        message: `Revenue is down ${Math.abs(enhancedAnalytics.revenueGrowth)}%.`
       });
     }
 
@@ -131,41 +128,38 @@ const Reports = () => {
       items.push({
         type: 'positive',
         title: 'Booking Surge',
-        message: `Bookings increased by ${enhancedAnalytics.bookingsGrowth}%. Marketing is working.`
+        message: `Bookings increased by ${enhancedAnalytics.bookingsGrowth}%.`
       });
     }
 
-    const failedPayments = enhancedAnalytics.paymentStatus?.find(p => p.name.toLowerCase() === 'failed');
+    const failedPayments = enhancedAnalytics.paymentStatus.find(p => p.name.toLowerCase() === 'failed');
     if (failedPayments && failedPayments.percentage > 5) {
       items.push({
         type: 'alert',
         title: 'High Payment Failure Rate',
-        message: `${failedPayments.percentage.toFixed(1)}% of payments are failing. Check gateway.`
+        message: `${failedPayments.percentage.toFixed(1)}% of payments are failing.`
       });
     }
 
-    // Best performing day
-    if (enhancedAnalytics.dayOfWeekData && enhancedAnalytics.dayOfWeekData.length > 0) {
-      const bestDay = enhancedAnalytics.dayOfWeekData.reduce((best, current) =>
-        current.revenue > (best.revenue || 0) ? current : best, { revenue: 0 });
-      if (bestDay && bestDay.revenue > 0) {
-        items.push({
-          type: 'info',
-          title: 'Peak Performance Day',
-          message: `${bestDay.day} generates the most revenue (KES ${bestDay.revenue.toLocaleString()}).`
-        });
-      }
+    const bestDay = enhancedAnalytics.dayOfWeekData.reduce((best, current) =>
+      current.revenue > (best.revenue || 0) ? current : best, { revenue: 0 });
+    if (bestDay?.revenue > 0) {
+      items.push({
+        type: 'info',
+        title: 'Peak Performance Day',
+        message: `${bestDay.day} generates the most revenue (KES ${bestDay.revenue.toLocaleString()}).`
+      });
     }
 
-    if (enhancedAnalytics.suspiciousBookings && enhancedAnalytics.suspiciousBookings.length > 0) {
+    if (enhancedAnalytics.suspiciousBookings.length > 0) {
       items.push({
         type: 'alert',
         title: 'Potential Fraud Detected',
-        message: `${enhancedAnalytics.suspiciousBookings.length} bookings show unusual patterns. Review them.`
+        message: `${enhancedAnalytics.suspiciousBookings.length} bookings show unusual patterns.`
       });
     }
 
-    if (enhancedAnalytics.eventPerformance && enhancedAnalytics.eventPerformance.length > 0) {
+    if (enhancedAnalytics.eventPerformance.length > 0) {
       const topEvent = enhancedAnalytics.eventPerformance[0];
       items.push({
         type: 'info',
@@ -227,8 +221,20 @@ const Reports = () => {
     fetchReports();
   };
 
-  // small helpers
   const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
+
+  // Safe references for rendering
+  const safeEnhancedAnalytics = enhancedAnalytics || {
+    timeSeriesData: [],
+    dayOfWeekData: [],
+    paymentStatus: [],
+    bookingStatus: [],
+    eventPerformance: [],
+    suspiciousBookings: [],
+    revenueGrowth: 0,
+    bookingsGrowth: 0,
+    avgBookingValue: 0
+  };
 
   return (
     <div className={`modern-reports-container ${darkMode ? 'dark-mode' : ''}`}>
@@ -242,7 +248,7 @@ const Reports = () => {
           <button onClick={() => setDarkMode(!darkMode)} className="icon-btn" title="Toggle Dark Mode">
             {darkMode ? '☀️' : '🌙'}
           </button>
-          <button onClick={exportToCSV} className="btn-secondary" disabled={!reports || reports.length === 0}>
+          <button onClick={exportToCSV} className="btn-secondary" disabled={!reports.length}>
             📥 Export CSV
           </button>
           <button onClick={fetchReports} className="btn-primary" disabled={loading}>
@@ -270,25 +276,9 @@ const Reports = () => {
       {/* Advanced Filters */}
       {showFilters && (
         <form className="advanced-filters" onSubmit={handleFilterSubmit}>
-          <input
-            type="date"
-            name="startDate"
-            value={filters.startDate}
-            onChange={handleFilterChange}
-          />
-          <input
-            type="date"
-            name="endDate"
-            value={filters.endDate}
-            onChange={handleFilterChange}
-          />
-          <input
-            type="text"
-            name="eventId"
-            placeholder="Event ID"
-            value={filters.eventId}
-            onChange={handleFilterChange}
-          />
+          <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} />
+          <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} />
+          <input type="text" name="eventId" placeholder="Event ID" value={filters.eventId} onChange={handleFilterChange} />
           <select name="paymentStatus" value={filters.paymentStatus} onChange={handleFilterChange}>
             <option value="">All Payment Status</option>
             <option value="paid">Paid</option>
@@ -296,24 +286,16 @@ const Reports = () => {
             <option value="failed">Failed</option>
           </select>
           <div className="filter-buttons">
-            <button type="submit" className="btn-primary" disabled={loading}>
-              Apply Filters
-            </button>
-            <button type="button" className="btn-secondary" onClick={resetFilters}>
-              Reset
-            </button>
+            <button type="submit" className="btn-primary" disabled={loading}>Apply Filters</button>
+            <button type="button" className="btn-secondary" onClick={resetFilters}>Reset</button>
           </div>
         </form>
       )}
 
-      {error && (
-        <div className="alert alert-error">
-          ⚠️ {error}
-        </div>
-      )}
+      {error && <div className="alert alert-error">⚠️ {error}</div>}
 
       {/* AI Insights */}
-      {insights && insights.length > 0 && (
+      {insights.length > 0 && (
         <div className="insights-section">
           <h3 className="section-title">🤖 AI-Powered Insights</h3>
           <div className="insights-grid">
@@ -339,38 +321,35 @@ const Reports = () => {
             <div className="stat-icon">💰</div>
             <div className="stat-content">
               <p className="stat-label">Total Revenue</p>
-              <h3 className="stat-value">{formatCurrency(stats.totalRevenue || 0)}</h3>
-              <p className={`stat-trend ${enhancedAnalytics.revenueGrowth >= 0 ? 'positive' : 'negative'}`}>
-                {enhancedAnalytics.revenueGrowth >= 0 ? '↗' : '↘'} {Math.abs(enhancedAnalytics.revenueGrowth)}% vs previous period
+              <h3 className="stat-value">{formatCurrency(stats.totalRevenue)}</h3>
+              <p className={`stat-trend ${safeEnhancedAnalytics.revenueGrowth >= 0 ? 'positive' : 'negative'}`}>
+                {safeEnhancedAnalytics.revenueGrowth >= 0 ? '↗' : '↘'} {Math.abs(safeEnhancedAnalytics.revenueGrowth)}% vs previous period
               </p>
             </div>
           </div>
-
           <div className="stat-card">
             <div className="stat-icon">🎫</div>
             <div className="stat-content">
               <p className="stat-label">Total Bookings</p>
-              <h3 className="stat-value">{stats.totalBookings || 0}</h3>
-              <p className={`stat-trend ${enhancedAnalytics.bookingsGrowth >= 0 ? 'positive' : 'negative'}`}>
-                {enhancedAnalytics.bookingsGrowth >= 0 ? '↗' : '↘'} {Math.abs(enhancedAnalytics.bookingsGrowth)}% vs previous period
+              <h3 className="stat-value">{stats.totalBookings}</h3>
+              <p className={`stat-trend ${safeEnhancedAnalytics.bookingsGrowth >= 0 ? 'positive' : 'negative'}`}>
+                {safeEnhancedAnalytics.bookingsGrowth >= 0 ? '↗' : '↘'} {Math.abs(safeEnhancedAnalytics.bookingsGrowth)}% vs previous period
               </p>
             </div>
           </div>
-
           <div className="stat-card">
             <div className="stat-icon">📅</div>
             <div className="stat-content">
               <p className="stat-label">Total Events</p>
-              <h3 className="stat-value">{stats.totalEvents || 0}</h3>
+              <h3 className="stat-value">{stats.totalEvents}</h3>
               <p className="stat-trend neutral">Active events tracked</p>
             </div>
           </div>
-
           <div className="stat-card">
             <div className="stat-icon">📊</div>
             <div className="stat-content">
               <p className="stat-label">Avg Booking Value</p>
-              <h3 className="stat-value">{formatCurrency(enhancedAnalytics.avgBookingValue)}</h3>
+              <h3 className="stat-value">{formatCurrency(safeEnhancedAnalytics.avgBookingValue)}</h3>
               <p className="stat-trend neutral">Per booking average</p>
             </div>
           </div>
@@ -380,36 +359,18 @@ const Reports = () => {
       {/* Tabs */}
       <div className="tabs-container">
         <div className="tabs">
-          <button
-            className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            📈 Overview
-          </button>
-          <button
-            className={`tab ${activeTab === 'events' ? 'active' : ''}`}
-            onClick={() => setActiveTab('events')}
-          >
-            🎪 Events
-          </button>
-          <button
-            className={`tab ${activeTab === 'payments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('payments')}
-          >
-            💳 Payments
-          </button>
-          <button
-            className={`tab ${activeTab === 'trends' ? 'active' : ''}`}
-            onClick={() => setActiveTab('trends')}
-          >
-            📉 Trends
-          </button>
-          <button
-            className={`tab ${activeTab === 'data' ? 'active' : ''}`}
-            onClick={() => setActiveTab('data')}
-          >
-            📋 Raw Data
-          </button>
+          {['overview','events','payments','trends','data'].map(tab => (
+            <button
+              key={tab}
+              className={`tab ${activeTab === tab ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab === 'overview' ? '📈 Overview' :
+               tab === 'events' ? '🎪 Events' :
+               tab === 'payments' ? '💳 Payments' :
+               tab === 'trends' ? '📉 Trends' : '📋 Raw Data'}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -420,10 +381,11 @@ const Reports = () => {
           {activeTab === 'overview' && (
             <div className="overview-content">
               <div className="chart-grid">
+                {/* Revenue & Bookings Trend */}
                 <div className="chart-card full-width">
                   <h3 className="chart-title">Revenue & Bookings Trend with Predictions</h3>
                   <ResponsiveContainer width="100%" height={350}>
-                    <AreaChart data={enhancedAnalytics.timeSeriesData}>
+                    <AreaChart data={safeEnhancedAnalytics.timeSeriesData}>
                       <defs>
                         <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
@@ -441,39 +403,46 @@ const Reports = () => {
                       <Legend />
                       <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fillOpacity={1} fill="url(#colorRevenue)" name="Revenue (KES)" />
                       <Area type="monotone" dataKey="bookings" stroke="#10b981" fillOpacity={1} fill="url(#colorBookings)" name="Bookings" />
-                      <Line type="monotone" dataKey="prediction" stroke="#f59e0b" strokeDasharray="5 5" name="Predicted Revenue" dot={false} />
+                      <Line type="monotone" dataKey="prediction" stroke="#f59e0b" strokeDasharray="5 5" name="Revenue Prediction" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
 
+                {/* Payment Status Pie */}
                 <div className="chart-card">
-                  <h3 className="chart-title">Bookings by Day of Week</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={enhancedAnalytics.dayOfWeekData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="day" stroke="#6b7280" />
-                      <YAxis stroke="#6b7280" />
-                      <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
-                      <Bar dataKey="bookings" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-                    </BarChart>
+                  <h3 className="chart-title">Payment Status</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie
+                        data={safeEnhancedAnalytics.paymentStatus}
+                        dataKey="percentage"
+                        nameKey="name"
+                        outerRadius={80}
+                        label
+                      >
+                        {safeEnhancedAnalytics.paymentStatus.map((entry, idx) => (
+                          <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
                   </ResponsiveContainer>
                 </div>
 
+                {/* Booking Status Pie */}
                 <div className="chart-card">
-                  <h3 className="chart-title">Payment Status Distribution</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <h3 className="chart-title">Booking Status</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <PieChart>
                       <Pie
-                        data={enhancedAnalytics.paymentStatus}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={entry => `${entry.name}: ${entry.percentage}%`}
-                        outerRadius={100}
-                        dataKey="value"
+                        data={safeEnhancedAnalytics.bookingStatus}
+                        dataKey="percentage"
+                        nameKey="name"
+                        outerRadius={80}
+                        label
                       >
-                        {enhancedAnalytics.paymentStatus.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        {safeEnhancedAnalytics.bookingStatus.map((entry, idx) => (
+                          <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip />
@@ -486,186 +455,107 @@ const Reports = () => {
 
           {/* Events Tab */}
           {activeTab === 'events' && (
-            <div className="events-content">
-              <h3 className="section-title">Top Performing Events</h3>
-              <div className="chart-card full-width">
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={enhancedAnalytics.eventPerformance} layout="vertical" margin={{ left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" />
-                    <YAxis dataKey="name" type="category" width={180} stroke="#6b7280" />
-                    <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
-                    <Legend />
-                    <Bar dataKey="revenue" fill="#3b82f6" name="Revenue (KES)" radius={[0, 8, 8, 0]} />
-                    <Bar dataKey="bookings" fill="#10b981" name="Bookings" radius={[0, 8, 8, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="events-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Event Name</th>
-                      <th>Bookings</th>
-                      <th>Revenue</th>
-                      <th>Avg per Booking</th>
-                      <th>Event Date</th>
+            <div className="table-card">
+              <h3 className="chart-title">Events Performance</h3>
+              <table className="modern-table">
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Bookings</th>
+                    <th>Revenue (KES)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {safeEnhancedAnalytics.eventPerformance.map((event, idx) => (
+                    <tr key={idx}>
+                      <td>{event.name}</td>
+                      <td>{event.bookings}</td>
+                      <td>{formatCurrency(event.revenue)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {enhancedAnalytics.eventPerformance.map((event, idx) => (
-                      <tr key={event.id || idx}>
-                        <td><strong>{event.name}</strong></td>
-                        <td>{event.bookings}</td>
-                        <td>{formatCurrency(event.revenue)}</td>
-                        <td>{event.bookings > 0 ? formatCurrency(event.revenue / event.bookings) : formatCurrency(0)}</td>
-                        <td>{event.date ? new Date(event.date).toLocaleDateString() : 'N/A'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                  {safeEnhancedAnalytics.eventPerformance.length === 0 && (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: 'center' }}>No events data</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
 
-          {/* Payments Tab */}
-          {activeTab === 'payments' && (
-            <div className="payments-content">
-              <div className="chart-grid">
-                <div className="chart-card">
-                  <h3 className="chart-title">Payment Status Breakdown</h3>
-                  <div className="payment-stats">
-                    {enhancedAnalytics.paymentStatus.map((status, idx) => (
-                      <div key={idx} className="payment-stat-item">
-                        <div className="payment-stat-bar" style={{ width: `${Math.min(100, Math.round(status.percentage))}%`, backgroundColor: COLORS[idx] }} />
-                        <div className="payment-stat-info">
-                          <span className="payment-stat-name">{status.name}</span>
-                          <span className="payment-stat-count">{status.value} ({status.percentage.toFixed(1)}%)</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="chart-card">
-                  <h3 className="chart-title">Booking Status</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={enhancedAnalytics.bookingStatus}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={entry => `${entry.name}: ${entry.value}`}
-                        outerRadius={100}
-                        dataKey="value"
-                      >
-                        {enhancedAnalytics.bookingStatus.map((entry, index) => (
-                          <Cell key={`cell-booking-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {enhancedAnalytics.suspiciousBookings && enhancedAnalytics.suspiciousBookings.length > 0 && (
-                <div className="suspicious-bookings">
-                  <h3 className="section-title">⚠️ Suspicious Bookings ({enhancedAnalytics.suspiciousBookings.length})</h3>
-                  <div className="table-wrapper">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Booking ID</th>
-                          <th>User</th>
-                          <th>Event</th>
-                          <th>Amount</th>
-                          <th>Payment Status</th>
-                          <th>Booking Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {enhancedAnalytics.suspiciousBookings.map((s, i) => (
-                          <tr key={s.booking_id || i}>
-                            <td>{s.booking_id || '—'}</td>
-                            <td>{s.user_name || '—'}</td>
-                            <td>{s.event_title || '—'}</td>
-                            <td>{formatCurrency(s.booking_amount || s.payment_amount)}</td>
-                            <td>{s.payment_status || '—'}</td>
-                            <td>{s.booking_status || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Trends Tab */}
+          {/* Suspicious Bookings Tab */}
           {activeTab === 'trends' && (
-            <div className="trends-content">
-              <h3 className="section-title">Trends & Predictions</h3>
-              <div className="chart-card full-width">
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={enhancedAnalytics.timeSeriesData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="date" stroke="#6b7280" />
-                    <YAxis stroke="#6b7280" />
-                    <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
-                    <Legend />
-                    <Line type="monotone" dataKey="revenue" stroke="#3b82f6" dot={false} name="Revenue (KES)" />
-                    <Line type="monotone" dataKey="prediction" stroke="#f59e0b" strokeDasharray="5 5" dot={false} name="Predicted Revenue" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="table-card">
+              <h3 className="chart-title">Suspicious Bookings</h3>
+              <table className="modern-table">
+                <thead>
+                  <tr>
+                    <th>Booking ID</th>
+                    <th>User</th>
+                    <th>Event</th>
+                    <th>Amount</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {safeEnhancedAnalytics.suspiciousBookings.map((b, idx) => (
+                    <tr key={idx}>
+                      <td>{b.booking_id}</td>
+                      <td>{b.user_name}</td>
+                      <td>{b.event_title}</td>
+                      <td>{formatCurrency(b.amount)}</td>
+                      <td>{b.reason}</td>
+                    </tr>
+                  ))}
+                  {safeEnhancedAnalytics.suspiciousBookings.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center' }}>No suspicious bookings</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
 
           {/* Raw Data Tab */}
           {activeTab === 'data' && (
-            <div className="data-content">
-              <h3 className="section-title">Raw Booking Data</h3>
-              <div className="table-wrapper">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Booking ID</th>
-                      <th>User</th>
-                      <th>Event</th>
-                      <th>Amount</th>
-                      <th>Booking Date</th>
-                      <th>Payment Status</th>
-                      <th>Booking Status</th>
+            <div className="table-card">
+              <h3 className="chart-title">Raw Bookings Data</h3>
+              <table className="modern-table">
+                <thead>
+                  <tr>
+                    <th>Booking ID</th>
+                    <th>User</th>
+                    <th>Event</th>
+                    <th>Seats</th>
+                    <th>Booking Date</th>
+                    <th>Amount</th>
+                    <th>Payment Status</th>
+                    <th>Booking Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map((r, idx) => (
+                    <tr key={idx}>
+                      <td>{r.booking_id}</td>
+                      <td>{r.user_name}</td>
+                      <td>{r.event_title}</td>
+                      <td>{r.seats}</td>
+                      <td>{r.booking_date ? new Date(r.booking_date).toLocaleDateString() : ''}</td>
+                      <td>{formatCurrency(r.payment_amount || r.booking_amount)}</td>
+                      <td>{r.payment_status}</td>
+                      <td>{r.booking_status}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {reports.map((r, idx) => (
-                      <tr key={r.booking_id || idx}>
-                        <td>{r.booking_id || '—'}</td>
-                        <td>{r.user_name || '—'}</td>
-                        <td>{r.event_title || '—'}</td>
-                        <td>{formatCurrency(r.booking_amount || r.payment_amount)}</td>
-                        <td>{r.booking_date ? new Date(r.booking_date).toLocaleString() : '—'}</td>
-                        <td>{r.payment_status || '—'}</td>
-                        <td>{r.booking_status || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                  {reports.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center' }}>No booking data</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!enhancedAnalytics && !loading && (
-        <div className="empty-state">
-          <p>No report data available. Try changing the date range or refresh.</p>
         </div>
       )}
     </div>
