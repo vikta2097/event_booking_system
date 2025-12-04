@@ -1,3 +1,4 @@
+// src/App.js
 import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import AuthForm from "./components/AuthForm";
@@ -9,6 +10,7 @@ const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const logoutTimerRef = useRef(null);
 
   const handleLogout = () => {
@@ -50,6 +52,7 @@ function App() {
         userObj = JSON.parse(storedUser);
       } catch (err) {
         handleLogout();
+        setAuthChecked(true);
         return;
       }
 
@@ -63,8 +66,11 @@ function App() {
           handleLogout();
           alert("Session expired. Please log in again.");
         }, remainingTime);
-      } else handleLogout();
+      } else {
+        handleLogout();
+      }
     }
+    setAuthChecked(true);
 
     return () => {
       if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
@@ -73,10 +79,15 @@ function App() {
 
   const isAuthenticated = !!token;
 
+  if (!authChecked) {
+    // Prevent rendering routes until localStorage is read
+    return <div>Loading...</div>;
+  }
+
   return (
     <Router>
       <Routes>
-        {/* Reset Password - must be accessible without auth */}
+        {/* Reset Password */}
         <Route
           path="/reset-password/:token"
           element={<AuthForm onLoginSuccess={handleLogin} />}
@@ -97,7 +108,7 @@ function App() {
           }
         />
 
-        {/* Admin dashboard */}
+        {/* Admin dashboard and nested routes */}
         <Route
           path="/admin/dashboard/*"
           element={
@@ -109,33 +120,36 @@ function App() {
           }
         />
 
-        {/* User dashboard */}
+        {/* User dashboard and nested routes */}
         <Route
           path="/dashboard/*"
           element={
-            <UserDashboard
-              user={user}
-              token={token}
-              onLogout={handleLogout}
-              onLoginSuccess={handleLogin}
-            />
+            isAuthenticated ? (
+              <UserDashboard
+                user={user}
+                token={token}
+                onLogout={handleLogout}
+                onLoginSuccess={handleLogin}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
           }
         />
 
-        {/* Catch-all redirect */}
+        {/* Catch-all redirect for invalid URLs */}
         <Route
           path="*"
           element={
-            <Navigate
-              to={
-                isAuthenticated && user
-                  ? user.role === "admin"
-                    ? "/admin/dashboard"
-                    : "/dashboard"
-                  : "/dashboard"
-              }
-              replace
-            />
+            isAuthenticated ? (
+              user.role === "admin" ? (
+                <Navigate to="/admin/dashboard" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
+            ) : (
+              <Navigate to="/login" replace />
+            )
           }
         />
       </Routes>
