@@ -6,7 +6,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
 import "./styles/responsive.css";
 
-
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 
 function App() {
@@ -35,6 +34,126 @@ function App() {
     setToken(token);
     setUser({ ...user, role });
 
+    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+    logoutTimerRef.current = setTimeout(() => {
+      handleLogout();
+      alert("Session expired. Please log in again.");
+    }, SESSION_TIMEOUT);
+  };
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem("token");
+    const storedRole = localStorage.getItem("role");
+    const storedUser = localStorage.getItem("user");
+    const storedLoginTime = localStorage.getItem("loginTime");
+
+    if (storedToken && storedRole && storedUser && storedLoginTime) {
+      let userObj = null;
+      try {
+        userObj = JSON.parse(storedUser);
+      } catch (err) {
+        handleLogout();
+        setAuthChecked(true);
+        return;
+      }
+
+      const timeElapsed = Date.now() - parseInt(storedLoginTime, 10);
+      if (timeElapsed < SESSION_TIMEOUT && userObj) {
+        setToken(storedToken);
+        setUser({ ...userObj, role: storedRole });
+
+        const remainingTime = SESSION_TIMEOUT - timeElapsed;
+        logoutTimerRef.current = setTimeout(() => {
+          handleLogout();
+          alert("Session expired. Please log in again.");
+        }, remainingTime);
+      } else {
+        handleLogout();
+      }
+    }
+    setAuthChecked(true);
+
+    return () => {
+      if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+    };
+  }, []);
+
+  const isAuthenticated = !!token;
+
+  if (!authChecked) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <Router>
+      <Routes>
+        {/* Reset Password */}
+        <Route
+          path="/reset-password/:token"
+          element={<AuthForm onLoginSuccess={handleLogin} />}
+        />
+
+        {/* Login */}
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? (
+              <Navigate
+                to={user?.role === "admin" ? "/admin/dashboard" : "/dashboard"}
+                replace
+              />
+            ) : (
+              <AuthForm onLoginSuccess={handleLogin} />
+            )
+          }
+        />
+
+        {/* Admin dashboard */}
+        <Route
+          path="/admin/dashboard/*"
+          element={
+            isAuthenticated && user?.role === "admin" ? (
+              <AdminDashboard token={token} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        {/* User dashboard - accessible to all */}
+        <Route
+          path="/dashboard/*"
+          element={
+            <UserDashboard
+              user={user}        // null if not logged in
+              token={token}      // null if not logged in
+              onLogout={handleLogout}
+              onLoginSuccess={handleLogin}
+            />
+          }
+        />
+
+        {/* Catch-all redirect */}
+        <Route
+          path="*"
+          element={
+            isAuthenticated ? (
+              user.role === "admin" ? (
+                <Navigate to="/admin/dashboard" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          }
+        />
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
     logoutTimerRef.current = setTimeout(() => {
       handleLogout();
