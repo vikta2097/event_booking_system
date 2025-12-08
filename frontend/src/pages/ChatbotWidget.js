@@ -125,7 +125,7 @@ const ChatbotWidget = ({ user }) => {
             <div className="chatbot-title">
               <span className="chatbot-avatar">🤖</span>
               <div className="chatbot-info">
-                <h4>EventBot</h4>
+                <h4>EventHank</h4>
                 <div className="chatbot-status">Online</div>
               </div>
             </div>

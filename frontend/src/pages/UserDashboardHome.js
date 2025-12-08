@@ -164,7 +164,7 @@ const UserDashboardHome = ({ user, onLogout }) => {
           )}
         </div>
 
-        <p className="footer-copy">© {new Date().getFullYear()} Event Booking System</p>
+        <p className="footer-copy">© {new Date().getFullYear()} EventHyper</p>
       </footer>
       <ChatbotWidget user={user} />
 
