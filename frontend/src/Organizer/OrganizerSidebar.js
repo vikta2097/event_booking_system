@@ -6,7 +6,6 @@ import {
   CalendarDays,
   ClipboardList,
   BarChart3,
-  Settings,
   MessageCircle,
   LogOut,
   ScanLine,
