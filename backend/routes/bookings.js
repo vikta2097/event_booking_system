@@ -67,6 +67,138 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+
+// ======================
+// GET bookings for organizer's events only
+// NEW ENDPOINT FOR ORGANIZERS
+// ======================
+router.get("/organizer", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // Only organizers and admins can access this endpoint
+    if (userRole !== "organizer" && userRole !== "admin") {
+      return res.status(403).json({ error: "Access denied. Organizer role required." });
+    }
+
+    // Get bookings for events created by this organizer
+    const query = `
+      SELECT 
+        b.id,
+        b.reference,
+        b.booking_date,
+        b.seats,
+        b.total_amount,
+        b.status AS booking_status,
+        b.created_at,
+        e.id AS event_id,
+        e.title AS event_title,
+        e.event_date,
+        e.start_time,
+        e.location,
+        e.price AS event_price,
+        u.id AS user_id,
+        u.fullname AS user_name,
+        u.email AS user_email,
+        u.phone AS user_phone,
+        p.status AS payment_status
+      FROM bookings b
+      INNER JOIN events e ON b.event_id = e.id
+      INNER JOIN usercredentials u ON b.user_id = u.id
+      LEFT JOIN payments p ON p.booking_id = b.id
+      WHERE e.created_by = $1
+      ORDER BY b.booking_date DESC
+    `;
+
+    const result = await db.query(query, [userId]);
+
+    const bookingsWithTickets = await Promise.all(
+      result.rows.map(async booking => {
+        const ticketsResult = await db.query(
+          `SELECT bt.*, tt.name as ticket_name, tt.price as ticket_price
+           FROM booking_tickets bt
+           JOIN ticket_types tt ON bt.ticket_type_id = tt.id
+           WHERE bt.booking_id = $1`,
+          [booking.id]
+        );
+        return { ...booking, tickets: ticketsResult.rows };
+      })
+    );
+
+    res.json(bookingsWithTickets);
+  } catch (error) {
+    console.error("Error fetching organizer bookings:", error);
+    res.status(500).json({ error: "Failed to fetch bookings" });
+  }
+});
+
+// ======================
+// UPDATE booking status for organizer
+// NEW ENDPOINT FOR ORGANIZERS
+// ======================
+router.put("/organizer/:id", verifyToken, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const bookingId = req.params.id;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    if (userRole !== "organizer" && userRole !== "admin") {
+      return res.status(403).json({ error: "Access denied. Organizer role required." });
+    }
+
+    // Check if booking belongs to organizer's event
+    const checkQuery = `
+      SELECT b.*, e.created_by
+      FROM bookings b
+      INNER JOIN events e ON b.event_id = e.id
+      WHERE b.id = $1
+    `;
+    const checkResult = await db.query(checkQuery, [bookingId]);
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    const booking = checkResult.rows[0];
+
+    // Verify organizer owns the event
+    if (userRole === "organizer" && booking.created_by !== userId) {
+      return res.status(403).json({ error: "You can only update bookings for your own events" });
+    }
+
+    // Prevent confirming if payment is pending
+    if (status === "confirmed") {
+      const paymentResult = await db.query(
+        "SELECT status FROM payments WHERE booking_id = $1",
+        [bookingId]
+      );
+
+      if (
+        paymentResult.rows.length === 0 ||
+        paymentResult.rows[0].status !== "success"
+      ) {
+        return res.status(400).json({
+          error: "Cannot confirm booking: payment is still pending or not recorded"
+        });
+      }
+    }
+
+    await db.query(
+      "UPDATE bookings SET status = $1 WHERE id = $2",
+      [status, bookingId]
+    );
+
+    res.json({ message: "Booking status updated successfully" });
+  } catch (error) {
+    console.error("Error updating booking:", error);
+    res.status(500).json({ error: "Failed to update booking" });
+  }
+});
+
+
+
 // ======================
 // GET single booking by ID
 // ======================

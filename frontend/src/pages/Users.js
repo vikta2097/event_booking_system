@@ -7,7 +7,9 @@ import "../styles/Users.css";
 const roleOptions = [
   { value: "admin", label: "Admin" },
   { value: "user", label: "User" },
+  { value: "organizer", label: "Organizer" }, // added
 ];
+
 
 const Users = () => {
   const [users, setUsers] = useState([]);

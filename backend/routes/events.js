@@ -45,6 +45,42 @@ router.get("/admin/all", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+
+// ======================
+// GET events created by organizer
+// NEW ENDPOINT FOR ORGANIZERS
+// ======================
+router.get("/organizer/my-events", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // Only organizers and admins can access
+    if (userRole !== "organizer" && userRole !== "admin") {
+      return res.status(403).json({ error: "Access denied. Organizer role required." });
+    }
+
+    const result = await db.query(`
+      SELECT 
+        e.*,
+        c.name AS category_name,
+        COUNT(DISTINCT b.id) AS total_bookings,
+        COALESCE(SUM(b.seats), 0) AS total_seats_booked
+      FROM events e
+      LEFT JOIN event_categories c ON e.category_id = c.id
+      LEFT JOIN bookings b ON b.event_id = e.id AND b.status != 'cancelled'
+      WHERE e.created_by = $1
+      GROUP BY e.id, c.name
+      ORDER BY e.event_date DESC, e.start_time ASC
+    `, [userId]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching organizer events:", err);
+    res.status(500).json({ error: "Failed to fetch events" });
+  }
+});
+
 // ======================
 // GET ticket types for a specific event
 // ======================
