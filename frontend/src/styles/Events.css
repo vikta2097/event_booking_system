@@ -4,6 +4,7 @@
   padding: 20px;
   border-radius: 10px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  overflow-x: auto; /* Added for responsive table scrolling */
 }
 
 /* Header */
@@ -74,6 +75,34 @@
 
 .events-table th {
   background-color: #f3f4f6;
+}
+
+.events-table img.event-poster {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+/* Tooltip for event title (venue, email, parking, map link) */
+.events-table td[title] {
+  position: relative;
+  cursor: help;
+}
+
+.events-table td[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: pre-line;
+  z-index: 10;
+  font-size: 12px;
+  min-width: 150px;
 }
 
 /* Status Colors */
@@ -324,6 +353,15 @@
   font-size: 13px;
 }
 
+/* Ticket Form Inputs */
+.ticket-form input {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 8px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
 /* Event Organizer & Poster */
 .event-organizer {
   display: flex;
@@ -350,8 +388,14 @@
     flex-direction: column;
   }
 
+  .events-table {
+    display: block;
+    overflow-x: auto;
+  }
+
   .events-table th,
   .events-table td {
+    white-space: nowrap;
     font-size: 12px;
   }
 

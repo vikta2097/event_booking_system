@@ -66,8 +66,8 @@ const Events = ({ currentUser }) => {
         ...ev,
         status: formatEventStatus(ev),
         category_name: categoryMap[ev.category_id] || ev.category_name || "-",
-        organizer_name: ev.organizer_name || "-",      // optional organizer
-        organizer_image: ev.organizer_image || "",     // optional poster/image
+        organizer_name: ev.organizer_name || "-",
+        organizer_image: ev.organizer_image || ev.image || "",
       }));
 
       setEvents(enhancedEvents);
@@ -145,7 +145,11 @@ const Events = ({ currentUser }) => {
 
     if (event) {
       setEditingEvent(event);
-      setFormData({ ...event, category_id: event.category_id || "" });
+      setFormData({
+        ...event,
+        category_id: event.category_id || "",
+        organizer_image: event.image || "",
+      });
       fetchTicketTypes(event.id);
     } else {
       setEditingEvent(null);
@@ -162,6 +166,10 @@ const Events = ({ currentUser }) => {
         status: "upcoming",
         organizer_name: "",
         organizer_image: "",
+        venue: "",
+        organizer_email: "",
+        parking_info: "",
+        map_link: "",
       });
       setTicketTypes([]);
     }
@@ -178,6 +186,11 @@ const Events = ({ currentUser }) => {
         created_by: currentUser.id,
         price: Number(formData.price) || 0,
         capacity: Number(formData.capacity) || 0,
+        image: formData.organizer_image || null,
+        venue: formData.venue || null,
+        organizer_email: formData.organizer_email || null,
+        parking_info: formData.parking_info || null,
+        map_link: formData.map_link || null,
       };
 
       if (editingEvent) {
@@ -412,7 +425,9 @@ const Events = ({ currentUser }) => {
                     <img src={event.organizer_image} alt={event.organizer_name} className="event-poster" />
                   ) : "-"}
                 </td>
-                <td>{event.title}</td>
+                <td title={`Venue: ${event.venue || "-"}\nEmail: ${event.organizer_email || "-"}\nParking: ${event.parking_info || "-"}\nMap: ${event.map_link || "-"}`}>
+                  {event.title}
+                </td>
                 <td>{event.category_name || "-"}</td>
                 <td>{event.organizer_name || "-"}</td>
                 <td>{new Date(event.event_date).toLocaleDateString()}</td>
@@ -467,6 +482,18 @@ const Events = ({ currentUser }) => {
               <label>Organizer Poster/Image URL (Optional)</label>
               <input type="text" name="organizer_image" value={formData.organizer_image || ""} onChange={handleChange} />
 
+              <label>Venue (Optional)</label>
+              <input type="text" name="venue" value={formData.venue || ""} onChange={handleChange} />
+
+              <label>Organizer Email (Optional)</label>
+              <input type="email" name="organizer_email" value={formData.organizer_email || ""} onChange={handleChange} />
+
+              <label>Parking Info (Optional)</label>
+              <input type="text" name="parking_info" value={formData.parking_info || ""} onChange={handleChange} />
+
+              <label>Map Link (Optional)</label>
+              <input type="url" name="map_link" value={formData.map_link || ""} onChange={handleChange} />
+
               <label>Location</label>
               <input type="text" name="location" value={formData.location} onChange={handleChange} />
 
@@ -485,29 +512,22 @@ const Events = ({ currentUser }) => {
                 </div>
               </div>
 
-              <div className="row-group">
-                <div>
-                  <label>Capacity</label>
-                  <input type="number" name="capacity" value={formData.capacity} onChange={handleChange} />
-                </div>
-                <div>
-                  <label>Price (KES)</label>
-                  <input type="number" name="price" value={formData.price} onChange={handleChange} />
-                </div>
-              </div>
+              <label>Capacity</label>
+              <input type="number" name="capacity" value={formData.capacity} onChange={handleChange} />
+
+              <label>Price (KES)</label>
+              <input type="number" name="price" value={formData.price} onChange={handleChange} />
 
               <label>Status</label>
               <select name="status" value={formData.status} onChange={handleChange}>
                 <option value="upcoming">Upcoming</option>
                 <option value="ongoing">Ongoing</option>
-                <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
-                <option value="expired">Expired</option>
               </select>
 
               <div className="modal-actions">
-                <button type="submit" className="add-btn">Save</button>
-                <button type="button" className="delete-btn" onClick={() => setShowModal(false)}>Cancel</button>
+                <button type="submit">{editingEvent ? "Save Changes" : "Add Event"}</button>
+                <button type="button" onClick={() => setShowModal(false)}>Cancel</button>
               </div>
             </form>
           </div>
@@ -518,62 +538,60 @@ const Events = ({ currentUser }) => {
       {showTicketModal && editingEvent && (
         <div className="modal-overlay">
           <div className="modal">
-            <h3>Manage Tickets for {editingEvent.title}</h3>
+            <h3>Manage Tickets for: {editingEvent.title}</h3>
 
-            <form onSubmit={handleTicketSubmit}>
-              <label>Name</label>
-              <input type="text" name="name" value={ticketForm.name} onChange={handleTicketChange} required />
-              <label>Description</label>
-              <input type="text" name="description" value={ticketForm.description} onChange={handleTicketChange} />
-              <label>Price (KES)</label>
-              <input type="number" name="price" value={ticketForm.price} onChange={handleTicketChange} required />
-              <label>Quantity Available</label>
-              <input type="number" name="quantity_available" value={ticketForm.quantity_available} onChange={handleTicketChange} required />
+            {ticketLoading ? <p>Loading tickets...</p> :
+              ticketError ? <p className="error">{ticketError}</p> :
+                <table className="tickets-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Description</th>
+                      <th>Price</th>
+                      <th>Quantity</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ticketTypes.map(ticket => (
+                      <tr key={ticket.id}>
+                        <td>{ticket.name}</td>
+                        <td>{ticket.description}</td>
+                        <td>{ticket.price}</td>
+                        <td>{ticket.quantity_available}</td>
+                        <td>
+                          <button onClick={() => {
+                            setEditingTicket(ticket);
+                            setTicketForm({
+                              name: ticket.name,
+                              description: ticket.description,
+                              price: ticket.price,
+                              quantity_available: ticket.quantity_available
+                            });
+                          }}>Edit</button>
+                          <button onClick={() => handleTicketDelete(ticket.id)}>Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+            }
+
+            <form onSubmit={handleTicketSubmit} className="ticket-form">
+              <h4>{editingTicket ? "Edit Ticket" : "Add Ticket"}</h4>
+              <input type="text" name="name" placeholder="Name" value={ticketForm.name} onChange={handleTicketChange} required />
+              <input type="text" name="description" placeholder="Description" value={ticketForm.description} onChange={handleTicketChange} />
+              <input type="number" name="price" placeholder="Price" value={ticketForm.price} onChange={handleTicketChange} />
+              <input type="number" name="quantity_available" placeholder="Quantity Available" value={ticketForm.quantity_available} onChange={handleTicketChange} />
               <div className="modal-actions">
-                <button type="submit" className="add-btn">{editingTicket ? "Update Ticket" : "Add Ticket"}</button>
-                <button type="button" className="delete-btn" onClick={() => {
+                <button type="submit">{editingTicket ? "Update" : "Add"}</button>
+                <button type="button" onClick={() => {
                   setShowTicketModal(false);
                   setEditingTicket(null);
                   setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
                 }}>Close</button>
               </div>
             </form>
-
-            {ticketLoading ? <p>Loading tickets...</p> : ticketError ? <p className="error">{ticketError}</p> : (
-              <table className="events-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Description</th>
-                    <th>Price</th>
-                    <th>Available</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ticketTypes.map(ticket => (
-                    <tr key={ticket.id}>
-                      <td>{ticket.name}</td>
-                      <td>{ticket.description}</td>
-                      <td>KES {ticket.price}</td>
-                      <td>{ticket.quantity_available}</td>
-                      <td>
-                        <button className="edit-btn" onClick={() => {
-                          setEditingTicket(ticket);
-                          setTicketForm({
-                            name: ticket.name,
-                            description: ticket.description,
-                            price: ticket.price,
-                            quantity_available: ticket.quantity_available,
-                          });
-                        }}>Edit</button>
-                        <button className="delete-btn" onClick={() => handleTicketDelete(ticket.id)}>Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
           </div>
         </div>
       )}
