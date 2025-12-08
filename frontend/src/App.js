@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import AuthForm from "./components/AuthForm";
 import AdminDashboard from "./pages/AdminDashboard";
+import OrganizerDashboard from "./Organizer/OrganizerDashboard";
 import UserDashboard from "./pages/UserDashboard";
 import "./styles/responsive.css";
 
@@ -51,7 +52,7 @@ function App() {
       let userObj = null;
       try {
         userObj = JSON.parse(storedUser);
-      } catch (err) {
+      } catch {
         handleLogout();
         setAuthChecked(true);
         return;
@@ -98,10 +99,13 @@ function App() {
           path="/login"
           element={
             isAuthenticated ? (
-              <Navigate
-                to={user?.role === "admin" ? "/admin/dashboard" : "/dashboard"}
-                replace
-              />
+              user?.role === "admin" ? (
+                <Navigate to="/admin/dashboard" replace />
+              ) : user?.role === "organizer" ? (
+                <Navigate to="/organizer/dashboard" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
             ) : (
               <AuthForm onLoginSuccess={handleLogin} />
             )
@@ -120,16 +124,40 @@ function App() {
           }
         />
 
-        {/* User dashboard - accessible to all */}
+        {/* Organizer dashboard */}
+        <Route
+          path="/organizer/dashboard/*"
+          element={
+            isAuthenticated && user?.role === "organizer" ? (
+              <OrganizerDashboard token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        {/* User dashboard */}
         <Route
           path="/dashboard/*"
           element={
-            <UserDashboard
-              user={user}        // null if not logged in
-              token={token}      // null if not logged in
-              onLogout={handleLogout}
-              onLoginSuccess={handleLogin}
-            />
+            isAuthenticated && user?.role === "user" ? (
+              <UserDashboard
+                user={user}
+                token={token}
+                onLogout={handleLogout}
+                onLoginSuccess={handleLogin}
+              />
+            ) : isAuthenticated ? (
+              user?.role === "admin" ? (
+                <Navigate to="/admin/dashboard" replace />
+              ) : user?.role === "organizer" ? (
+                <Navigate to="/organizer/dashboard" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            ) : (
+              <Navigate to="/login" replace />
+            )
           }
         />
 
@@ -140,11 +168,13 @@ function App() {
             isAuthenticated ? (
               user.role === "admin" ? (
                 <Navigate to="/admin/dashboard" replace />
+              ) : user.role === "organizer" ? (
+                <Navigate to="/organizer/dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
               )
             ) : (
-              <Navigate to="/dashboard" replace />
+              <Navigate to="/login" replace />
             )
           }
         />
