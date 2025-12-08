@@ -19,7 +19,6 @@ const OrganizerSidebar = ({ sidebarOpen, setSidebarOpen, onLogout }) => {
     { name: "Bookings", icon: <ClipboardList size={18} />, path: "/organizer/dashboard/bookings" },
     { name: "Scan Tickets", icon: <ScanLine size={18} />, path: "/organizer/dashboard/scan" },
     { name: "Reports", icon: <BarChart3 size={18} />, path: "/organizer/dashboard/reports" },
-    { name: "Settings", icon: <Settings size={18} />, path: "/organizer/dashboard/settings" },
     { name: "Support", icon: <MessageCircle size={18} />, path: "/organizer/dashboard/support" },
   ];
 

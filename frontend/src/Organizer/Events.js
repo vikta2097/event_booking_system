@@ -14,11 +14,11 @@ const Events = ({ currentUser }) => {
 
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [editingTicket, setEditingTicket] = useState(null);
-  const [ticketForm, setTicketForm] = useState({
-    name: "",
-    description: "",
-    price: "",
-    quantity_available: "",
+  const [ticketForm, setTicketForm] = useState({ 
+    name: "", 
+    description: "", 
+    price: "", 
+    quantity_available: "" 
   });
   const [ticketTypes, setTicketTypes] = useState([]);
   const [ticketLoading, setTicketLoading] = useState(false);
@@ -34,12 +34,12 @@ const Events = ({ currentUser }) => {
   // =======================
   // HELPER FUNCTIONS
   // =======================
-  const getAuthHeaders = useCallback(() => {
+  const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
     return { Authorization: `Bearer ${token}` };
-  }, []);
+  };
 
-  const formatEventStatus = useCallback((event) => {
+  const formatEventStatus = (event) => {
     if (event.status === "cancelled") return "cancelled";
     const now = new Date();
     const start = new Date(`${event.event_date}T${event.start_time}`);
@@ -47,94 +47,86 @@ const Events = ({ currentUser }) => {
     if (now > end) return "expired";
     if (now >= start && now <= end) return "ongoing";
     return "upcoming";
-  }, []);
+  };
 
   // =======================
   // FETCH FUNCTIONS
   // =======================
-  const fetchCategories = useCallback(async () => {
-    try {
-      const res = await api.get("/categories", { headers: getAuthHeaders() });
-      const data = res.data || [];
-      setCategories(data);
-      return data;
-    } catch (err) {
-      console.error("Failed to fetch categories", err);
-      return [];
-    }
-  }, [getAuthHeaders]);
-
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = useCallback(async (categoryMap) => {
     if (!currentUser) return;
-
     try {
       setLoading(true);
-
-      // Map categories
-      const categoryMap = categories.reduce(
-        (acc, c) => ({ ...acc, [c.id]: c.name }),
-        {}
-      );
+      setError("");
 
       let url = "/events";
-      if (currentUser.role === "admin") {
-        url = "/events/admin/all";
-      } else if (currentUser.role === "organizer") {
-        url = "/events/organizer/my-events";
-      }
+      if (currentUser.role === "admin") url = "/events/admin/all";
+      else if (currentUser.role === "organizer") url = "/events/organizer/my-events";
 
       const eventsRes = await api.get(url, { headers: getAuthHeaders() });
-      const enhancedEvents = (eventsRes.data || []).map((ev) => ({
+      const enhancedEvents = (eventsRes.data || []).map(ev => ({
         ...ev,
         status: formatEventStatus(ev),
         category_name: categoryMap[ev.category_id] || ev.category_name || "-",
       }));
 
       setEvents(enhancedEvents);
-      setError("");
     } catch (err) {
       console.error("Error fetching events:", err);
       setError("Failed to fetch events");
     } finally {
       setLoading(false);
     }
-  }, [currentUser, categories, getAuthHeaders, formatEventStatus]);
+  }, [currentUser]);
 
-  const fetchTicketTypes = useCallback(
-    async (eventId) => {
-      if (!eventId) return;
-      try {
-        setTicketLoading(true);
-        setTicketError("");
-        const res = await api.get(`/events/${eventId}/ticket-types`, {
-          headers: getAuthHeaders(),
-        });
-        const list = res.data?.ticket_types;
-        if (Array.isArray(list)) setTicketTypes(list);
-        else {
-          setTicketTypes([]);
-          setTicketError("Unexpected response from server.");
-        }
-      } catch (err) {
-        console.error("Failed to fetch ticket types:", err);
-        setTicketTypes([]);
-        setTicketError("Failed to load tickets.");
-      } finally {
-        setTicketLoading(false);
-      }
-    },
-    [getAuthHeaders]
-  );
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await api.get("/categories", { headers: getAuthHeaders() });
+      return res.data || [];
+    } catch (err) {
+      console.error("Failed to fetch categories", err);
+      return [];
+    }
+  }, []);
+
+  const fetchTicketTypes = useCallback(async (eventId) => {
+    if (!eventId) return;
+    try {
+      setTicketLoading(true);
+      setTicketError("");
+
+      const res = await api.get(`/events/${eventId}/ticket-types`, { headers: getAuthHeaders() });
+      const list = res.data?.ticket_types;
+
+      setTicketTypes(Array.isArray(list) ? list : []);
+      if (!Array.isArray(list)) setTicketError("Unexpected response from server.");
+    } catch (err) {
+      console.error("Failed to fetch ticket types:", err);
+      setTicketTypes([]);
+      setTicketError("Failed to load tickets.");
+    } finally {
+      setTicketLoading(false);
+    }
+  }, []);
 
   // =======================
   // INITIAL LOAD
   // =======================
   useEffect(() => {
     if (!currentUser) return;
+
     const loadData = async () => {
       try {
-        await fetchCategories();
-        await fetchEvents();
+        setLoading(true);
+
+        // 1️⃣ Fetch categories
+        const categoriesData = await fetchCategories();
+        setCategories(categoriesData);
+
+        // 2️⃣ Create local map
+        const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+
+        // 3️⃣ Fetch events with the map
+        await fetchEvents(categoryMap);
       } catch (err) {
         console.error("Error loading data:", err);
         setError("Failed to load data");
@@ -142,46 +134,45 @@ const Events = ({ currentUser }) => {
         setLoading(false);
       }
     };
+
     loadData();
   }, [currentUser, fetchCategories, fetchEvents]);
 
   // =======================
-  // FORM HANDLERS
+  // FORM & MODAL HANDLERS
   // =======================
-  const handleChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const openModal = useCallback(
-    (event = null) => {
-      if (!currentUser) return;
-      if (event) {
-        setEditingEvent(event);
-        setFormData({ ...event, category_id: event.category_id || "" });
-        fetchTicketTypes(event.id);
-      } else {
-        setEditingEvent(null);
-        setFormData({
-          title: "",
-          description: "",
-          category_id: "",
-          location: "",
-          event_date: "",
-          start_time: "",
-          end_time: "",
-          capacity: "",
-          price: "",
-          status: "upcoming",
-        });
-        setTicketTypes([]);
-      }
-      setShowModal(true);
-    },
-    [currentUser, fetchTicketTypes]
-  );
+  const openModal = (event = null) => {
+    if (!currentUser) return;
+
+    if (event) {
+      setEditingEvent(event);
+      setFormData({ ...event, category_id: event.category_id || "" });
+      fetchTicketTypes(event.id);
+    } else {
+      setEditingEvent(null);
+      setFormData({
+        title: "",
+        description: "",
+        category_id: "",
+        location: "",
+        event_date: "",
+        start_time: "",
+        end_time: "",
+        capacity: "",
+        price: "",
+        status: "upcoming",
+      });
+      setTicketTypes([]);
+    }
+    setShowModal(true);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!currentUser) return;
+
     try {
       const payload = {
         ...formData,
@@ -191,14 +182,15 @@ const Events = ({ currentUser }) => {
       };
 
       if (editingEvent) {
-        await api.put(`/events/${editingEvent.id}`, payload, {
-          headers: getAuthHeaders(),
-        });
+        await api.put(`/events/${editingEvent.id}`, payload, { headers: getAuthHeaders() });
       } else {
         await api.post("/events", payload, { headers: getAuthHeaders() });
       }
 
-      await fetchEvents();
+      // Fetch fresh data without causing loops
+      const categoryMap = categories.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+      await fetchEvents(categoryMap);
+
       setShowModal(false);
     } catch (err) {
       console.error(err);
@@ -210,10 +202,52 @@ const Events = ({ currentUser }) => {
     if (!window.confirm("Are you sure you want to delete this event?")) return;
     try {
       await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
-      await fetchEvents();
+      const categoryMap = categories.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+      await fetchEvents(categoryMap);
     } catch (err) {
       console.error(err);
       setError("Failed to delete event");
+    }
+  };
+
+  // =======================
+  // CATEGORY HANDLERS
+  // =======================
+  const handleCategoryAdd = async (e) => {
+    e.preventDefault();
+    if (!newCategory.trim()) return;
+
+    try {
+      await api.post("/categories", { name: newCategory }, { headers: getAuthHeaders() });
+      setNewCategory("");
+      setShowCategoryCard(false);
+      const cats = await fetchCategories();
+      setCategories(cats);
+    } catch {
+      setCategoryError("Failed to add category");
+    }
+  };
+
+  const handleCategoryUpdate = async (id, name) => {
+    if (!name.trim()) return;
+    try {
+      await api.put(`/categories/${id}`, { name }, { headers: getAuthHeaders() });
+      setEditingCategory(null);
+      const cats = await fetchCategories();
+      setCategories(cats);
+    } catch {
+      setCategoryError("Failed to update category");
+    }
+  };
+
+  const handleCategoryDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    try {
+      await api.delete(`/categories/${id}`, { headers: getAuthHeaders() });
+      const cats = await fetchCategories();
+      setCategories(cats);
+    } catch {
+      setCategoryError("Failed to delete category");
     }
   };
 
@@ -235,15 +269,13 @@ const Events = ({ currentUser }) => {
         price: Number(ticketForm.price),
         quantity_available: Number(ticketForm.quantity_available),
       };
+
       if (editingTicket) {
-        await api.put(`/ticket-types/${editingTicket.id}`, payload, {
-          headers: getAuthHeaders(),
-        });
+        await api.put(`/ticket-types/${editingTicket.id}`, payload, { headers: getAuthHeaders() });
       } else {
-        await api.post(`/events/${editingEvent.id}/ticket-types`, payload, {
-          headers: getAuthHeaders(),
-        });
+        await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: getAuthHeaders() });
       }
+
       await fetchTicketTypes(editingEvent.id);
       setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
       setEditingTicket(null);
@@ -259,43 +291,6 @@ const Events = ({ currentUser }) => {
       if (editingEvent) await fetchTicketTypes(editingEvent.id);
     } catch (err) {
       console.error("Ticket delete failed", err);
-    }
-  };
-
-  // =======================
-  // CATEGORY HANDLERS
-  // =======================
-  const handleCategoryAdd = async (e) => {
-    e.preventDefault();
-    if (!newCategory.trim()) return;
-    try {
-      await api.post("/categories", { name: newCategory }, { headers: getAuthHeaders() });
-      setNewCategory("");
-      setShowCategoryCard(false);
-      await fetchCategories();
-    } catch (err) {
-      setCategoryError("Failed to add category");
-    }
-  };
-
-  const handleCategoryUpdate = async (id, name) => {
-    if (!name.trim()) return;
-    try {
-      await api.put(`/categories/${id}`, { name }, { headers: getAuthHeaders() });
-      setEditingCategory(null);
-      await fetchCategories();
-    } catch (err) {
-      setCategoryError("Failed to update category");
-    }
-  };
-
-  const handleCategoryDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
-    try {
-      await api.delete(`/categories/${id}`, { headers: getAuthHeaders() });
-      await fetchCategories();
-    } catch (err) {
-      setCategoryError("Failed to delete category");
     }
   };
 
@@ -428,16 +423,11 @@ const Events = ({ currentUser }) => {
                     <>
                       <button className="delete-btn" onClick={() => handleDelete(event.id)}>Delete</button>
                       {(currentUser?.role === "admin" || currentUser?.id === event.created_by) && (
-                        <button
-                          className="add-btn"
-                          onClick={() => {
-                            setEditingEvent(event);
-                            setShowTicketModal(true);
-                            fetchTicketTypes(event.id);
-                          }}
-                        >
-                          Manage Tickets
-                        </button>
+                        <button className="add-btn" onClick={() => {
+                          setEditingEvent(event);
+                          setShowTicketModal(true);
+                          fetchTicketTypes(event.id);
+                        }}>Manage Tickets</button>
                       )}
                     </>
                   )}
@@ -454,7 +444,6 @@ const Events = ({ currentUser }) => {
           <div className="modal">
             <h3>{editingEvent ? "Edit Event" : "Add New Event"}</h3>
             <form onSubmit={handleSubmit}>
-              {/* Form fields */}
               <label>Title</label>
               <input type="text" name="title" value={formData.title} onChange={handleChange} required />
               <label>Description</label>
@@ -517,30 +506,27 @@ const Events = ({ currentUser }) => {
               <input type="text" name="name" value={ticketForm.name} onChange={handleTicketChange} required />
               <label>Description</label>
               <textarea name="description" value={ticketForm.description} onChange={handleTicketChange} />
-              <label>Price (KES)</label>
+              <label>Price</label>
               <input type="number" name="price" value={ticketForm.price} onChange={handleTicketChange} required />
               <label>Quantity Available</label>
               <input type="number" name="quantity_available" value={ticketForm.quantity_available} onChange={handleTicketChange} required />
               <div className="modal-actions">
-                <button type="submit" className="save-btn">Save</button>
-                <button type="button" className="cancel-btn" onClick={() => setShowTicketModal(false)}>Close</button>
+                <button type="submit" className="save-btn">{editingTicket ? "Update" : "Add"}</button>
+                <button type="button" className="cancel-btn" onClick={() => { setShowTicketModal(false); setEditingTicket(null); }}>Close</button>
               </div>
             </form>
-            <div className="ticket-list">
-              {ticketLoading ? <p>Loading tickets...</p> :
-                ticketError ? <p className="error">{ticketError}</p> :
-                  ticketTypes.length === 0 ? <p>No tickets yet.</p> :
-                    <ul>
-                      {ticketTypes.map((t) => (
-                        <li key={t.id}>
-                          {t.name} - KES {t.price} ({t.quantity_available} available)
-                          <button onClick={() => { setEditingTicket(t); setTicketForm({ ...t }); }}>Edit</button>
-                          <button onClick={() => handleTicketDelete(t.id)}>Delete</button>
-                        </li>
-                      ))}
-                    </ul>
-              }
-            </div>
+            <h4>Existing Tickets</h4>
+            {ticketLoading ? <p>Loading tickets...</p> : ticketError ? <p className="error">{ticketError}</p> : (
+              <ul className="ticket-list">
+                {ticketTypes.map((t) => (
+                  <li key={t.id}>
+                    {t.name} - KES {t.price} ({t.quantity_available} available)
+                    <button onClick={() => { setEditingTicket(t); setTicketForm({ ...t }); }}>Edit</button>
+                    <button onClick={() => handleTicketDelete(t.id)}>Delete</button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}
