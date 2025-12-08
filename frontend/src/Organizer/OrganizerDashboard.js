@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import "../styles/AdminDashboard.css";
 import OrganizerSidebar from "./OrganizerSidebar"; 
 import DashboardHome from "./DashboardHome";
-import Events from "./Events";
+import Events from "../pages/Events";
 import OrganizerBookings from "./OrganizerBookings"; 
 import OrganizerReports from "./OrganizerReports";   
 import TicketScanner from "./TicketScanner"; 

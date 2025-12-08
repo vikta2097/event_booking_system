@@ -32,6 +32,31 @@
   background-color: #0056b3;
 }
 
+/* Filter Buttons */
+.filter-buttons {
+  margin-bottom: 10px;
+}
+
+.filter-buttons button {
+  margin-right: 8px;
+  padding: 6px 12px;
+  border: 1px solid #007bff;
+  background: white;
+  color: #007bff;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.filter-buttons button.active {
+  background-color: #007bff;
+  color: white;
+}
+
+.filter-buttons button:hover {
+  opacity: 0.9;
+}
+
 /* Table */
 .events-table {
   width: 100%;
@@ -51,6 +76,7 @@
   background-color: #f3f4f6;
 }
 
+/* Status Colors */
 .status.upcoming {
   color: green;
 }
@@ -75,6 +101,7 @@
   border-radius: 5px;
   margin: 0 3px;
   cursor: pointer;
+  font-size: 13px;
 }
 
 .edit-btn {
@@ -110,7 +137,8 @@
 }
 
 /* Modal Box */
-.modal {
+.modal,
+.ticket-modal {
   background: #fff;
   width: 500px;
   max-width: 90%;
@@ -121,18 +149,22 @@
   overflow-y: auto;
 }
 
-.modal h3 {
+.modal h3,
+.ticket-modal h3 {
   margin-bottom: 15px;
 }
 
-.modal form {
+.modal form,
+.ticket-modal form {
   display: flex;
   flex-direction: column;
 }
 
 .modal input,
 .modal textarea,
-.modal select {
+.modal select,
+.ticket-modal input,
+.ticket-modal textarea {
   padding: 8px;
   margin-bottom: 12px;
   border: 1px solid #ccc;
@@ -140,7 +172,8 @@
   font-size: 14px;
 }
 
-.modal textarea {
+.modal textarea,
+.ticket-modal textarea {
   resize: vertical;
 }
 
@@ -150,6 +183,7 @@
   gap: 10px;
 }
 
+/* Modal Actions */
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -266,39 +300,7 @@
   margin-top: 5px;
 }
 
-/* Ticket Modal */
-.ticket-modal {
-  background: #fff;
-  width: 500px;
-  max-width: 90%;
-  padding: 20px;
-  border-radius: 10px;
-  animation: fadeIn 0.3s ease;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.ticket-modal h3 {
-  margin-bottom: 15px;
-}
-
-.ticket-modal form {
-  display: flex;
-  flex-direction: column;
-}
-
-.ticket-modal input,
-.ticket-modal textarea {
-  padding: 8px;
-  margin-bottom: 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-
-.ticket-modal textarea {
-  resize: vertical;
-}
-
+/* Ticket Modal List */
 .ticket-modal ul {
   list-style: none;
   padding: 0;
@@ -322,12 +324,23 @@
   font-size: 13px;
 }
 
-.ticket-modal .save-btn {
-  margin-top: 5px;
+/* Event Organizer & Poster */
+.event-organizer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.ticket-modal .cancel-btn {
-  margin-top: 5px;
+.event-organizer img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.event-organizer span {
+  font-weight: 500;
+  color: #333;
 }
 
 /* Responsive */
@@ -336,12 +349,19 @@
   .row-group {
     flex-direction: column;
   }
+
   .events-table th,
   .events-table td {
     font-size: 12px;
   }
-  .modal, .ticket-modal {
+
+  .modal,
+  .ticket-modal {
     width: 95%;
     padding: 15px;
+  }
+
+  .filter-buttons button {
+    margin-bottom: 5px;
   }
 }

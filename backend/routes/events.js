@@ -4,16 +4,19 @@ const db = require("../db");
 const { verifyToken, verifyAdmin } = require("../auth");
 
 // ======================
-// GET all events (public - only upcoming events)
+// GET all upcoming events (public)
 // ======================
 router.get("/", async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
         e.*,
-        c.name AS category_name
+        c.name AS category_name,
+        u.fullname AS organizer_name,
+        u.profile_image AS organizer_profile
       FROM events e
       LEFT JOIN event_categories c ON e.category_id = c.id
+      LEFT JOIN usercredentials u ON e.created_by = u.id
       WHERE e.status = 'upcoming' 
         AND e.event_date >= CURRENT_DATE
       ORDER BY e.event_date ASC, e.start_time ASC
@@ -26,16 +29,19 @@ router.get("/", async (req, res) => {
 });
 
 // ======================
-// GET all events (admin - includes all statuses)
+// GET all events (admin)
 // ======================
 router.get("/admin/all", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
         e.*,
-        c.name AS category_name
+        c.name AS category_name,
+        u.fullname AS organizer_name,
+        u.profile_image AS organizer_profile
       FROM events e
       LEFT JOIN event_categories c ON e.category_id = c.id
+      LEFT JOIN usercredentials u ON e.created_by = u.id
       ORDER BY e.event_date DESC, e.start_time ASC
     `);
     res.json(result.rows);
@@ -45,17 +51,14 @@ router.get("/admin/all", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-
 // ======================
 // GET events created by organizer
-// NEW ENDPOINT FOR ORGANIZERS
 // ======================
 router.get("/organizer/my-events", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userRole = req.user.role;
 
-    // Only organizers and admins can access
     if (userRole !== "organizer" && userRole !== "admin") {
       return res.status(403).json({ error: "Access denied. Organizer role required." });
     }
@@ -64,13 +67,16 @@ router.get("/organizer/my-events", verifyToken, async (req, res) => {
       SELECT 
         e.*,
         c.name AS category_name,
+        u.fullname AS organizer_name,
+        u.profile_image AS organizer_profile,
         COUNT(DISTINCT b.id) AS total_bookings,
         COALESCE(SUM(b.seats), 0) AS total_seats_booked
       FROM events e
       LEFT JOIN event_categories c ON e.category_id = c.id
+      LEFT JOIN usercredentials u ON e.created_by = u.id
       LEFT JOIN bookings b ON b.event_id = e.id AND b.status != 'cancelled'
       WHERE e.created_by = $1
-      GROUP BY e.id, c.name
+      GROUP BY e.id, c.name, u.fullname, u.profile_image
       ORDER BY e.event_date DESC, e.start_time ASC
     `, [userId]);
 
@@ -82,69 +88,21 @@ router.get("/organizer/my-events", verifyToken, async (req, res) => {
 });
 
 // ======================
-// GET ticket types for a specific event
-// ======================
-// GET /api/events/:eventId/ticket-types
-router.get("/:eventId/ticket-types", async (req, res) => {
-  const { eventId } = req.params;
-
-  try {
-    const eventCheck = await db.query(
-      "SELECT id, title FROM events WHERE id = $1",
-      [eventId]
-    );
-
-    if (eventCheck.rows.length === 0) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-
-    const ticketTypes = await db.query(
-      `SELECT id, name, price, quantity_available, quantity_sold
-       FROM ticket_types
-       WHERE event_id = $1`,
-      [eventId]
-    );
-
-    if (ticketTypes.rows.length === 0) {
-      return res.status(404).json({ error: "No ticket types found for this event" });
-    }
-
-    const result = ticketTypes.rows.map(tt => ({
-      id: tt.id,
-      name: tt.name,
-      price: parseFloat(tt.price),
-      capacity: parseInt(tt.quantity_available),
-      tickets_sold: parseInt(tt.quantity_sold),
-      tickets_remaining: Math.max(0, parseInt(tt.quantity_available) - parseInt(tt.quantity_sold))
-    }));
-
-    res.json({
-      event: eventCheck.rows[0].title,
-      ticket_types: result
-    });
-
-  } catch (err) {
-    console.error("Error fetching ticket types:", err.stack);
-    res.status(500).json({ error: "Failed to fetch ticket types" });
-  }
-});
-
-// ======================
-// GET single event by ID (public)
+// GET single event
 // ======================
 router.get("/:id", async (req, res) => {
   try {
-    const result = await db.query(
-      `
+    const result = await db.query(`
       SELECT 
         e.*,
-        c.name AS category_name
+        c.name AS category_name,
+        u.fullname AS organizer_name,
+        u.profile_image AS organizer_profile
       FROM events e
       LEFT JOIN event_categories c ON e.category_id = c.id
+      LEFT JOIN usercredentials u ON e.created_by = u.id
       WHERE e.id = $1
-    `,
-      [req.params.id]
-    );
+    `, [req.params.id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Event not found" });
@@ -158,7 +116,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // ======================
-// POST create new event (authenticated users)
+// CREATE new event
 // ======================
 router.post("/", verifyToken, async (req, res) => {
   try {
@@ -173,6 +131,11 @@ router.post("/", verifyToken, async (req, res) => {
       capacity,
       price,
       status,
+      image,
+      venue,
+      organizer_email,
+      parking_info,
+      map_link
     } = req.body;
 
     if (!title || !event_date || !start_time || !end_time) {
@@ -189,29 +152,33 @@ router.post("/", verifyToken, async (req, res) => {
       }
     }
 
-    const result = await db.query(
-      `INSERT INTO events
-      (title, description, category_id, location, event_date, start_time, end_time, capacity, price, status, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING id`,
-      [
-        title,
-        description || null,
-        category_id || null,
-        location || null,
-        event_date,
-        start_time,
-        end_time,
-        capacity || 0,
-        price || 0.0,
-        status || "upcoming",
-        req.user.id,
-      ]
-    );
+    const result = await db.query(`
+      INSERT INTO events
+      (title, description, category_id, location, event_date, start_time, end_time, capacity, price, status, created_by, image, venue, organizer_email, parking_info, map_link)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      RETURNING id
+    `, [
+      title,
+      description || null,
+      category_id || null,
+      location || null,
+      event_date,
+      start_time,
+      end_time,
+      capacity || 0,
+      price || 0.0,
+      status || "upcoming",
+      req.user.id,
+      image || null,
+      venue || null,
+      organizer_email || null,
+      parking_info || null,
+      map_link || null
+    ]);
 
-    res.status(201).json({ 
-      message: "Event created successfully", 
-      event_id: result.rows[0].id 
+    res.status(201).json({
+      message: "Event created successfully",
+      event_id: result.rows[0].id
     });
   } catch (err) {
     console.error("Error creating event:", err);
@@ -220,73 +187,40 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 // ======================
-// PUT update event (creator or admin only)
+// UPDATE event
 // ======================
 router.put("/:id", verifyToken, async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      category_id,
-      location,
-      event_date,
-      start_time,
-      end_time,
-      capacity,
-      price,
-      status,
-    } = req.body;
-
-    const existingResult = await db.query(
-      "SELECT * FROM events WHERE id = $1", 
-      [req.params.id]
-    );
-    
+    const existingResult = await db.query("SELECT * FROM events WHERE id = $1", [req.params.id]);
     if (existingResult.rows.length === 0) {
       return res.status(404).json({ error: "Event not found" });
     }
 
     const event = existingResult.rows[0];
-
     if (req.user.id !== event.created_by && req.user.role !== "admin") {
       return res.status(403).json({ error: "Forbidden: not allowed to update this event" });
     }
 
-    if (category_id) {
-      const catResult = await db.query(
-        "SELECT id FROM event_categories WHERE id = $1", 
-        [category_id]
-      );
-      if (catResult.rows.length === 0) {
-        return res.status(400).json({ error: "Invalid category ID" });
-      }
-    }
+    const fields = [
+      "title","description","category_id","location","event_date","start_time","end_time",
+      "capacity","price","status","image","venue","organizer_email","parking_info","map_link"
+    ];
 
-    const updateFields = [];
+    const updates = [];
     const values = [];
-    let paramCount = 1;
+    let i = 1;
 
-    if (title) { updateFields.push(`title = $${paramCount}`); values.push(title); paramCount++; }
-    if (description !== undefined) { updateFields.push(`description = $${paramCount}`); values.push(description); paramCount++; }
-    if (category_id !== undefined) { updateFields.push(`category_id = $${paramCount}`); values.push(category_id); paramCount++; }
-    if (location !== undefined) { updateFields.push(`location = $${paramCount}`); values.push(location); paramCount++; }
-    if (event_date) { updateFields.push(`event_date = $${paramCount}`); values.push(event_date); paramCount++; }
-    if (start_time) { updateFields.push(`start_time = $${paramCount}`); values.push(start_time); paramCount++; }
-    if (end_time) { updateFields.push(`end_time = $${paramCount}`); values.push(end_time); paramCount++; }
-    if (capacity !== undefined) { updateFields.push(`capacity = $${paramCount}`); values.push(capacity); paramCount++; }
-    if (price !== undefined) { updateFields.push(`price = $${paramCount}`); values.push(price); paramCount++; }
-    if (status) { updateFields.push(`status = $${paramCount}`); values.push(status); paramCount++; }
+    fields.forEach(f => {
+      if (req.body[f] !== undefined) {
+        updates.push(`${f} = $${i++}`);
+        values.push(req.body[f]);
+      }
+    });
 
-    if (updateFields.length === 0) {
-      return res.status(400).json({ error: "No fields to update" });
-    }
+    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
 
     values.push(req.params.id);
-
-    await db.query(
-      `UPDATE events SET ${updateFields.join(", ")} WHERE id = $${paramCount}`, 
-      values
-    );
+    await db.query(`UPDATE events SET ${updates.join(", ")} WHERE id = $${i}`, values);
 
     res.json({ message: "Event updated successfully" });
   } catch (err) {
@@ -296,27 +230,19 @@ router.put("/:id", verifyToken, async (req, res) => {
 });
 
 // ======================
-// DELETE event (creator or admin only)
+// DELETE event
 // ======================
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
-    const existingResult = await db.query(
-      "SELECT * FROM events WHERE id = $1", 
-      [req.params.id]
-    );
-    
-    if (existingResult.rows.length === 0) {
-      return res.status(404).json({ error: "Event not found" });
-    }
+    const existingResult = await db.query("SELECT * FROM events WHERE id = $1", [req.params.id]);
+    if (existingResult.rows.length === 0) return res.status(404).json({ error: "Event not found" });
 
     const event = existingResult.rows[0];
-
     if (req.user.id !== event.created_by && req.user.role !== "admin") {
       return res.status(403).json({ error: "Forbidden: not allowed to delete this event" });
     }
 
     await db.query("DELETE FROM events WHERE id = $1", [req.params.id]);
-    
     res.json({ message: "Event deleted successfully" });
   } catch (err) {
     console.error("Error deleting event:", err);

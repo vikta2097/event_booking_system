@@ -25,7 +25,6 @@ const Events = ({ currentUser }) => {
   const [ticketError, setTicketError] = useState("");
 
   const [filterStatus, setFilterStatus] = useState("all");
-
   const [showCategoryCard, setShowCategoryCard] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [newCategory, setNewCategory] = useState("");
@@ -50,170 +49,94 @@ const Events = ({ currentUser }) => {
   };
 
   // =======================
-  // FETCH FUNCTIONS (useCallback with proper dependencies)
+  // FETCH FUNCTIONS
   // =======================
-  
-  
-  
-// Fetch categories - simple, no dependencies
-const fetchCategories = useCallback(async () => {
-  try {
-    const res = await api.get("/categories", { headers: getAuthHeaders() });
-    setCategories(res.data || []);
-    return res.data || [];
-  } catch (err) {
-    console.error("Failed to fetch categories", err);
-    return [];
-  }
-}, []); // No dependencies needed
-
-  
-// Fetch events - properly memoized
-const fetchEvents = useCallback(async () => {
-  if (!currentUser) return;
-
-  try {
-    setLoading(true);
-
-    // Get fresh categories
-    const res = await api.get("/categories", { headers: getAuthHeaders() });
-    const categoriesData = res.data || [];
-    const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
-
-    // Get events
-    const url = currentUser.role === "admin" ? "/events/admin/all" : "/events";
-    const eventsRes = await api.get(url, { headers: getAuthHeaders() });
-
-    const enhancedEvents = (eventsRes.data || []).map((ev) => ({
-      ...ev,
-      status: formatEventStatus(ev),
-      category_name: categoryMap[ev.category_id] || "-",
-    }));
-
-    setEvents(enhancedEvents);
-    setError("");
-  } catch (err) {
-    console.error("Error fetching events:", err);
-    setError("Failed to fetch events");
-  } finally {
-    setLoading(false);
-  }
-}, [currentUser]); // ✅ Include currentUser as dependency
-
-  // ✅ Fetch ticket types
-  const fetchTicketTypes = useCallback(async (eventId) => {
-  if (!eventId) return;
-
-  try {
-    setTicketLoading(true);
-    setTicketError("");
-
-    const res = await api.get(`/events/${eventId}/ticket-types`, {
-      headers: getAuthHeaders(),
-    });
-
-    const list = res.data?.ticket_types;
-
-    if (Array.isArray(list)) {
-      setTicketTypes(list);
-    } else {
-      setTicketTypes([]);
-      setTicketError("Unexpected response from server.");
-    }
-
-  } catch (err) {
-    console.error("Failed to fetch ticket types:", err);
-    setTicketTypes([]);
-    setTicketError("Failed to load tickets.");
-  } finally {
-    setTicketLoading(false);
-  }
-}, []);
-
-
-
-  // =======================
-  // INITIAL LOAD - Only runs once when currentUser changes
-  // =======================
-  // =======================
-// INITIAL LOAD - Only runs when currentUser changes
-// =======================
-useEffect(() => {
-  if (!currentUser) return;
-
-  const loadData = async () => {
+  const fetchEvents = useCallback(async (categoryMap) => {
+    if (!currentUser) return;
     try {
-      // Fetch categories
-      const res = await api.get("/categories", { headers: getAuthHeaders() });
-      const categoriesData = res.data || [];
-      setCategories(categoriesData);
+      setLoading(true);
+      setError("");
 
-      // Fetch events
-      const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
-      const url = currentUser.role === "admin" ? "/events/admin/all" : "/events";
+      let url = "/events";
+      if (currentUser.role === "admin") url = "/events/admin/all";
+      else if (currentUser.role === "organizer") url = "/events/organizer/my-events";
+
       const eventsRes = await api.get(url, { headers: getAuthHeaders() });
-
-      const enhancedEvents = (eventsRes.data || []).map((ev) => ({
+      const enhancedEvents = (eventsRes.data || []).map(ev => ({
         ...ev,
         status: formatEventStatus(ev),
-        category_name: categoryMap[ev.category_id] || "-",
+        category_name: categoryMap[ev.category_id] || ev.category_name || "-",
+        organizer_name: ev.organizer_name || "-",      // optional organizer
+        organizer_image: ev.organizer_image || "",     // optional poster/image
       }));
 
       setEvents(enhancedEvents);
-      setError("");
     } catch (err) {
-      console.error("Error loading data:", err);
-      setError("Failed to load data");
+      console.error("Error fetching events:", err);
+      setError("Failed to fetch events");
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
-  loadData();
-}, [currentUser]);
-  // =======================
-  // TICKET HANDLERS
-  // =======================
-  const handleTicketChange = (e) => {
-    const { name, value } = e.target;
-    setTicketForm({ ...ticketForm, [name]: value });
-  };
-
-  const handleTicketSubmit = async (e) => {
-    e.preventDefault();
+  const fetchCategories = useCallback(async () => {
     try {
-      const payload = { 
-        ...ticketForm, 
-        price: Number(ticketForm.price), 
-        quantity_available: Number(ticketForm.quantity_available) 
-      };
+      const res = await api.get("/categories", { headers: getAuthHeaders() });
+      return res.data || [];
+    } catch (err) {
+      console.error("Failed to fetch categories", err);
+      return [];
+    }
+  }, []);
 
-      if (editingTicket) {
-        await api.put(`/ticket-types/${editingTicket.id}`, payload, { headers: getAuthHeaders() });
-      } else {
-        await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: getAuthHeaders() });
+  const fetchTicketTypes = useCallback(async (eventId) => {
+    if (!eventId) return;
+    try {
+      setTicketLoading(true);
+      setTicketError("");
+
+      const res = await api.get(`/events/${eventId}/ticket-types`, { headers: getAuthHeaders() });
+      const list = res.data?.ticket_types;
+
+      setTicketTypes(Array.isArray(list) ? list : []);
+      if (!Array.isArray(list)) setTicketError("Unexpected response from server.");
+    } catch (err) {
+      console.error("Failed to fetch ticket types:", err);
+      setTicketTypes([]);
+      setTicketError("Failed to load tickets.");
+    } finally {
+      setTicketLoading(false);
+    }
+  }, []);
+
+  // =======================
+  // INITIAL LOAD
+  // =======================
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        const categoriesData = await fetchCategories();
+        setCategories(categoriesData);
+
+        const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+        await fetchEvents(categoryMap);
+      } catch (err) {
+        console.error("Error loading data:", err);
+        setError("Failed to load data");
+      } finally {
+        setLoading(false);
       }
+    };
 
-      fetchTicketTypes(editingEvent.id);
-      setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
-      setEditingTicket(null);
-    } catch (err) {
-      console.error("Ticket save failed", err);
-    }
-  };
-
-  const handleTicketDelete = async (ticketId) => {
-    if (!window.confirm("Are you sure you want to delete this ticket?")) return;
-    try {
-      await api.delete(`/ticket-types/${ticketId}`, { headers: getAuthHeaders() });
-      fetchTicketTypes(editingEvent.id);
-    } catch (err) {
-      console.error("Ticket delete failed", err);
-    }
-  };
+    loadData();
+  }, [currentUser, fetchCategories, fetchEvents]);
 
   // =======================
-  // FORM HANDLERS
+  // FORM & MODAL HANDLERS
   // =======================
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -237,10 +160,11 @@ useEffect(() => {
         capacity: "",
         price: "",
         status: "upcoming",
+        organizer_name: "",
+        organizer_image: "",
       });
       setTicketTypes([]);
     }
-
     setShowModal(true);
   };
 
@@ -262,7 +186,8 @@ useEffect(() => {
         await api.post("/events", payload, { headers: getAuthHeaders() });
       }
 
-      await fetchEvents(); // ✅ Now safe to call
+      const categoryMap = categories.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+      await fetchEvents(categoryMap);
       setShowModal(false);
     } catch (err) {
       console.error(err);
@@ -274,7 +199,8 @@ useEffect(() => {
     if (!window.confirm("Are you sure you want to delete this event?")) return;
     try {
       await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
-      await fetchEvents(); // ✅ Now safe to call
+      const categoryMap = categories.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
+      await fetchEvents(categoryMap);
     } catch (err) {
       console.error(err);
       setError("Failed to delete event");
@@ -292,8 +218,9 @@ useEffect(() => {
       await api.post("/categories", { name: newCategory }, { headers: getAuthHeaders() });
       setNewCategory("");
       setShowCategoryCard(false);
-      await fetchCategories();
-    } catch (err) {
+      const cats = await fetchCategories();
+      setCategories(cats);
+    } catch {
       setCategoryError("Failed to add category");
     }
   };
@@ -303,8 +230,9 @@ useEffect(() => {
     try {
       await api.put(`/categories/${id}`, { name }, { headers: getAuthHeaders() });
       setEditingCategory(null);
-      await fetchCategories();
-    } catch (err) {
+      const cats = await fetchCategories();
+      setCategories(cats);
+    } catch {
       setCategoryError("Failed to update category");
     }
   };
@@ -313,9 +241,53 @@ useEffect(() => {
     if (!window.confirm("Are you sure you want to delete this category?")) return;
     try {
       await api.delete(`/categories/${id}`, { headers: getAuthHeaders() });
-      await fetchCategories();
-    } catch (err) {
+      const cats = await fetchCategories();
+      setCategories(cats);
+    } catch {
       setCategoryError("Failed to delete category");
+    }
+  };
+
+  // =======================
+  // TICKET HANDLERS
+  // =======================
+  const handleTicketChange = (e) => {
+    const { name, value } = e.target;
+    setTicketForm({ ...ticketForm, [name]: value });
+  };
+
+  const handleTicketSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingEvent) return;
+
+    try {
+      const payload = {
+        ...ticketForm,
+        price: Number(ticketForm.price),
+        quantity_available: Number(ticketForm.quantity_available),
+      };
+
+      if (editingTicket) {
+        await api.put(`/ticket-types/${editingTicket.id}`, payload, { headers: getAuthHeaders() });
+      } else {
+        await api.post(`/events/${editingEvent.id}/ticket-types`, payload, { headers: getAuthHeaders() });
+      }
+
+      await fetchTicketTypes(editingEvent.id);
+      setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
+      setEditingTicket(null);
+    } catch (err) {
+      console.error("Ticket save failed", err);
+    }
+  };
+
+  const handleTicketDelete = async (ticketId) => {
+    if (!window.confirm("Are you sure you want to delete this ticket?")) return;
+    try {
+      await api.delete(`/ticket-types/${ticketId}`, { headers: getAuthHeaders() });
+      if (editingEvent) await fetchTicketTypes(editingEvent.id);
+    } catch (err) {
+      console.error("Ticket delete failed", err);
     }
   };
 
@@ -329,7 +301,6 @@ useEffect(() => {
   });
 
   if (!currentUser) return <p>Loading user...</p>;
-
 
   // =======================
   // RENDER
@@ -419,8 +390,10 @@ useEffect(() => {
         <table className="events-table">
           <thead>
             <tr>
+              <th>Poster</th>
               <th>Title</th>
               <th>Category</th>
+              <th>Organizer</th>
               <th>Date</th>
               <th>Start</th>
               <th>End</th>
@@ -434,8 +407,14 @@ useEffect(() => {
           <tbody>
             {filteredEvents.map((event) => (
               <tr key={event.id}>
+                <td>
+                  {event.organizer_image ? (
+                    <img src={event.organizer_image} alt={event.organizer_name} className="event-poster" />
+                  ) : "-"}
+                </td>
                 <td>{event.title}</td>
                 <td>{event.category_name || "-"}</td>
+                <td>{event.organizer_name || "-"}</td>
                 <td>{new Date(event.event_date).toLocaleDateString()}</td>
                 <td>{event.start_time}</td>
                 <td>{event.end_time}</td>
@@ -470,18 +449,27 @@ useEffect(() => {
           <div className="modal">
             <h3>{editingEvent ? "Edit Event" : "Add New Event"}</h3>
             <form onSubmit={handleSubmit}>
-              {/* Form fields */}
               <label>Title</label>
               <input type="text" name="title" value={formData.title} onChange={handleChange} required />
+
               <label>Description</label>
               <textarea name="description" value={formData.description} onChange={handleChange} />
+
               <label>Category</label>
               <select name="category_id" value={formData.category_id} onChange={handleChange}>
                 <option value="">Select Category</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+
+              <label>Organizer Name (Optional)</label>
+              <input type="text" name="organizer_name" value={formData.organizer_name || ""} onChange={handleChange} />
+
+              <label>Organizer Poster/Image URL (Optional)</label>
+              <input type="text" name="organizer_image" value={formData.organizer_image || ""} onChange={handleChange} />
+
               <label>Location</label>
               <input type="text" name="location" value={formData.location} onChange={handleChange} />
+
               <div className="date-group">
                 <div>
                   <label>Event Date</label>
@@ -496,6 +484,7 @@ useEffect(() => {
                   <input type="time" name="end_time" value={formData.end_time} onChange={handleChange} required />
                 </div>
               </div>
+
               <div className="row-group">
                 <div>
                   <label>Capacity</label>
@@ -506,6 +495,7 @@ useEffect(() => {
                   <input type="number" name="price" value={formData.price} onChange={handleChange} />
                 </div>
               </div>
+
               <label>Status</label>
               <select name="status" value={formData.status} onChange={handleChange}>
                 <option value="upcoming">Upcoming</option>
@@ -514,9 +504,10 @@ useEffect(() => {
                 <option value="cancelled">Cancelled</option>
                 <option value="expired">Expired</option>
               </select>
+
               <div className="modal-actions">
-                <button type="submit" className="save-btn">Save</button>
-                <button type="button" className="cancel-btn" onClick={() => setShowModal(false)}>Cancel</button>
+                <button type="submit" className="add-btn">Save</button>
+                <button type="button" className="delete-btn" onClick={() => setShowModal(false)}>Cancel</button>
               </div>
             </form>
           </div>
@@ -525,70 +516,68 @@ useEffect(() => {
 
       {/* Ticket Modal */}
       {showTicketModal && editingEvent && (
-  <div className="modal-overlay">
-    <div className="modal">
-      <h3>Manage Tickets for {editingEvent.title}</h3>
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Manage Tickets for {editingEvent.title}</h3>
 
-      {/* Ticket Form */}
-      <form onSubmit={handleTicketSubmit}>
-        <label>Name</label>
-        <input type="text" name="name" value={ticketForm.name} onChange={handleTicketChange} required />
-        <label>Description</label>
-        <textarea name="description" value={ticketForm.description} onChange={handleTicketChange} />
-        <label>Price (KES)</label>
-        <input type="number" name="price" value={ticketForm.price} onChange={handleTicketChange} required />
-        <label>Quantity Available</label>
-        <input type="number" name="quantity_available" value={ticketForm.quantity_available} onChange={handleTicketChange} required />
-        <div className="modal-actions">
-          <button type="submit" className="save-btn">{editingTicket ? "Update" : "Add Ticket"}</button>
-          <button type="button" className="cancel-btn" onClick={() => {
-            setShowTicketModal(false);
-            setEditingTicket(null);
-            setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
-          }}>Close</button>
+            <form onSubmit={handleTicketSubmit}>
+              <label>Name</label>
+              <input type="text" name="name" value={ticketForm.name} onChange={handleTicketChange} required />
+              <label>Description</label>
+              <input type="text" name="description" value={ticketForm.description} onChange={handleTicketChange} />
+              <label>Price (KES)</label>
+              <input type="number" name="price" value={ticketForm.price} onChange={handleTicketChange} required />
+              <label>Quantity Available</label>
+              <input type="number" name="quantity_available" value={ticketForm.quantity_available} onChange={handleTicketChange} required />
+              <div className="modal-actions">
+                <button type="submit" className="add-btn">{editingTicket ? "Update Ticket" : "Add Ticket"}</button>
+                <button type="button" className="delete-btn" onClick={() => {
+                  setShowTicketModal(false);
+                  setEditingTicket(null);
+                  setTicketForm({ name: "", description: "", price: "", quantity_available: "" });
+                }}>Close</button>
+              </div>
+            </form>
+
+            {ticketLoading ? <p>Loading tickets...</p> : ticketError ? <p className="error">{ticketError}</p> : (
+              <table className="events-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Price</th>
+                    <th>Available</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ticketTypes.map(ticket => (
+                    <tr key={ticket.id}>
+                      <td>{ticket.name}</td>
+                      <td>{ticket.description}</td>
+                      <td>KES {ticket.price}</td>
+                      <td>{ticket.quantity_available}</td>
+                      <td>
+                        <button className="edit-btn" onClick={() => {
+                          setEditingTicket(ticket);
+                          setTicketForm({
+                            name: ticket.name,
+                            description: ticket.description,
+                            price: ticket.price,
+                            quantity_available: ticket.quantity_available,
+                          });
+                        }}>Edit</button>
+                        <button className="delete-btn" onClick={() => handleTicketDelete(ticket.id)}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-      </form>
-
-      {/* Ticket List */}
-      {ticketLoading ? (
-        <p style={{ textAlign: "center" }}>Loading tickets...</p>
-      ) : ticketError ? (
-        <p className="error" style={{ textAlign: "center" }}>{ticketError}</p>
-      ) : (
-        <table className="tickets-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Price</th>
-              <th>Quantity</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ticketTypes.length === 0 ? (
-              <tr><td colSpan={5} style={{ textAlign: "center" }}>No tickets found.</td></tr>
-            ) : ticketTypes.map((t) => (
-              <tr key={t.id}>
-                <td>{t.name}</td>
-                <td>{t.description}</td>
-                <td>KES {t.price}</td>
-                <td>{t.quantity_available}</td>
-                <td>
-                  <button className="edit-btn" onClick={() => {
-                    setEditingTicket(t);
-                    setTicketForm({ name: t.name, description: t.description, price: t.price, quantity_available: t.quantity_available });
-                  }}>Edit</button>
-                  <button className="delete-btn" onClick={() => handleTicketDelete(t.id)}>Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       )}
-    </div>
-  </div>
-)}
+
     </div>
   );
 };

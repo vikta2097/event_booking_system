@@ -15,7 +15,7 @@
 
 .bookings-header h2 {
   font-size: 1.8rem;
-  color: #2c3e50;
+  color: #0012af;
   font-weight: 600;
 }
 
@@ -59,7 +59,7 @@
 
 .stat-card h3 {
   font-size: 0.9rem;
-  color: #7f8c8d;
+  color: #0012af;
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -68,7 +68,7 @@
 .stat-value {
   font-size: 2rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: #0012af;
   margin: 0;
 }
 
@@ -118,7 +118,7 @@
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
-  color: #7f8c8d;
+  color: #0012af;
   transition: all 0.3s;
 }
 
