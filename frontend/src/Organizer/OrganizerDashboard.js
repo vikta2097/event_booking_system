@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import "../styles/AdminDashboard.css";
+import "../styles/OrganizerDashboard.css";
 import OrganizerSidebar from "./OrganizerSidebar"; 
 import DashboardHome from "./DashboardHome";
 import Events from "../pages/Events";
@@ -8,6 +9,7 @@ import OrganizerBookings from "./OrganizerBookings";
 import OrganizerReports from "./OrganizerReports";   
 import TicketScanner from "./TicketScanner"; 
 import ChatbotWidget from "./ChatbotWidget";
+import NotificationBell from "../pages/NotificationBell";  // ✅ ADD THIS
 
 const OrganizerDashboard = ({ onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -30,7 +32,16 @@ const OrganizerDashboard = ({ onLogout }) => {
         setSidebarOpen={setSidebarOpen}
         onLogout={onLogout}
       />
+
       <main className="main-content">
+
+        {/* 🔔 Notification bell in dashboard header */}
+        <div className="dashboard-header">
+          <div className="header-right">
+            <NotificationBell userId={currentUser?.id} />
+          </div>
+        </div>
+
         <div className="page-container">
           <Routes>
             <Route index element={<DashboardHome />} />
@@ -42,6 +53,7 @@ const OrganizerDashboard = ({ onLogout }) => {
           </Routes>
         </div>
       </main>
+
       <ChatbotWidget user={currentUser} />
     </div>
   );

@@ -6,35 +6,40 @@ const { stkPush } = require("./mpesa");
 const crypto = require("crypto");
 const { generateTicketCodes } = require("../utils/ticketUtils");
 
-// Generate a unique transaction reference
+// Import notification functions
+const {
+  sendNotification,
+  broadcastNotification,
+} = require("./notifications");
+
+// Generate transaction ref
 const generateTransactionRef = () => {
-  return 'PAY-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+  return "PAY-" + Date.now() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 };
 
-// Validate Kenyan phone number
+// Validate Kenyan phone
 const validatePhoneNumber = (phone) => {
-  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  const cleaned = phone.replace(/[\s\-\(\)]/g, "");
   const patterns = [
-    /^254[17]\d{8}$/,     
-    /^0[17]\d{8}$/,       
-    /^\+254[17]\d{8}$/    
+    /^254[17]\d{8}$/,
+    /^0[17]\d{8}$/,
+    /^\+254[17]\d{8}$/
   ];
-  return patterns.some(pattern => pattern.test(cleaned));
+  return patterns.some((pattern) => pattern.test(cleaned));
 };
 
-// Format phone number to 254xxxxxxxxx
+// Format phone
 const formatPhoneNumber = (phone) => {
-  const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
-  if (cleaned.startsWith('254')) return cleaned;
-  if (cleaned.startsWith('0')) return '254' + cleaned.substring(1);
-  if (cleaned.startsWith('7') || cleaned.startsWith('1')) return '254' + cleaned;
+  const cleaned = phone.replace(/[\s\-\(\)\+]/g, "");
+  if (cleaned.startsWith("254")) return cleaned;
+  if (cleaned.startsWith("0")) return "254" + cleaned.substring(1);
+  if (cleaned.startsWith("7") || cleaned.startsWith("1")) return "254" + cleaned;
   return cleaned;
 };
 
-// ======================
+// ==============================
 // POST /payments/mpesa
-// Trigger M-Pesa STK Push
-// ======================
+// ==============================
 router.post("/mpesa", verifyToken, async (req, res) => {
   try {
     const { booking_id, phone } = req.body;
@@ -50,17 +55,28 @@ router.post("/mpesa", verifyToken, async (req, res) => {
     if (bookingResult.rows.length === 0) return res.status(404).json({ error: "Booking not found" });
 
     const booking = bookingResult.rows[0];
-    if (booking.user_id !== user_id) return res.status(403).json({ error: "Cannot pay for others' bookings" });
-    if (booking.status === 'cancelled') return res.status(400).json({ error: "Cannot pay for cancelled booking" });
-    if (booking.status === 'confirmed') return res.status(400).json({ error: "Booking already paid" });
+
+    if (booking.user_id !== user_id)
+      return res.status(403).json({ error: "Cannot pay for others' bookings" });
+
+    if (booking.status === "cancelled")
+      return res.status(400).json({ error: "Cannot pay for cancelled booking" });
+
+    if (booking.status === "confirmed")
+      return res.status(400).json({ error: "Booking already paid" });
 
     const existingPayment = await db.query(
       `SELECT id, status FROM payments 
        WHERE booking_id = $1 AND status = 'pending'
-       ORDER BY created_at DESC LIMIT 1`, [booking_id]
+       ORDER BY created_at DESC LIMIT 1`,
+      [booking_id]
     );
+
     if (existingPayment.rows.length > 0) {
-      return res.status(400).json({ error: "Payment already in progress", payment_id: existingPayment.rows[0].id });
+      return res.status(400).json({
+        error: "Payment already in progress",
+        payment_id: existingPayment.rows[0].id
+      });
     }
 
     const amount = Math.ceil(parseFloat(booking.total_amount));
@@ -77,11 +93,18 @@ router.post("/mpesa", verifyToken, async (req, res) => {
        (booking_id, user_id, amount, method, status, checkout_request_id, transaction_ref)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, transaction_ref`,
-      [booking_id, user_id, amount, 'mpesa', 'pending', stkRes.CheckoutRequestID, transactionRef]
+      [booking_id, user_id, amount, "mpesa", "pending", stkRes.CheckoutRequestID, transactionRef]
+    );
+
+    // 🔔 Notification: Payment attempt started
+    sendNotification(
+      user_id,
+      "Payment Initiated",
+      `M-Pesa payment for booking ${booking.reference} has been initiated. Check your phone to complete.`
     );
 
     res.json({
-      message: "STK Push sent successfully. Check your phone to complete payment.",
+      message: "STK Push sent successfully. Check your phone.",
       payment_id: result.rows[0].id,
       transaction_ref: result.rows[0].transaction_ref,
       checkout_request_id: stkRes.CheckoutRequestID,
@@ -94,9 +117,9 @@ router.post("/mpesa", verifyToken, async (req, res) => {
   }
 });
 
-// ======================
-// GET payment by booking ID
-// ======================
+// ==============================
+// GET /payments/by-booking/:id
+// ==============================
 router.get("/by-booking/:booking_id", verifyToken, async (req, res) => {
   try {
     const { booking_id } = req.params;
@@ -104,39 +127,43 @@ router.get("/by-booking/:booking_id", verifyToken, async (req, res) => {
       `SELECT * FROM payments WHERE booking_id = $1 ORDER BY created_at DESC LIMIT 1`,
       [booking_id]
     );
+
     if (result.rows.length === 0) return res.json(null);
 
     const payment = result.rows[0];
+
     if (payment.user_id !== req.user.id && req.user.role !== "admin") {
       return res.status(403).json({ error: "Access denied" });
     }
 
     res.json(payment);
   } catch (err) {
-    console.error("Error fetching payment:", err);
     res.status(500).json({ error: "Failed to fetch payment" });
   }
 });
 
-// ======================
-// GET single payment by ID (with tickets)
-// ======================
+// ==============================
+// GET /payments/:id — admin or owner
+// ==============================
 router.get("/:id", verifyToken, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT p.*, b.user_id, b.reference AS booking_reference, b.event_id
        FROM payments p
        JOIN bookings b ON p.booking_id = b.id
-       WHERE p.id = $1`, [req.params.id]
+       WHERE p.id = $1`,
+      [req.params.id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: "Payment not found" });
+
+    if (result.rows.length === 0)
+      return res.status(404).json({ error: "Payment not found" });
 
     const payment = result.rows[0];
+
     if (req.user.role !== "admin" && payment.user_id !== req.user.id) {
-      return res.status(403).json({ error: "Forbidden. Access denied." });
+      return res.status(403).json({ error: "Forbidden" });
     }
 
-    // Fetch tickets if generated - UPDATED: Include manual_code
     if (payment.tickets_generated) {
       const ticketsRes = await db.query(
         "SELECT id AS ticket_id, ticket_type_id, qr_code, manual_code FROM tickets WHERE booking_id = $1",
@@ -148,23 +175,21 @@ router.get("/:id", verifyToken, async (req, res) => {
     }
 
     res.json(payment);
-
   } catch (err) {
-    console.error("Payment fetch error:", err);
     res.status(500).json({ error: "Failed to fetch payment" });
   }
 });
 
-// ======================
-// GET all payments (Admin only) - WITH USER & EVENT NAMES
-// ======================
+// ==============================
+// ADMIN — GET /payments (with user + event info)
+// ==============================
 router.get("/", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
         p.*,
-        b.user_id, 
-        b.reference AS booking_reference, 
+        b.user_id,
+        b.reference AS booking_reference,
         b.event_id,
         u.fullname AS user_name,
         u.email AS user_email,
@@ -175,120 +200,100 @@ router.get("/", verifyToken, verifyAdmin, async (req, res) => {
       LEFT JOIN events e ON b.event_id = e.id
       ORDER BY p.created_at DESC
     `);
+
     res.json(result.rows);
   } catch (err) {
-    console.error("Error fetching payments:", err);
     res.status(500).json({ error: "Failed to fetch payments" });
   }
 });
 
-// ======================
-// Payment stats (Admin only) - FIXED STRUCTURE
-// ======================
-router.get("/stats/summary", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const result = await db.query("SELECT * FROM payments");
-    const all = result.rows;
-    
-    const successful = all.filter(p => p.status === "success");
-    const totalRevenue = successful.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-    const pending = all.filter(p => p.status === "pending").length;
-    const failed = all.filter(p => p.status === "failed" || p.status === "refunded").length;
-
-    res.json({ 
-      total: totalRevenue,  // Frontend expects "total" not "totalRevenue"
-      totalRevenue,
-      totalPayments: all.length, 
-      successful: successful.length, 
-      pending, 
-      failed 
-    });
-  } catch (err) {
-    console.error("Error fetching stats:", err);
-    res.status(500).json({ error: "Failed to fetch stats" });
-  }
-});
-
-// ======================
-// REFUND payment (Admin only) - NEW ENDPOINT
-// ======================
+// ==============================
+// ADMIN — Refund payment
+// ==============================
 router.put("/refund/:id", verifyToken, verifyAdmin, async (req, res) => {
   const client = await db.getClient();
   try {
     await client.query("BEGIN");
 
-    // Get payment details
     const paymentRes = await client.query(
-      "SELECT * FROM payments WHERE id = $1 FOR UPDATE", 
+      "SELECT * FROM payments WHERE id = $1 FOR UPDATE",
       [req.params.id]
     );
-    
-    if (paymentRes.rows.length === 0) {
+
+    if (paymentRes.rows.length === 0)
       throw new Error("Payment not found");
-    }
 
     const payment = paymentRes.rows[0];
 
-    // Only allow refunding successful payments
-    if (payment.status !== 'success') {
+    if (payment.status !== "success")
       throw new Error("Only successful payments can be refunded");
-    }
 
-    // Update payment to refunded
     await client.query(
       "UPDATE payments SET status = 'refunded', updated_at = NOW() WHERE id = $1",
       [req.params.id]
     );
 
-    // Cancel the booking
     await client.query(
       "UPDATE bookings SET status = 'cancelled', updated_at = NOW() WHERE id = $1",
       [payment.booking_id]
     );
 
-    // Optionally: Invalidate tickets
     await client.query(
       "UPDATE tickets SET status = 'cancelled' WHERE booking_id = $1",
       [payment.booking_id]
     );
 
     await client.query("COMMIT");
-    res.json({ message: "Payment refunded successfully" });
 
+    // 🔔 Notify user
+    sendNotification(
+      payment.user_id,
+      "Payment Refunded",
+      `Your payment for booking ${payment.booking_id} has been refunded.`
+    );
+
+    res.json({ message: "Payment refunded successfully" });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("Error refunding payment:", err);
-    res.status(500).json({ error: err.message || "Failed to refund payment" });
+    res.status(500).json({ error: err.message });
   } finally {
     client.release();
   }
 });
 
-// ======================
-// UPDATE payment status (Admin only)
-// Triggers booking update & ticket generation
-// ======================
+// ==============================
+// ADMIN — Update payment status
+// ==============================
 router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
   const client = await db.getClient();
   try {
     const { status } = req.body;
-    if (!status) return res.status(400).json({ error: "Status is required" });
+    if (!status)
+      return res.status(400).json({ error: "Status is required" });
 
     await client.query("BEGIN");
 
-    const paymentRes = await client.query("SELECT * FROM payments WHERE id = $1 FOR UPDATE", [req.params.id]);
-    if (paymentRes.rows.length === 0) throw new Error("Payment not found");
+    const paymentRes = await client.query(
+      "SELECT * FROM payments WHERE id = $1 FOR UPDATE",
+      [req.params.id]
+    );
+
+    if (paymentRes.rows.length === 0)
+      throw new Error("Payment not found");
 
     const payment = paymentRes.rows[0];
 
-    // Update payment status
-    await client.query("UPDATE payments SET status = $1 WHERE id = $2", [status, req.params.id]);
+    await client.query("UPDATE payments SET status = $1 WHERE id = $2", [
+      status,
+      req.params.id
+    ]);
 
-    // Update booking if success
-    if (status === 'success') {
-      await client.query("UPDATE bookings SET status = 'confirmed' WHERE id = $1", [payment.booking_id]);
+    if (status === "success") {
+      await client.query("UPDATE bookings SET status = 'confirmed' WHERE id = $1", [
+        payment.booking_id
+      ]);
 
-      // Generate tickets if not already - UPDATED: Generate both QR and manual codes
+      // Generate tickets
       if (!payment.tickets_generated) {
         const bookedTickets = await client.query(
           "SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1",
@@ -305,21 +310,37 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
           }
         }
 
-        // Mark tickets as generated
-        await client.query("UPDATE payments SET tickets_generated = true WHERE id = $1", [req.params.id]);
+        await client.query(
+          "UPDATE payments SET tickets_generated = true WHERE id = $1",
+          [req.params.id]
+        );
       }
+
+      // 🔔 Notify user of success
+      sendNotification(
+        payment.user_id,
+        "Payment Successful",
+        `Your payment for booking ${payment.booking_id} has been confirmed. Tickets are now available.`
+      );
+    }
+
+    if (status === "failed") {
+      sendNotification(
+        payment.user_id,
+        "Payment Failed",
+        "Your M-Pesa payment attempt failed. Please try again."
+      );
     }
 
     await client.query("COMMIT");
+
     res.json({ message: "Payment updated successfully" });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("Error updating payment:", err);
-    res.status(500).json({ error: err.message || "Failed to update payment" });
+    res.status(500).json({ error: err.message });
   } finally {
     client.release();
   }
 });
-
 
 module.exports = router;

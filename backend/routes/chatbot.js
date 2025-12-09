@@ -43,6 +43,7 @@ const intents = {
   event_search: ["find event", "search event", "event about", "events in", "events on", "look for event"],
   event_details: ["event details", "more info", "tell me about", "information about", "details of"],
   event_categories: ["categories", "types of events", "what categories", "event types"],
+  my_events: ["my events", "events i created", "events i organized", "my organized events"],
   
   // Bookings
   bookings: ["my bookings", "show bookings", "booking history", "tickets", "my tickets"],
@@ -50,6 +51,14 @@ const intents = {
   booking_status: ["booking status", "check booking", "track booking", "where is my booking"],
   modify_booking: ["change booking", "modify", "update booking", "edit booking"],
   cancel: ["cancel booking", "refund", "cancel ticket", "remove booking"],
+  
+  // Organizer specific
+  organizer_stats: ["my stats", "my performance", "my revenue", "my bookings count", "how am i doing", "dashboard"],
+  organizer_bookings: ["bookings for my events", "who booked", "attendees", "customers", "event bookings"],
+  event_performance: ["event performance", "which event is doing well", "best event", "top event", "popular event"],
+  recent_sales: ["recent sales", "latest bookings", "new bookings", "today's bookings", "recent activity"],
+  validate_ticket: ["validate", "check ticket", "scan ticket", "verify ticket", "ticket validation"],
+  create_event_help: ["create event", "new event", "add event", "how to create event"],
   
   // Payments
   payment: ["payment", "pay", "mpesa", "how to pay", "payment method"],
@@ -141,6 +150,29 @@ async function getUpcomingEvents(limit = 5) {
   }
 }
 
+// Organizer's events
+async function getOrganizerEvents(userId) {
+  try {
+    const result = await db.query(`
+      SELECT e.id, e.title, e.event_date, e.location, e.price, e.capacity, e.status,
+             c.name as category,
+             COUNT(DISTINCT b.id) as total_bookings,
+             COALESCE(SUM(b.seats), 0) as total_seats_booked
+      FROM events e
+      LEFT JOIN event_categories c ON e.category_id = c.id
+      LEFT JOIN bookings b ON b.event_id = e.id AND b.status != 'cancelled'
+      WHERE e.created_by = $1
+      GROUP BY e.id, c.name
+      ORDER BY e.event_date DESC
+      LIMIT 10
+    `, [userId]);
+    return result.rows;
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+}
+
 // Search events
 async function searchEvents(criteria) {
   try {
@@ -224,6 +256,30 @@ async function getUserBookings(userId) {
   }
 }
 
+// Organizer's event bookings
+async function getOrganizerBookings(userId) {
+  try {
+    const result = await db.query(`
+      SELECT b.id, b.reference, b.status as booking_status, b.total_amount, b.seats,
+             b.created_at as booking_date,
+             e.title as event_title, e.event_date, e.location,
+             u.fullname as customer_name, u.email as customer_email,
+             p.status as payment_status
+      FROM bookings b
+      JOIN events e ON b.event_id = e.id
+      JOIN usercredentials u ON b.user_id = u.id
+      LEFT JOIN payments p ON p.booking_id = b.id
+      WHERE e.created_by = $1
+      ORDER BY b.created_at DESC
+      LIMIT 10
+    `, [userId]);
+    return result.rows;
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+}
+
 // Check booking status
 async function getBookingStatus(reference) {
   try {
@@ -292,6 +348,62 @@ async function getAdminStats() {
   }
 }
 
+// Organizer stats
+async function getOrganizerStats(userId) {
+  try {
+    const events = await db.query(
+      "SELECT COUNT(*) FROM events WHERE created_by = $1", 
+      [userId]
+    );
+    
+    const bookings = await db.query(`
+      SELECT COUNT(*) as total, SUM(b.total_amount) as revenue 
+      FROM bookings b
+      JOIN events e ON b.event_id = e.id
+      WHERE e.created_by = $1 AND b.status = 'confirmed'
+    `, [userId]);
+    
+    const recentBookings = await db.query(`
+      SELECT COUNT(*) as today_count
+      FROM bookings b
+      JOIN events e ON b.event_id = e.id
+      WHERE e.created_by = $1 
+      AND DATE(b.created_at) = CURRENT_DATE
+    `, [userId]);
+
+    return {
+      totalEvents: parseInt(events.rows[0].count, 10),
+      totalBookings: parseInt(bookings.rows[0].total, 10) || 0,
+      totalRevenue: parseFloat(bookings.rows[0].revenue) || 0,
+      todayBookings: parseInt(recentBookings.rows[0].today_count, 10) || 0,
+    };
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
+// Event performance for organizer
+async function getEventPerformance(userId) {
+  try {
+    const result = await db.query(`
+      SELECT e.id, e.title, e.event_date,
+             COUNT(b.id) as bookings_count,
+             COALESCE(SUM(b.total_amount), 0) as revenue
+      FROM events e
+      LEFT JOIN bookings b ON b.event_id = e.id AND b.status = 'confirmed'
+      WHERE e.created_by = $1
+      GROUP BY e.id
+      ORDER BY revenue DESC
+      LIMIT 5
+    `, [userId]);
+    return result.rows;
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+}
+
 // Event categories
 async function getEventCategories() {
   try {
@@ -352,6 +464,44 @@ const userResponses = {
   unknown: "I can help with:\n• Your bookings and tickets\n• Finding events\n• Payments\n• Cancellations\n• General support"
 };
 
+const organizerResponses = {
+  greeting: "Hello Organizer! 👋 I can help you manage your events, track bookings, view performance stats, and more.",
+  
+  help: "I can assist with:\n• Your events and performance\n• Managing bookings for your events\n• Revenue and statistics\n• Ticket validation\n• Creating new events\n• Recent sales activity",
+  
+  events: "upcoming_events",
+  event_search: "search_events",
+  event_categories: "show_categories",
+  my_events: "organizer_events",
+  create_event_help: "To create a new event:\n1. Go to 'My Events' section\n2. Click 'Create Event' button\n3. Fill in event details (title, date, location, etc.)\n4. Set ticket types and pricing\n5. Add event image and description\n6. Publish your event\n\nNeed help with any specific step?",
+  
+  organizer_stats: "organizer_stats",
+  event_performance: "event_performance",
+  recent_sales: "recent_bookings_organizer",
+  
+  bookings: "user_bookings",
+  organizer_bookings: "organizer_bookings",
+  booking_status: "check_booking_status",
+  
+  validate_ticket: "🎫 Ticket Validation:\n\n1. Use the 'Scan Tickets' feature\n2. Scan QR code or enter manual code\n3. System verifies ticket authenticity\n4. Confirm entry\n\nYou can validate tickets for your events only. Need to validate now?",
+  
+  validate: "To validate a ticket:\n• Go to 'Scan Tickets' section\n• Use camera to scan QR code\n• Or manually enter ticket code\n• Instant verification\n\nProvide a booking reference or ticket code to validate!",
+  
+  payment: "💳 Payment Information:\n\nYour attendees can pay via:\n1. M-Pesa\n2. Card Payment\n\nAll payments are processed securely. You'll receive payouts according to the payment schedule.",
+  
+  payment_status: "check_payment_status",
+  
+  reports: "📊 View detailed reports:\n• Revenue analytics\n• Booking trends\n• Event performance\n• Customer insights\n\nGo to 'Reports' section for comprehensive analytics!",
+  
+  contact: "📧 Need organizer support?\n• Email: victorlabs854@gmail.com\n• Use support form\n• Check organizer documentation\n\nHow can I help you today?",
+  
+  pricing: "Your event pricing is set when creating events. You can offer multiple ticket types with different prices. Check 'My Events' to manage pricing.",
+  
+  thanks: "You're welcome! Keep creating amazing events! 🎉",
+  
+  unknown: "I can help with:\n• Your events and statistics\n• Managing event bookings\n• Ticket validation\n• Revenue and performance\n• Creating new events\n\nWhat would you like to know?"
+};
+
 const adminResponses = {
   greeting: "Hello Admin! 👨‍💼 I can show stats, manage bookings, track payments, and more.",
   help: "Admin tools:\n• Dashboard statistics\n• Booking management\n• Payment tracking\n• User management\n• Ticket validation\n• Reports and analytics",
@@ -375,7 +525,12 @@ async function processChat(message, role, userId) {
   const entities = extractEntities(message);
   const context = getContext(userId) || {};
   
-  let responses = role === "admin" ? adminResponses : role === "user" ? userResponses : guestResponses;
+  let responses = 
+    role === "admin" ? adminResponses : 
+    role === "organizer" ? organizerResponses :
+    role === "user" ? userResponses : 
+    guestResponses;
+    
   let responseText = responses[intent] || responses.unknown;
   
   let events = [];
@@ -383,6 +538,7 @@ async function processChat(message, role, userId) {
   let stats = null;
   let categories = [];
   let reminders = [];
+  let performance = [];
   
   // Handle special response types
   if (responseText === "upcoming_events") {
@@ -390,6 +546,13 @@ async function processChat(message, role, userId) {
     responseText = events.length 
       ? "Here are the upcoming events:" 
       : "No upcoming events at the moment. Check back soon!";
+  }
+  
+  if (responseText === "organizer_events" && userId) {
+    events = await getOrganizerEvents(userId);
+    responseText = events.length
+      ? "Here are your events:"
+      : "You haven't created any events yet. Click 'Create Event' to get started!";
   }
   
   if (responseText === "search_events") {
@@ -418,6 +581,13 @@ async function processChat(message, role, userId) {
       : "You haven't made any bookings yet. Explore events to get started!";
   }
   
+  if (responseText === "organizer_bookings" && userId) {
+    bookings = await getOrganizerBookings(userId);
+    responseText = bookings.length
+      ? "Here are bookings for your events:"
+      : "No bookings yet for your events. Share your events to get more attendees!";
+  }
+  
   if (responseText === "check_booking_status") {
     if (entities.reference) {
       const booking = await getBookingStatus(entities.reference);
@@ -436,6 +606,29 @@ async function processChat(message, role, userId) {
       : "Unable to load statistics at the moment.";
   }
   
+  if (responseText === "organizer_stats" && userId) {
+    stats = await getOrganizerStats(userId);
+    responseText = stats 
+      ? "Here's your performance summary:" 
+      : "Unable to load statistics at the moment.";
+  }
+  
+  if (responseText === "event_performance" && userId) {
+    performance = await getEventPerformance(userId);
+    responseText = performance.length
+      ? "Here's how your events are performing:"
+      : "No performance data available yet.";
+  }
+  
+  if (responseText === "recent_bookings_organizer" && userId) {
+    bookings = await getOrganizerBookings(userId);
+    const recentBookings = bookings.slice(0, 5);
+    responseText = recentBookings.length
+      ? "Here are your recent bookings:"
+      : "No recent bookings for your events.";
+    bookings = recentBookings;
+  }
+  
   // Check for upcoming reminders
   if (userId && role === "user" && intent === "bookings") {
     reminders = await getUpcomingReminders(userId);
@@ -452,6 +645,7 @@ async function processChat(message, role, userId) {
     stats,
     categories,
     reminders,
+    performance,
     suggestions
   };
 }
@@ -460,6 +654,7 @@ function generateSuggestions(intent, role, context) {
   const baseSuggestions = {
     guest: ["Show events", "How to register", "Contact support"],
     user: ["My bookings", "Find events", "How to pay"],
+    organizer: ["My events", "My stats", "Bookings for my events", "Event performance"],
     admin: ["Dashboard stats", "Manage bookings", "View users"]
   };
   
@@ -469,6 +664,9 @@ function generateSuggestions(intent, role, context) {
     event_search: ["Show all events", "Filter by category", "Filter by price"],
     stats: ["Recent bookings", "Payment summary", "User analytics"],
     payment: ["Check payment status", "Payment methods", "My bookings"],
+    my_events: ["Create event", "Event performance", "Bookings for my events"],
+    organizer_bookings: ["My stats", "Event performance", "Validate ticket"],
+    organizer_stats: ["My events", "Recent sales", "Event performance"],
   };
   
   return contextualSuggestions[intent] || baseSuggestions[role] || baseSuggestions.guest;

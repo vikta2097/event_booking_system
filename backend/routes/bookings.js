@@ -4,6 +4,13 @@ const db = require("../db");
 const { verifyToken, verifyAdmin } = require("../auth");
 const { generateTicketQR } = require("../utils/ticketUtils");
 
+// Import notification functions
+const {
+  sendNotification,
+  notifyOrganizerNewBooking,
+  notifyUserBookingConfirmed
+} = require("./notifications");
+
 // ======================
 // GET all bookings
 // Admin: all bookings
@@ -67,22 +74,18 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-
 // ======================
 // GET bookings for organizer's events only
-// NEW ENDPOINT FOR ORGANIZERS
 // ======================
 router.get("/organizer", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userRole = req.user.role;
 
-    // Only organizers and admins can access this endpoint
     if (userRole !== "organizer" && userRole !== "admin") {
       return res.status(403).json({ error: "Access denied. Organizer role required." });
     }
 
-    // Get bookings for events created by this organizer
     const query = `
       SELECT 
         b.id,
@@ -135,7 +138,6 @@ router.get("/organizer", verifyToken, async (req, res) => {
 
 // ======================
 // UPDATE booking status for organizer
-// NEW ENDPOINT FOR ORGANIZERS
 // ======================
 router.put("/organizer/:id", verifyToken, async (req, res) => {
   try {
@@ -148,11 +150,11 @@ router.put("/organizer/:id", verifyToken, async (req, res) => {
       return res.status(403).json({ error: "Access denied. Organizer role required." });
     }
 
-    // Check if booking belongs to organizer's event
     const checkQuery = `
-      SELECT b.*, e.created_by
+      SELECT b.*, e.created_by, e.title as event_title, u.fullname as customer_name
       FROM bookings b
       INNER JOIN events e ON b.event_id = e.id
+      INNER JOIN usercredentials u ON b.user_id = u.id
       WHERE b.id = $1
     `;
     const checkResult = await db.query(checkQuery, [bookingId]);
@@ -163,12 +165,10 @@ router.put("/organizer/:id", verifyToken, async (req, res) => {
 
     const booking = checkResult.rows[0];
 
-    // Verify organizer owns the event
     if (userRole === "organizer" && booking.created_by !== userId) {
       return res.status(403).json({ error: "You can only update bookings for your own events" });
     }
 
-    // Prevent confirming if payment is pending
     if (status === "confirmed") {
       const paymentResult = await db.query(
         "SELECT status FROM payments WHERE booking_id = $1",
@@ -190,14 +190,31 @@ router.put("/organizer/:id", verifyToken, async (req, res) => {
       [status, bookingId]
     );
 
+    // 📩 Send notification to customer
+    if (status === "confirmed") {
+      await sendNotification(
+        booking.user_id,
+        "✅ Booking Confirmed",
+        `Your booking for "${booking.event_title}" has been confirmed by the organizer!`,
+        "booking",
+        { booking_id: bookingId, booking_reference: booking.reference }
+      );
+    } else if (status === "cancelled") {
+      await sendNotification(
+        booking.user_id,
+        "❌ Booking Cancelled",
+        `Your booking for "${booking.event_title}" has been cancelled.`,
+        "booking",
+        { booking_id: bookingId, booking_reference: booking.reference }
+      );
+    }
+
     res.json({ message: "Booking status updated successfully" });
   } catch (error) {
     console.error("Error updating booking:", error);
     res.status(500).json({ error: "Failed to update booking" });
   }
 });
-
-
 
 // ======================
 // GET single booking by ID
@@ -270,14 +287,13 @@ router.get("/:id", verifyToken, async (req, res) => {
 });
 
 // ======================
-// PUT update booking (Admin only) - updated
+// PUT update booking (Admin only)
 // ======================
 router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { status, seats, total_amount } = req.body;
     const bookingId = req.params.id;
 
-    // Fetch existing booking
     const existingResult = await db.query(
       "SELECT * FROM bookings WHERE id = $1",
       [bookingId]
@@ -289,7 +305,6 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
 
     const booking = existingResult.rows[0];
 
-    // --- Prevent confirming if payment is pending ---
     if (status === "confirmed") {
       const paymentResult = await db.query(
         "SELECT status FROM payments WHERE booking_id = $1",
@@ -307,7 +322,6 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
       }
     }
 
-    // Build update query dynamically
     const updateFields = [];
     const values = [];
     let paramCount = 1;
@@ -346,18 +360,17 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-
 // ======================
 // CREATE new booking
 // ======================
 router.post("/", verifyToken, async (req, res) => {
-  const client = await db.getClient(); // Use transaction
+  const client = await db.getClient();
   
   try {
     const { event_id, tickets } = req.body; 
     const userId = req.user.id;
 
-    console.log('📥 Booking request received:', { userId, event_id, tickets });
+    console.log('🔥 Booking request received:', { userId, event_id, tickets });
 
     if (!event_id || !tickets || !Array.isArray(tickets) || tickets.length === 0) {
       return res.status(400).json({ error: "event_id and tickets[] are required" });
@@ -365,9 +378,9 @@ router.post("/", verifyToken, async (req, res) => {
 
     await client.query("BEGIN");
 
-    // Fetch event
+    // Fetch event and organizer
     const eventResult = await client.query(
-      "SELECT id, price FROM events WHERE id = $1",
+      "SELECT id, price, title, created_by FROM events WHERE id = $1",
       [event_id]
     );
 
@@ -376,7 +389,9 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Event not found" });
     }
 
+    const event = eventResult.rows[0];
     let totalAmount = 0;
+    let totalSeats = 0;
 
     // Validate ticket types
     for (const t of tickets) {
@@ -399,6 +414,7 @@ router.post("/", verifyToken, async (req, res) => {
       }
 
       totalAmount += ticketType.rows[0].price * t.quantity;
+      totalSeats += t.quantity;
     }
 
     // Generate unique reference
@@ -406,10 +422,10 @@ router.post("/", verifyToken, async (req, res) => {
 
     // Create booking
     const booking = await client.query(
-      `INSERT INTO bookings (user_id, event_id, total_amount, status, reference, booking_date)
-       VALUES ($1, $2, $3, 'pending', $4, NOW())
+      `INSERT INTO bookings (user_id, event_id, total_amount, status, reference, booking_date, seats)
+       VALUES ($1, $2, $3, 'pending', $4, NOW(), $5)
        RETURNING id, reference`,
-      [userId, event_id, totalAmount, reference]
+      [userId, event_id, totalAmount, reference, totalSeats]
     );
 
     const bookingId = booking.rows[0].id;
@@ -437,11 +453,34 @@ router.post("/", verifyToken, async (req, res) => {
 
     await client.query("COMMIT");
 
-    // IMPORTANT: Return the correct structure
+    // 📩 Notify user about booking creation
+    await sendNotification(
+      userId,
+      "🎫 Booking Created",
+      `Your booking for "${event.title}" has been created. Complete payment to confirm.`,
+      "booking",
+      { booking_id: bookingId, booking_reference: reference, event_id }
+    );
+
+    // 📩 Notify organizer about new booking
+    if (event.created_by) {
+      // Get customer name
+      const userResult = await db.query("SELECT fullname FROM usercredentials WHERE id = $1", [userId]);
+      const customerName = userResult.rows[0]?.fullname || "A customer";
+
+      await notifyOrganizerNewBooking(event.created_by, {
+        event_title: event.title,
+        customer_name: customerName,
+        seats: totalSeats,
+        total_amount: totalAmount,
+        booking_reference: reference
+      });
+    }
+
     res.status(201).json({
       success: true,
       message: "Booking created successfully",
-      booking_id: bookingId,  // Frontend expects this
+      booking_id: bookingId,
       reference: booking.rows[0].reference,
       total_amount: totalAmount,
       status: "pending"
@@ -458,7 +497,6 @@ router.post("/", verifyToken, async (req, res) => {
     client.release();
   }
 });
-
 
 // ======================
 // DELETE booking (Admin only)
@@ -481,10 +519,22 @@ router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
       );
     }
 
-    const result = await client.query("DELETE FROM bookings WHERE id = $1", [bookingId]);
+    const result = await client.query("DELETE FROM bookings WHERE id = $1 RETURNING user_id", [bookingId]);
     if (result.rowCount === 0) throw new Error("Booking not found");
 
     await client.query("COMMIT");
+    
+    // 📩 Notify user about booking deletion
+    if (result.rows[0]?.user_id) {
+      await sendNotification(
+        result.rows[0].user_id,
+        "🗑️ Booking Deleted",
+        "One of your bookings has been deleted by an administrator.",
+        "system",
+        { booking_id: bookingId }
+      );
+    }
+
     res.json({ message: "Booking deleted successfully" });
   } catch (error) {
     await client.query("ROLLBACK");
@@ -507,7 +557,10 @@ router.put("/:id/cancel", verifyToken, async (req, res) => {
 
     await client.query("BEGIN");
 
-    const bookingResult = await client.query("SELECT * FROM bookings WHERE id = $1 FOR UPDATE", [bookingId]);
+    const bookingResult = await client.query(
+      "SELECT b.*, e.title as event_title FROM bookings b JOIN events e ON b.event_id = e.id WHERE b.id = $1 FOR UPDATE", 
+      [bookingId]
+    );
     if (bookingResult.rows.length === 0) throw new Error("Booking not found");
     const booking = bookingResult.rows[0];
 
@@ -529,6 +582,16 @@ router.put("/:id/cancel", verifyToken, async (req, res) => {
     await client.query("UPDATE bookings SET status = 'cancelled' WHERE id = $1", [bookingId]);
 
     await client.query("COMMIT");
+    
+    // 📩 Notify user about cancellation
+    await sendNotification(
+      booking.user_id,
+      "❌ Booking Cancelled",
+      `Your booking for "${booking.event_title}" has been cancelled.`,
+      "booking",
+      { booking_id: bookingId, booking_reference: booking.reference }
+    );
+
     res.json({ message: "Booking cancelled successfully" });
   } catch (error) {
     await client.query("ROLLBACK");

@@ -6,121 +6,136 @@ import UserDashboardHome from "./UserDashboardHome";
 import EventDetails from "./EventDetails";
 import BookingForm from "./BookingForm";
 import PaymentPage from "./PaymentPage";
-import BookingSuccess from "./BookingSuccess"; 
+import BookingSuccess from "./BookingSuccess";
 import UserBookings from "./UserBookings";
-import ContactUs from "./ContactUs";   // <-- ADD THIS
+import ContactUs from "./ContactUs";
 
 // Auth components
 import LoginForm from "../components/LoginForm";
 import SignupForm from "../components/SignupForm";
 
+import NotificationBell from "./NotificationBell";   // <-- ADDED
+
 const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   const location = useLocation();
 
   return (
-    <Routes>
-      {/* Public home */}
-      <Route 
-        path="/" 
-        element={<UserDashboardHome user={user} onLogout={onLogout} />} 
-      />
+    <div className="user-dashboard">
 
-      {/* Contact Page (Public) */}
-      <Route 
-        path="/contact" 
-        element={<ContactUs />} 
-      />
+      {/* 🔔 Top header — only shows bell if user is logged in */}
+      <div className="dashboard-header">
+        <h2 className="dashboard-title">EventHyper</h2>
 
-      {/* Login/Register */}
-      <Route
-        path="/login"
-        element={
-          user ? (
-            <Navigate to="/dashboard" replace />
-          ) : (
-            <LoginForm onLoginSuccess={onLoginSuccess} />
-          )
-        }
-      />
+        <div className="header-right">
+          {user && <NotificationBell user={user} />}
+        </div>
+      </div>
 
-      <Route
-        path="/register"
-        element={
-          user ? (
-            <Navigate to="/dashboard" replace />
-          ) : (
-            <SignupForm onLoginSuccess={onLoginSuccess} />
-          )
-        }
-      />
+      {/* ---------------- ROUTES ---------------- */}
+      <Routes>
 
-      {/* Event details - public */}
-      <Route 
-        path="/events/:id" 
-        element={<EventDetails user={user} />} 
-      />
+        {/* Public home */}
+        <Route
+          path="/"
+          element={<UserDashboardHome user={user} onLogout={onLogout} />}
+        />
 
-      {/* Protected routes */}
-      <Route
-        path="/book/:id"
-        element={
-          user ? (
-            <BookingForm user={user} />
-          ) : (
-            <Navigate
-              to="/dashboard/login"
-              state={{ from: location.pathname }}
-              replace
-            />
-          )
-        }
-      />
+        {/* Contact page */}
+        <Route path="/contact" element={<ContactUs />} />
 
-      <Route
-        path="/payment/:bookingId"
-        element={
-          user ? (
-            <PaymentPage user={user} />
-          ) : (
-            <Navigate
-              to="/dashboard/login"
-              state={{ from: location.pathname }}
-              replace
-            />
-          )
-        }
-      />
+        {/* Login */}
+        <Route
+          path="/login"
+          element={
+            user ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <LoginForm onLoginSuccess={onLoginSuccess} />
+            )
+          }
+        />
 
-      <Route
-        path="/booking-success/:bookingId"
-        element={
-          user ? (
-            <BookingSuccess user={user} />
-          ) : (
-            <Navigate
-              to="/dashboard/login"
-              state={{ from: location.pathname }}
-              replace
-            />
-          )
-        }
-      />
+        {/* Register */}
+        <Route
+          path="/register"
+          element={
+            user ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <SignupForm onLoginSuccess={onLoginSuccess} />
+            )
+          }
+        />
 
-      <Route
-        path="/my-bookings"
-        element={
-          user ? (
-            <UserBookings user={user} />
-          ) : (
-            <Navigate
-              to="/dashboard/login"
-              state={{ from: location.pathname }}
-              replace
-            />
-          )
-        }
-      />
-    </Routes>
+        {/* Event details */}
+        <Route path="/events/:id" element={<EventDetails user={user} />} />
+
+        {/* Book event */}
+        <Route
+          path="/book/:id"
+          element={
+            user ? (
+              <BookingForm user={user} />
+            ) : (
+              <Navigate
+                to="/dashboard/login"
+                state={{ from: location.pathname }}
+                replace
+              />
+            )
+          }
+        />
+
+        {/* Payment */}
+        <Route
+          path="/payment/:bookingId"
+          element={
+            user ? (
+              <PaymentPage user={user} />
+            ) : (
+              <Navigate
+                to="/dashboard/login"
+                state={{ from: location.pathname }}
+                replace
+              />
+            )
+          }
+        />
+
+        {/* Booking success */}
+        <Route
+          path="/booking-success/:bookingId"
+          element={
+            user ? (
+              <BookingSuccess user={user} />
+            ) : (
+              <Navigate
+                to="/dashboard/login"
+                state={{ from: location.pathname }}
+                replace
+              />
+            )
+          }
+        />
+
+        {/* My bookings */}
+        <Route
+          path="/my-bookings"
+          element={
+            user ? (
+              <UserBookings user={user} />
+            ) : (
+              <Navigate
+                to="/dashboard/login"
+                state={{ from: location.pathname }}
+                replace
+              />
+            )
+          }
+        />
+
+      </Routes>
+    </div>
   );
 };
 

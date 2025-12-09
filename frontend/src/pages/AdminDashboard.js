@@ -11,10 +11,9 @@ import Reports from "./Reports";
 import Settings from "./Settings";
 import Support from "./Support";
 import TicketScanner from "./TicketScanner"; 
-
 import ChatbotWidget from "./ChatbotWidget";
 
-
+import NotificationBell from "./NotificationBell"; // ⬅️ added
 
 
 const AdminDashboard = ({ onLogout }) => {
@@ -25,7 +24,7 @@ const AdminDashboard = ({ onLogout }) => {
   useEffect(() => {
     const role = localStorage.getItem("role");
     const id = localStorage.getItem("userId");
-    setCurrentUser({ id, role });
+    setCurrentUser({ id: Number(id), role });
     setReady(true);
   }, []);
 
@@ -38,8 +37,19 @@ const AdminDashboard = ({ onLogout }) => {
         setSidebarOpen={setSidebarOpen}
         onLogout={onLogout}
       />
+
       <main className="main-content">
         <div className="page-container">
+
+          {/* 🔔 Notification Bell Header */}
+          <div className="dashboard-header">
+            <h2 className="dashboard-title">Admin Dashboard</h2>
+            <div className="header-right">
+              {currentUser && <NotificationBell user={currentUser} />}
+            </div>
+          </div>
+
+          {/* Routes */}
           <Routes>
             <Route index element={<DashboardHome />} />
             <Route path="events" element={<Events currentUser={currentUser} />} />
@@ -54,6 +64,7 @@ const AdminDashboard = ({ onLogout }) => {
           </Routes>
         </div>
       </main>
+
       <ChatbotWidget user={currentUser} />
     </div>
   );

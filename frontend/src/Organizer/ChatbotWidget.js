@@ -31,18 +31,20 @@ const ChatbotWidget = ({ user }) => {
     const greetings = {
       guest: "Hello! 👋 Welcome to our Event Booking System. I can help you explore events, learn about registration, or answer questions. What would you like to know?",
       user: `Welcome back, ${userName}! 👋 I can help with your bookings, payments, finding events, and more.`,
+      organizer: `Hello Organizer${userName !== "there" ? ", " + userName : ""}! 🎪 I can help you manage your events, track bookings, view performance stats, and more.`,
       admin: `Hello Admin${userName !== "there" ? ", " + userName : ""}! 👨‍💼 I can show stats, manage bookings, track payments, and more.`
     };
 
-    addMessage("bot", greetings[role]);
+    addMessage("bot", greetings[role] || greetings.guest);
 
     const initialSuggestions = {
       guest: ["Show events", "How to register", "Contact support"],
       user: ["My bookings", "Find events", "How to pay"],
+      organizer: ["My events", "My stats", "Bookings for my events", "Event performance"],
       admin: ["Dashboard stats", "Manage bookings", "View users"]
     };
 
-    setSuggestions(initialSuggestions[role]);
+    setSuggestions(initialSuggestions[role] || initialSuggestions.guest);
   }, [addMessage, role, userName]);
 
   useEffect(() => {
@@ -67,7 +69,8 @@ const ChatbotWidget = ({ user }) => {
           bookings: data.bookings || [],
           stats: data.stats,
           categories: data.categories || [],
-          reminders: data.reminders || []
+          reminders: data.reminders || [],
+          performance: data.performance || []
         });
       }
 
@@ -79,9 +82,10 @@ const ChatbotWidget = ({ user }) => {
       const fallbackSuggestions = {
         guest: ["Show events", "How to register", "Contact support"],
         user: ["My bookings", "Find events", "How to pay"],
+        organizer: ["My events", "My stats", "Bookings for my events"],
         admin: ["Dashboard stats", "Manage bookings", "View users"]
       };
-      setSuggestions(fallbackSuggestions[role]);
+      setSuggestions(fallbackSuggestions[role] || fallbackSuggestions.guest);
     } finally {
       setTyping(false);
     }
@@ -102,11 +106,26 @@ const ChatbotWidget = ({ user }) => {
     }
   }, [addMessage, sendGreeting, userId]);
 
-  const handleToggle = useCallback(() => { setIsOpen(prev => !prev); if (!isOpen) setUnreadCount(0); }, [isOpen]);
+  const handleToggle = useCallback(() => { 
+    setIsOpen(prev => !prev); 
+    if (!isOpen) setUnreadCount(0); 
+  }, [isOpen]);
 
   const formatCurrency = useCallback((amount) => new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(amount), []);
-  const formatDate = useCallback((dateString) => { try { return new Date(dateString).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }); } catch { return dateString; } }, []);
-  const formatTime = useCallback((dateString) => { try { return new Date(dateString).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }); } catch { return ""; } }, []);
+  const formatDate = useCallback((dateString) => { 
+    try { 
+      return new Date(dateString).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }); 
+    } catch { 
+      return dateString; 
+    } 
+  }, []);
+  const formatTime = useCallback((dateString) => { 
+    try { 
+      return new Date(dateString).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }); 
+    } catch { 
+      return ""; 
+    } 
+  }, []);
 
   const handleEventAction = useCallback((eventId, action) => handleSend(action === "book" ? `Book event ${eventId}` : `Tell me about event ${eventId}`), [handleSend]);
   const handleBookingAction = useCallback((bookingRef, action) => handleSend(action === "cancel" ? `Cancel booking ${bookingRef}` : `Status of ${bookingRef}`), [handleSend]);
@@ -125,7 +144,7 @@ const ChatbotWidget = ({ user }) => {
             <div className="chatbot-title">
               <span className="chatbot-avatar">🤖</span>
               <div className="chatbot-info">
-                <h4>EventHank</h4>
+                <h4>EventBot</h4>
                 <div className="chatbot-status">Online</div>
               </div>
             </div>
@@ -156,16 +175,24 @@ const ChatbotWidget = ({ user }) => {
                             <p>📍 {event.location}</p>
                             {event.category && <p>🏷️ {event.category}</p>}
                             {event.capacity && <p>👥 Capacity: {event.capacity}</p>}
+                            {event.total_bookings !== undefined && (
+                              <p>🎟️ Bookings: {event.total_bookings} ({event.total_seats_booked} seats)</p>
+                            )}
+                            {event.status && role === "organizer" && (
+                              <p>📊 Status: <span className={`status-badge ${event.status}`}>{event.status}</span></p>
+                            )}
                           </div>
                           <div className="event-actions">
-                            <button
-                              className="btn-book"
-                              onClick={() => handleEventAction(event.id, "book")}
-                              disabled={role === "guest"}
-                              title={role === "guest" ? "Please login to book" : "Book this event"}
-                            >
-                              {role === "guest" ? "Login to Book" : "Book Now"}
-                            </button>
+                            {role !== "organizer" && (
+                              <button
+                                className="btn-book"
+                                onClick={() => handleEventAction(event.id, "book")}
+                                disabled={role === "guest"}
+                                title={role === "guest" ? "Please login to book" : "Book this event"}
+                              >
+                                {role === "guest" ? "Login to Book" : "Book Now"}
+                              </button>
+                            )}
                             <button
                               className="btn-details"
                               onClick={() => handleEventAction(event.id, "details")}
@@ -184,25 +211,63 @@ const ChatbotWidget = ({ user }) => {
                       {msg.bookings.map((booking) => (
                         <div key={booking.id} className="booking-card">
                           <div className="booking-header">
-                            <h5>{booking.title}</h5>
-                            <span className={`status-badge ${booking.status}`}>{booking.status}</span>
+                            <h5>{booking.title || booking.event_title}</h5>
+                            <span className={`status-badge ${booking.status || booking.booking_status}`}>
+                              {booking.status || booking.booking_status}
+                            </span>
                           </div>
                           <div className="booking-details">
                             <p>📋 Ref: {booking.reference}</p>
                             <p>📅 {formatDate(booking.event_date)}</p>
                             <p>📍 {booking.location}</p>
                             <p>🎟️ Seats: {booking.seats}</p>
-                            <p>💳 Payment: <span className={`payment-status ${booking.payment_status || 'pending'}`}>{booking.payment_status || 'pending'}</span></p>
+                            {booking.customer_name && role === "organizer" && (
+                              <>
+                                <p>👤 Customer: {booking.customer_name}</p>
+                                <p>📧 {booking.customer_email}</p>
+                              </>
+                            )}
+                            <p>💳 Payment: <span className={`payment-status ${booking.payment_status || 'pending'}`}>
+                              {booking.payment_status || 'pending'}
+                            </span></p>
                             <p>💰 {formatCurrency(booking.total_amount)}</p>
+                            {booking.booking_date && (
+                              <p>📆 Booked: {formatDate(booking.booking_date)}</p>
+                            )}
                           </div>
                           <div className="booking-actions">
-                            {booking.status === "confirmed" && (
-                              <button className="btn-cancel" onClick={() => handleBookingAction(booking.reference, "cancel")}>Cancel</button>
+                            {(booking.status === "confirmed" || booking.booking_status === "confirmed") && role !== "organizer" && (
+                              <button className="btn-cancel" onClick={() => handleBookingAction(booking.reference, "cancel")}>
+                                Cancel
+                              </button>
                             )}
-                            <button className="btn-view" onClick={() => handleBookingAction(booking.reference, "status")}>View Details</button>
+                            <button className="btn-view" onClick={() => handleBookingAction(booking.reference, "status")}>
+                              View Details
+                            </button>
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Event Performance (Organizer) */}
+                  {msg.performance?.length > 0 && (
+                    <div className="performance-section">
+                      <h5>📊 Event Performance</h5>
+                      <div className="performance-list">
+                        {msg.performance.map((perf, idx) => (
+                          <div key={idx} className="performance-card">
+                            <div className="performance-rank">#{idx + 1}</div>
+                            <div className="performance-details">
+                              <p className="performance-title">{perf.title}</p>
+                              <p className="performance-stats">
+                                🎟️ {perf.bookings_count} bookings • 💰 {formatCurrency(perf.revenue)}
+                              </p>
+                              <p className="performance-date">📅 {formatDate(perf.event_date)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -210,7 +275,9 @@ const ChatbotWidget = ({ user }) => {
                   {msg.categories?.length > 0 && (
                     <div className="category-list">
                       {msg.categories.map(category => (
-                        <button key={category.id} className="category-chip" onClick={() => handleCategoryClick(category.name)}>{category.name}</button>
+                        <button key={category.id} className="category-chip" onClick={() => handleCategoryClick(category.name)}>
+                          {category.name}
+                        </button>
                       ))}
                     </div>
                   )}
@@ -223,7 +290,10 @@ const ChatbotWidget = ({ user }) => {
                         {msg.reminders.map(reminder => (
                           <div key={reminder.id} className="reminder-card">
                             <p className="reminder-title">{reminder.title}</p>
-                            <p className="reminder-date">📅 {formatDate(reminder.event_date)}{reminder.start_time && ` at ${formatTime(reminder.start_time)}`}</p>
+                            <p className="reminder-date">
+                              📅 {formatDate(reminder.event_date)}
+                              {reminder.start_time && ` at ${formatTime(reminder.start_time)}`}
+                            </p>
                             <p className="reminder-location">📍 {reminder.location}</p>
                           </div>
                         ))}
@@ -231,16 +301,51 @@ const ChatbotWidget = ({ user }) => {
                     </div>
                   )}
 
-                  {/* Admin Stats */}
+                  {/* Stats */}
                   {msg.stats && (
                     <div className="stats-grid">
-                      <div className="stat-card"><span className="stat-value">{msg.stats.totalEvents || 0}</span><span className="stat-label">Total Events</span></div>
-                      <div className="stat-card"><span className="stat-value">{msg.stats.totalBookings || 0}</span><span className="stat-label">Bookings</span></div>
-                      <div className="stat-card"><span className="stat-value">{formatCurrency(msg.stats.totalRevenue || 0)}</span><span className="stat-label">Revenue</span></div>
-                      <div className="stat-card"><span className="stat-value">{msg.stats.totalUsers || 0}</span><span className="stat-label">Users</span></div>
-                      {msg.stats.successfulPayments !== undefined && <div className="stat-card"><span className="stat-value">{msg.stats.successfulPayments}</span><span className="stat-label">Paid</span></div>}
-                      {msg.stats.admins !== undefined && <div className="stat-card"><span className="stat-value">{msg.stats.admins}</span><span className="stat-label">Admins</span></div>}
-                      {msg.stats.regularUsers !== undefined && <div className="stat-card"><span className="stat-value">{msg.stats.regularUsers}</span><span className="stat-label">Regular Users</span></div>}
+                      <div className="stat-card">
+                        <span className="stat-value">{msg.stats.totalEvents || 0}</span>
+                        <span className="stat-label">{role === "organizer" ? "My Events" : "Total Events"}</span>
+                      </div>
+                      <div className="stat-card">
+                        <span className="stat-value">{msg.stats.totalBookings || 0}</span>
+                        <span className="stat-label">Bookings</span>
+                      </div>
+                      <div className="stat-card">
+                        <span className="stat-value">{formatCurrency(msg.stats.totalRevenue || 0)}</span>
+                        <span className="stat-label">Revenue</span>
+                      </div>
+                      {msg.stats.todayBookings !== undefined && (
+                        <div className="stat-card">
+                          <span className="stat-value">{msg.stats.todayBookings}</span>
+                          <span className="stat-label">Today's Bookings</span>
+                        </div>
+                      )}
+                      {msg.stats.totalUsers !== undefined && (
+                        <div className="stat-card">
+                          <span className="stat-value">{msg.stats.totalUsers || 0}</span>
+                          <span className="stat-label">Users</span>
+                        </div>
+                      )}
+                      {msg.stats.successfulPayments !== undefined && (
+                        <div className="stat-card">
+                          <span className="stat-value">{msg.stats.successfulPayments}</span>
+                          <span className="stat-label">Paid</span>
+                        </div>
+                      )}
+                      {msg.stats.admins !== undefined && (
+                        <div className="stat-card">
+                          <span className="stat-value">{msg.stats.admins}</span>
+                          <span className="stat-label">Admins</span>
+                        </div>
+                      )}
+                      {msg.stats.regularUsers !== undefined && (
+                        <div className="stat-card">
+                          <span className="stat-value">{msg.stats.regularUsers}</span>
+                          <span className="stat-label">Regular Users</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -257,7 +362,11 @@ const ChatbotWidget = ({ user }) => {
             <div className="chatbot-suggestions">
               <div className="suggestions-label">Quick Actions:</div>
               <div className="suggestions-chips">
-                {suggestions.map((s, i) => <button key={i} className="suggestion-chip" onClick={() => handleSuggestionClick(s)}>{s}</button>)}
+                {suggestions.map((s, i) => (
+                  <button key={i} className="suggestion-chip" onClick={() => handleSuggestionClick(s)}>
+                    {s}
+                  </button>
+                ))}
               </div>
             </div>
           )}
