@@ -5,12 +5,10 @@ const path = require("path");
 const bcrypt = require("bcrypt");
 const db = require("./db");
 
+// ===== AUTH MIDDLEWARE =====
 const { verifyToken } = require("./auth");
-const { authenticateUser } = require("./middleware/authenticateUser");
 
-// =======================
-// Socket.IO setup
-// =======================
+// ===== SOCKET.IO SETUP =====
 const app = express();
 const server = http.createServer(app);
 const { Server } = require("socket.io");
@@ -25,9 +23,7 @@ const io = new Server(server, {
   },
 });
 
-// =======================
-// Import Routes
-// =======================
+// ===== ROUTES =====
 const authRoutes = require("./routes/authentification");
 const adminRoutes = require("./routes/admins");
 const bookingsRouter = require("./routes/bookings");
@@ -45,53 +41,45 @@ const contactRoutes = require("./routes/contact");
 const testRoutes = require("./routes/test");
 const chatbotRoutes = require("./routes/chatbot");
 
-// Notifications integrated here
+// Notifications
 const {
   router: notificationRoutes,
   attachSocket,
 } = require("./routes/notifications");
 
-// Attach socket instance for notifications route
 attachSocket(io);
 
 // M-Pesa callback
 const mpesaCallback = require("./routes/mpesaCallback");
 
-// Event scheduler (expired events, reminders, etc.)
+// Event scheduler
 require("./eventScheduler");
 
-// =======================
-// SOCKET.IO LOGIC
-// =======================
-const connectedUsers = new Map(); // Track connected users: userId -> socketId
+// ===== SOCKET IO LOGIC =====
+const connectedUsers = new Map();
 
 io.on("connection", (socket) => {
   console.log(`✅ Socket connected: ${socket.id}`);
 
-  // User joins their personal room
   socket.on("join_user_room", (userId) => {
-    const userRoom = `user_${userId}`;
-    socket.join(userRoom);
+    const room = `user_${userId}`;
+    socket.join(room);
     connectedUsers.set(userId, socket.id);
-    console.log(`👤 User ${userId} joined room: ${userRoom}`);
-    
-    // Send confirmation
-    socket.emit("joined_room", { userId, room: userRoom });
+
+    console.log(`👤 User ${userId} joined ${room}`);
+    socket.emit("joined_room", { userId, room });
   });
 
-  // User leaves room
   socket.on("leave_user_room", (userId) => {
-    const userRoom = `user_${userId}`;
-    socket.leave(userRoom);
+    const room = `user_${userId}`;
+    socket.leave(room);
     connectedUsers.delete(userId);
-    console.log(`👋 User ${userId} left room: ${userRoom}`);
+    console.log(`👋 User ${userId} left ${room}`);
   });
 
-  // Handle disconnection
   socket.on("disconnect", () => {
-    // Remove user from connectedUsers map
-    for (const [userId, socketId] of connectedUsers.entries()) {
-      if (socketId === socket.id) {
+    for (const [userId, id] of connectedUsers.entries()) {
+      if (id === socket.id) {
         connectedUsers.delete(userId);
         console.log(`❌ User ${userId} disconnected`);
         break;
@@ -100,18 +88,12 @@ io.on("connection", (socket) => {
     console.log(`❌ Socket disconnected: ${socket.id}`);
   });
 
-  // Heartbeat to keep connection alive
-  socket.on("ping", () => {
-    socket.emit("pong");
-  });
+  socket.on("ping", () => socket.emit("pong"));
 });
 
-// Export io for use in other modules if needed
 global.io = io;
 
-// =======================
-// CORS CONFIG
-// =======================
+// ===== CORS CONFIG =====
 const allowedOrigins = [
   "http://localhost:3000",
   "https://eventhyper.netlify.app",
@@ -120,9 +102,9 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error("CORS not allowed for: " + origin));
+      if (!origin || allowedOrigins.includes(origin))
+        return callback(null, true);
+      callback(new Error("CORS not allowed for: " + origin));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -130,16 +112,12 @@ app.use(
   })
 );
 
-// =======================
-// BODY PARSER & STATIC FILES
-// =======================
+// ===== BODY PARSER & STATIC FILES =====
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/uploads/avatars", express.static(path.join(__dirname, "uploads/avatars")));
 
-// =======================
-// ROUTES
-// =======================
+// ===== API ROUTES =====
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingsRouter);
@@ -157,77 +135,68 @@ app.use("/api/contact", contactRoutes);
 app.use("/api", testRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 
-// Protected notifications route
-app.use("/api/notifications", authenticateUser, notificationRoutes);
+// 🔒 Protected notifications route
+app.use("/api/notifications", verifyToken, notificationRoutes);
 
-// Register M-Pesa callback
+// M-Pesa callback
 mpesaCallback(app, db);
 
-// =======================
-// TOKEN VALIDATION
-// =======================
+// ===== TOKEN VALIDATION =====
 app.get("/api/validate-token", verifyToken, (req, res) => {
   res.json({ valid: true, user: req.user });
 });
 
-// =======================
-// HEALTH CHECK
-// =======================
+// ===== HEALTH CHECK =====
 app.get("/", (req, res) => {
   res.send("✅ Event Booking System API running...");
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({ 
+  res.json({
     status: "healthy",
     timestamp: new Date().toISOString(),
-    connectedUsers: connectedUsers.size
+    connectedUsers: connectedUsers.size,
   });
 });
 
-// 404
+// ===== 404 =====
 app.use((req, res) => {
   res.status(404).json({ message: "Endpoint not found" });
 });
 
-// GLOBAL ERROR HANDLER
+// ===== GLOBAL ERROR HANDLER =====
 app.use((err, req, res, next) => {
   console.error("❌ Unhandled error:", err);
   res.status(500).json({ message: "Internal server error" });
 });
 
-// =======================
-// AUTO-CREATE DEFAULT ADMIN
-// =======================
+// ===== CREATE DEFAULT ADMIN =====
 const ensureDefaultAdmin = async () => {
   try {
     const result = await db.query(
       "SELECT * FROM usercredentials WHERE role = 'admin' LIMIT 1"
     );
 
-    if (!result.rows || result.rows.length === 0) {
-      console.log("⚠️ No admin found — creating default admin...");
+    if (result.rows.length === 0) {
+      console.log("⚠️ Creating default admin...");
 
-      const hashedPassword = await bcrypt.hash("Admin@123", 10);
+      const hash = await bcrypt.hash("Admin@123", 10);
+
       await db.query(
         "INSERT INTO usercredentials (fullname, email, password_hash, role) VALUES ($1, $2, $3, $4)",
-        ["System Admin", "admin@system.com", hashedPassword, "admin"]
+        ["System Admin", "admin@system.com", hash, "admin"]
       );
 
-      console.log("✅ Default admin created:");
-      console.log("   Email: admin@system.com");
-      console.log("   Password: Admin@123");
+      console.log("✅ Default admin created");
     } else {
-      console.log("✅ Admin already exists.");
+      console.log("✅ Admin already exists");
     }
   } catch (error) {
     console.error("❌ Error creating default admin:", error);
   }
 };
 
-// =======================
-// START SERVER
-// =======================
+// ===== START SERVER =====
 const startServer = async () => {
   try {
     const client = await db.pool.connect();
@@ -239,7 +208,7 @@ const startServer = async () => {
     server.listen(PORT, async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌐 CORS: ${allowedOrigins.join(", ")}`);
-      console.log(`🔌 Socket.IO ready for real-time notifications`);
+      console.log(`🔌 Socket.IO ready`);
       await ensureDefaultAdmin();
     });
   } catch (err) {
