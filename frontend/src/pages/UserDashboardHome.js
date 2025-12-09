@@ -43,26 +43,31 @@ const UserDashboardHome = ({ user, onLogout }) => {
           .includes(filters.category.toLowerCase())
       );
     }
+
     if (filters.venue) {
       filtered = filtered.filter((e) =>
         (e.location || "").toLowerCase().includes(filters.venue.toLowerCase())
       );
     }
+
     if (filters.minPrice !== undefined) {
       filtered = filtered.filter(
         (e) => e.price >= parseFloat(filters.minPrice)
       );
     }
+
     if (filters.maxPrice !== undefined) {
       filtered = filtered.filter(
         (e) => e.price <= parseFloat(filters.maxPrice)
       );
     }
+
     if (filters.startDate) {
       filtered = filtered.filter(
         (e) => new Date(e.event_date) >= new Date(filters.startDate)
       );
     }
+
     if (filters.endDate) {
       filtered = filtered.filter(
         (e) => new Date(e.event_date) <= new Date(filters.endDate)
@@ -74,22 +79,15 @@ const UserDashboardHome = ({ user, onLogout }) => {
 
   return (
     <div className="user-dashboard-home-container">
-      {/* --------------------- */}
-      {/*   FILTER SECTION      */}
-      {/* --------------------- */}
+      
+      {/* FILTERS */}
       <div className="filters-wrapper">
         <EventFilters onFilter={handleFilter} />
       </div>
 
-      {/* --------------------- */}
-      {/*   EVENT GRID          */}
-      {/* --------------------- */}
-      {loading && (
-        <p className="loading-text">Loading events...</p>
-      )}
-      {error && (
-        <p className="error-text">{error}</p>
-      )}
+      {/* EVENT GRID / STATES */}
+      {loading && <p className="loading-text">Loading events...</p>}
+      {error && <p className="error-text">{error}</p>}
       {!loading && filteredEvents.length === 0 && !error && (
         <p className="no-events">No events found matching your criteria.</p>
       )}
@@ -100,36 +98,16 @@ const UserDashboardHome = ({ user, onLogout }) => {
         ))}
       </div>
 
-      {/* --------------------- */}
-      {/*        FOOTER         */}
-      {/* --------------------- */}
+      {/* FOOTER */}
       <footer className="dashboard-footer">
         <div className="footer-links">
-          <span onClick={() => navigate("/dashboard")} className="footer-link">
+          <span onClick={() => navigate("/")} className="footer-link">
             Home
           </span>
 
-          <span
-            onClick={() => navigate("/dashboard/contact")}
-            className="footer-link"
-          >
+          <span onClick={() => navigate("/contact")} className="footer-link">
             Contact Us
           </span>
-
-          {user && (
-            <span
-              onClick={() => navigate("/dashboard/my-bookings")}
-              className="footer-link"
-            >
-              My Bookings
-            </span>
-          )}
-
-          {user && (
-            <span onClick={onLogout} className="footer-link logout-link">
-              Logout
-            </span>
-          )}
         </div>
 
         <p className="footer-copy">
@@ -137,7 +115,7 @@ const UserDashboardHome = ({ user, onLogout }) => {
         </p>
       </footer>
 
-      {/* Floating chatbot */}
+      {/* CHATBOT WIDGET */}
       <ChatbotWidget user={user} />
     </div>
   );

@@ -1,52 +1,26 @@
+/* Main container */
 .dashboard-home {
   padding: 20px;
+  padding-top: 90px; /* ensures content does NOT hide behind fixed top bar */
   max-width: 1200px;
   margin: 0 auto;
 }
 
-/* Header for welcome + buttons */
+/* Welcome header */
 .dashboard-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+  text-align: center;
   margin-bottom: 20px;
 }
 
 .welcome-title {
   font-size: 28px;
   margin: 0;
-  text-align: center;
   color: #0077ff;
 }
 
+/* Remove old dashboard action buttons (My Bookings + Logout inside page) */
 .dashboard-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-.dashboard-actions button {
-  background-color: #0077ff;
-  color: #fff;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.dashboard-actions button:hover {
-  background-color: #005fcc;
-}
-
-.logout-btn {
-  background-color: #ff4d4f;
-}
-
-.logout-btn:hover {
-  background-color: #cc0000;
+  display: none !important;
 }
 
 /* Loading / error / no events */
@@ -94,6 +68,7 @@
   color: #005fcc;
 }
 
+/* Footer */
 .dashboard-footer {
   margin-top: 40px;
   padding: 20px 0;
