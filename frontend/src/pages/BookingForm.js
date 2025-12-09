@@ -28,17 +28,22 @@ const BookingForm = ({ user }) => {
 
       setEvent(eventRes.data);
 
-      // Normalize tickets using backend field names
       const ticketArray = ticketsRes.data.ticket_types || ticketsRes.data || [];
-      const normalizedTickets = ticketArray.map(ticket => ({
-        id: ticket.id,
-        name: ticket.name,
-        price: ticket.price,
-        quantity_available: ticket.capacity || 0,
-        quantity_sold: ticket.tickets_sold || 0,
-        tickets_remaining: ticket.tickets_remaining ?? (ticket.capacity - ticket.tickets_sold),
-        description: ticket.description || ""
-      }));
+      const normalizedTickets = ticketArray.map(ticket => {
+        const quantity_available = parseInt(ticket.quantity_available || 0);
+        const quantity_sold = parseInt(ticket.quantity_sold || 0);
+        const tickets_remaining = Math.max(0, quantity_available - quantity_sold);
+
+        return {
+          id: ticket.id,
+          name: ticket.name,
+          price: parseFloat(ticket.price || 0),
+          quantity_available,
+          quantity_sold,
+          tickets_remaining,
+          description: ticket.description || ""
+        };
+      });
 
       setTickets(normalizedTickets);
 
@@ -66,18 +71,15 @@ const BookingForm = ({ user }) => {
     fetchEventAndTickets(); 
   }, [fetchEventAndTickets]);
 
-  // Update phone number when user prop changes
   useEffect(() => {
-    if (user?.phone) {
-      setPhoneNumber(user.phone);
-    }
+    if (user?.phone) setPhoneNumber(user.phone);
   }, [user]);
 
   const handleQuantityChange = (ticketId, qty) => {
     const ticket = tickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
-    const available = ticket.tickets_remaining ?? (ticket.quantity_available - ticket.quantity_sold);
+    const available = ticket.tickets_remaining;
     const quantity = Math.max(0, Math.min(qty, available));
 
     setSelectedTickets(prev => ({ ...prev, [ticketId]: quantity }));
@@ -102,7 +104,6 @@ const BookingForm = ({ user }) => {
       setError("Phone number is required for M-Pesa payment");
       return;
     }
-
     // eslint-disable-next-line no-useless-escape
     const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
     // eslint-disable-next-line no-useless-escape
@@ -122,12 +123,11 @@ const BookingForm = ({ user }) => {
     setStatusMessage("Connecting to server...");
 
     try {
-      // Wake up backend
       try {
         await api.get('/events', { timeout: 5000 });
         setStatusMessage("Creating your booking...");
       } catch (wakeError) {
-        setStatusMessage("Server is waking up (this may take 30 seconds)...");
+        setStatusMessage("Server is waking up (this may take 30 seconds)..."); 
         await new Promise(resolve => setTimeout(resolve, 3000));
         setStatusMessage("Creating your booking...");
       }
@@ -158,7 +158,7 @@ const BookingForm = ({ user }) => {
     } catch (err) {
       console.error('❌ Booking error:', err);
       if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
-        setError("Cannot connect to server. The server may be sleeping (Render.com free tier). Please wait 30 seconds and try again.");
+        setError("Cannot connect to server. The server may be sleeping. Please wait 30 seconds and try again.");
       } else if (err.response?.status === 400) {
         setError(err.response.data.error || "Invalid booking data. Please check your selections.");
       } else if (err.response?.status === 404) {
@@ -175,32 +175,20 @@ const BookingForm = ({ user }) => {
     }
   };
 
-  // Loading state
-  if (!event && !error) {
-    return (
-      <div className="booking-form">
-        <p className="loading-text">{statusMessage || "Loading booking details..."}</p>
+  if (!event && !error) return <div className="booking-form"><p className="loading-text">{statusMessage || "Loading booking details..."}</p></div>;
+  if (error && !event) return (
+    <div className="booking-form">
+      <div className="error-container">
+        <p className="error">{error}</p>
+        <button onClick={fetchEventAndTickets} className="retry-btn">🔄 Retry Loading</button>
+        <button onClick={() => navigate('/dashboard')} className="btn-secondary">← Back to Dashboard</button>
       </div>
-    );
-  }
-
-  // Error state with retry option
-  if (error && !event) {
-    return (
-      <div className="booking-form">
-        <div className="error-container">
-          <p className="error">{error}</p>
-          <button onClick={fetchEventAndTickets} className="retry-btn">🔄 Retry Loading</button>
-          <button onClick={() => navigate('/dashboard')} className="btn-secondary">← Back to Dashboard</button>
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="booking-form">
       <h2>Book Tickets for {event?.title}</h2>
-
       {event?.event_date && (
         <p className="event-date">
           {new Date(event.event_date).toLocaleDateString("en-GB", {
@@ -208,48 +196,38 @@ const BookingForm = ({ user }) => {
           })}
         </p>
       )}
-
       <p className="event-location">📍 {event?.location || "Location not specified"}</p>
 
       <div className="ticket-types">
         <h3>Select Tickets</h3>
+        {tickets.length > 0 ? tickets.map(ticket => {
+          const available = ticket.tickets_remaining;
+          const isAvailable = available > 0;
 
-        {tickets.length > 0 ? (
-          tickets.map(ticket => {
-            const available = ticket.tickets_remaining ?? (ticket.quantity_available - ticket.quantity_sold);
-            const isAvailable = available > 0;
-
-            console.log(`Ticket ${ticket.name}: available=${available}, isAvailable=${isAvailable}`);
-
-            return (
-              <div key={ticket.id} className={`ticket-item ${!isAvailable ? 'sold-out' : ''}`}>
-                <div className="ticket-info">
-                  <span className="ticket-name">{ticket.name}</span>
-                  <span className="ticket-price">KES {ticket.price.toLocaleString()}</span>
-                </div>
-
-                {ticket.description && <p className="ticket-description">{ticket.description}</p>}
-
-                <div className="ticket-availability">
-                  {isAvailable ? <small className="available">✓ {available} available</small> : <small className="sold-out">✗ Sold Out</small>}
-                </div>
-
-                {isAvailable && (
-                  <>
-                    <div className="ticket-controls">
-                      <button type="button" onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] - 1)} disabled={selectedTickets[ticket.id] === 0}>−</button>
-                      <input type="number" min="0" max={available} value={selectedTickets[ticket.id]} onChange={e => handleQuantityChange(ticket.id, parseInt(e.target.value) || 0)} />
-                      <button type="button" onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] + 1)} disabled={selectedTickets[ticket.id] >= available}>+</button>
-                    </div>
-                    {selectedTickets[ticket.id] > 0 && <div className="ticket-subtotal">Subtotal: <strong>KES {(ticket.price * selectedTickets[ticket.id]).toLocaleString()}</strong></div>}
-                  </>
-                )}
+          return (
+            <div key={ticket.id} className={`ticket-item ${!isAvailable ? 'sold-out' : ''}`}>
+              <div className="ticket-info">
+                <span className="ticket-name">{ticket.name}</span>
+                <span className="ticket-price">KES {ticket.price.toLocaleString()}</span>
               </div>
-            );
-          })
-        ) : (
-          <p className="no-tickets">No tickets available for this event.</p>
-        )}
+              {ticket.description && <p className="ticket-description">{ticket.description}</p>}
+              <div className="ticket-availability">
+                {isAvailable ? <small className="available">✓ {available} available</small> : <small className="sold-out">✗ Sold Out</small>}
+              </div>
+
+              {isAvailable && (
+                <>
+                  <div className="ticket-controls">
+                    <button type="button" onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] - 1)} disabled={selectedTickets[ticket.id] === 0}>−</button>
+                    <input type="number" min="0" max={available} value={selectedTickets[ticket.id]} onChange={e => handleQuantityChange(ticket.id, parseInt(e.target.value) || 0)} />
+                    <button type="button" onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] + 1)} disabled={selectedTickets[ticket.id] >= available}>+</button>
+                  </div>
+                  {selectedTickets[ticket.id] > 0 && <div className="ticket-subtotal">Subtotal: <strong>KES {(ticket.price * selectedTickets[ticket.id]).toLocaleString()}</strong></div>}
+                </>
+              )}
+            </div>
+          );
+        }) : <p className="no-tickets">No tickets available for this event.</p>}
       </div>
 
       <form onSubmit={handleBooking} className="booking-checkout">
