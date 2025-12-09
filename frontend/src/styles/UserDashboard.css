@@ -1,4 +1,94 @@
 /* =============================== */
+/*         TOP BAR STYLES          */
+/* =============================== */
+.user-top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 65px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 25px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.top-bar-left .brand-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0077ff;
+  margin: 0;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.top-bar-right button {
+  background: #0077ff;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: 0.2s;
+}
+
+.top-bar-right button:hover {
+  background: #005fcc;
+}
+
+.top-bar-right .logout-btn {
+  background: #d9534f;
+}
+
+.top-bar-right .logout-btn:hover {
+  background: #b52b27;
+}
+
+/* Notification bell with badge */
+.notification-bell {
+  position: relative;
+  font-size: 1.2rem;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: #0077ff;
+}
+
+.notification-bell:hover {
+  color: #005fcc;
+}
+
+.notification-bell .badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #d9534f;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: bold;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Adjust content below top bar */
+.user-content {
+  padding-top: 80px; /* ensures content does not hide behind fixed top bar */
+}
+
+/* =============================== */
 /*   MAIN HOME PAGE CONTAINER      */
 /* =============================== */
 .user-dashboard-home-container {
@@ -99,6 +189,17 @@
   .footer-links {
     gap: 15px;
   }
+  .user-top-bar {
+    flex-direction: column;
+    height: auto;
+    padding: 10px 20px;
+    gap: 10px;
+  }
+  .top-bar-right {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 10px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -110,5 +211,14 @@
   .error-text,
   .no-events {
     font-size: 16px;
+  }
+
+  .top-bar-left .brand-title {
+    font-size: 20px;
+  }
+
+  .top-bar-right button {
+    padding: 6px 10px;
+    font-size: 0.85rem;
   }
 }
