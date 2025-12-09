@@ -25,41 +25,41 @@ const OrganizerSidebar = ({ sidebarOpen, setSidebarOpen, onLogout }) => {
     { name: "Support", icon: <MessageCircle size={18} />, path: "/organizer/dashboard/support" },
   ];
 
-  // Close mobile menu when route changes
+  // Close mobile menu on mount (no invalid dependency)
   useEffect(() => {
     setMobileOpen(false);
-  }, [window.location.pathname]);
+  }, []);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (mobileOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     }
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     };
   }, [mobileOpen]);
 
   return (
     <>
       {/* Mobile Menu Toggle Button */}
-      <button 
+      <button
         className="mobile-menu-toggle"
         onClick={() => setMobileOpen(!mobileOpen)}
         style={{
-          position: 'fixed',
-          top: '15px',
-          left: '15px',
+          position: "fixed",
+          top: "15px",
+          left: "15px",
           zIndex: 1001,
-          background: '#0d47a1',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          padding: '10px',
-          cursor: 'pointer',
-          display: 'none',
+          background: "#0d47a1",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          padding: "10px",
+          cursor: "pointer",
+          display: "none",
         }}
       >
         {mobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -68,13 +68,8 @@ const OrganizerSidebar = ({ sidebarOpen, setSidebarOpen, onLogout }) => {
       <aside className={`sidebar ${sidebarOpen ? "open" : "collapsed"} ${mobileOpen ? "mobile-open" : ""}`}>
         {/* Header */}
         <div className="sidebar-header">
-          <h2 className={`sidebar-title ${!sidebarOpen ? "hidden" : ""}`}>
-            Organizer Panel
-          </h2>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="toggle-btn"
-          >
+          <h2 className={`sidebar-title ${!sidebarOpen ? "hidden" : ""}`}>Organizer Panel</h2>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="toggle-btn">
             ☰
           </button>
         </div>
@@ -85,15 +80,11 @@ const OrganizerSidebar = ({ sidebarOpen, setSidebarOpen, onLogout }) => {
             <NavLink
               key={idx}
               to={item.path}
-              className={({ isActive }) =>
-                `sidebar-link ${isActive ? "active" : ""}`
-              }
+              className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
               onClick={() => setMobileOpen(false)}
             >
               {item.icon}
-              <span className={`link-text ${!sidebarOpen ? "hidden" : ""}`}>
-                {item.name}
-              </span>
+              <span className={`link-text ${!sidebarOpen ? "hidden" : ""}`}>{item.name}</span>
             </NavLink>
           ))}
         </nav>
@@ -109,18 +100,18 @@ const OrganizerSidebar = ({ sidebarOpen, setSidebarOpen, onLogout }) => {
 
       {/* Mobile Overlay */}
       {mobileOpen && (
-        <div 
+        <div
           className="mobile-overlay"
           onClick={() => setMobileOpen(false)}
           style={{
-            position: 'fixed',
+            position: "fixed",
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0,0,0,0.5)',
+            background: "rgba(0,0,0,0.5)",
             zIndex: 999,
-            display: 'none',
+            display: "none",
           }}
         />
       )}
