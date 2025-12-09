@@ -1,17 +1,41 @@
+/* ======================== */
+/* DASHBOARD HEADER STYLING */
+/* ======================== */
 .dashboard-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e6e6e6;
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .dashboard-title {
   font-size: 20px;
   font-weight: 600;
+  color: #1a1a1a;
 }
 
 .header-right {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard-header {
+    padding: 10px 15px;
+  }
+
+  .dashboard-title {
+    font-size: 18px;
+  }
+
+  .header-right {
+    gap: 10px;
+  }
 }
