@@ -1,5 +1,5 @@
 /* ======================== */
-/* USER DASHBOARD STYLING */
+/* USER DASHBOARD STRUCTURE */
 /* ======================== */
 .user-dashboard {
   position: relative;
@@ -7,41 +7,182 @@
   background: #f5f7fa;
 }
 
-/* === Notification Bell Fixed Top Right === */
-.dashboard-header {
+/* ====================== */
+/*     FIXED TOP BAR      */
+/* ====================== */
+.user-top-bar {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background: white;
+  border-bottom: 1px solid #e6e6e6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 30px;
   z-index: 100;
-  background: transparent;
-  border: none;
-  padding: 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.top-bar-left {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+}
+
+.brand-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0d47a1;
+  margin: 0;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.welcome-text {
+  font-size: 0.9rem;
+  color: #333;
+  font-weight: 500;
+}
+
+/* Buttons in top bar */
+.my-bookings-btn,
+.logout-btn,
+.login-btn,
+.signup-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.my-bookings-btn {
+  background: #10b981;
+  color: white;
+}
+
+.my-bookings-btn:hover {
+  background: #059669;
+}
+
+.logout-btn {
+  background: #ef4444;
+  color: white;
+}
+
+.logout-btn:hover {
+  background: #dc2626;
+}
+
+.login-btn {
+  background: transparent;
+  color: #0d47a1;
+  border: 1px solid #0d47a1;
+}
+
+.login-btn:hover {
+  background: #0d47a1;
+  color: white;
+}
+
+.signup-btn {
+  background: #0d47a1;
+  color: white;
+}
+
+.signup-btn:hover {
+  background: #084298;
+}
+
+/* ====================== */
+/*     PAGE CONTENT       */
+/* ====================== */
+.user-content {
+  padding-top: 70px; /* Match top bar height */
+  min-height: 100vh;
+}
+
+/* Hide old dashboard header if it exists */
+.dashboard-header {
+  display: none !important;
 }
 
 .dashboard-title {
-  display: none;
+  display: none !important;
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* ====================== */
+/*      RESPONSIVE        */
+/* ====================== */
+
+@media (max-width: 1024px) {
+  .user-top-bar {
+    padding: 0 20px;
+  }
+
+  .welcome-text {
+    display: none;
+  }
 }
 
-/* Responsive */
 @media (max-width: 768px) {
-  .dashboard-header {
-    top: 15px;
-    right: 15px;
+  .user-top-bar {
+    height: 60px;
+    padding: 0 15px;
+  }
+
+  .brand-title {
+    font-size: 1.2rem;
+  }
+
+  .top-bar-right {
+    gap: 10px;
+  }
+
+  .my-bookings-btn,
+  .logout-btn,
+  .login-btn,
+  .signup-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+
+  .user-content {
+    padding-top: 60px;
   }
 }
 
 @media (max-width: 480px) {
-  .dashboard-header {
-    top: 10px;
-    right: 10px;
+  .user-top-bar {
+    padding: 0 10px;
+  }
+
+  .brand-title {
+    font-size: 1rem;
+  }
+
+  .top-bar-right {
+    gap: 8px;
+  }
+
+  .my-bookings-btn,
+  .logout-btn,
+  .login-btn,
+  .signup-btn {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+  }
+
+  /* Stack buttons on very small screens */
+  .my-bookings-btn span {
+    display: none;
   }
 }

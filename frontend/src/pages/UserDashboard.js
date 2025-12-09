@@ -14,7 +14,7 @@ import ContactUs from "./ContactUs";
 import LoginForm from "../components/LoginForm";
 import SignupForm from "../components/SignupForm";
 
-import NotificationBell from "./NotificationBell"; // 🔔 Notification
+import NotificationBell from "./NotificationBell";
 
 const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   const location = useLocation();
@@ -23,121 +23,146 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
     <div className="user-dashboard">
 
       {/* ====================== */}
-      {/*    DASHBOARD HEADER   */}
+      {/*  FIXED TOP BAR         */}
       {/* ====================== */}
-      <div className="dashboard-header">
-        <h2 className="dashboard-title">EventHyper</h2>
-        <div className="header-right">
-          {user && <NotificationBell user={user} />}
+      <div className="user-top-bar">
+        <div className="top-bar-left">
+          <h2 className="brand-title">EventHyper</h2>
+        </div>
+        <div className="top-bar-right">
+          {user && (
+            <>
+              <span className="welcome-text">Welcome, {user.name || user.email}</span>
+              <button className="my-bookings-btn" onClick={() => window.location.href = '/my-bookings'}>
+                My Bookings
+              </button>
+              <NotificationBell user={user} />
+              <button className="logout-btn" onClick={onLogout}>
+                Logout
+              </button>
+            </>
+          )}
+          {!user && (
+            <>
+              <button className="login-btn" onClick={() => window.location.href = '/login'}>
+                Login
+              </button>
+              <button className="signup-btn" onClick={() => window.location.href = '/register'}>
+                Sign Up
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* ====================== */}
-      {/*        ROUTES         */}
+      {/*    PAGE CONTENT        */}
       {/* ====================== */}
-      <Routes>
+      <div className="user-content">
+        <Routes>
 
-        {/* Public home */}
-        <Route
-          path="/"
-          element={<UserDashboardHome user={user} onLogout={onLogout} />}
-        />
+          {/* Public home */}
+          <Route
+            path="/"
+            element={<UserDashboardHome user={user} onLogout={onLogout} />}
+          />
 
-        {/* Contact page */}
-        <Route path="/contact" element={<ContactUs />} />
+          {/* Contact page */}
+          <Route path="/contact" element={<ContactUs />} />
 
-        {/* Login */}
-        <Route
-          path="/login"
-          element={
-            user ? (
-              <Navigate to="/" replace />
-            ) : (
-              <LoginForm onLoginSuccess={onLoginSuccess} />
-            )
-          }
-        />
+          {/* Login */}
+          <Route
+            path="/login"
+            element={
+              user ? (
+                <Navigate to="/" replace />
+              ) : (
+                <LoginForm onLoginSuccess={onLoginSuccess} />
+              )
+            }
+          />
 
-        {/* Register */}
-        <Route
-          path="/register"
-          element={
-            user ? (
-              <Navigate to="/" replace />
-            ) : (
-              <SignupForm onLoginSuccess={onLoginSuccess} />
-            )
-          }
-        />
+          {/* Register */}
+          <Route
+            path="/register"
+            element={
+              user ? (
+                <Navigate to="/" replace />
+              ) : (
+                <SignupForm onLoginSuccess={onLoginSuccess} />
+              )
+            }
+          />
 
-        {/* Event details */}
-        <Route path="/events/:id" element={<EventDetails user={user} />} />
+          {/* Event details */}
+          <Route path="/events/:id" element={<EventDetails user={user} />} />
 
-        {/* Book event */}
-        <Route
-          path="/book/:id"
-          element={
-            user ? (
-              <BookingForm user={user} />
-            ) : (
-              <Navigate
-                to="/login"
-                state={{ from: location.pathname }}
-                replace
-              />
-            )
-          }
-        />
+          {/* Book event */}
+          <Route
+            path="/book/:id"
+            element={
+              user ? (
+                <BookingForm user={user} />
+              ) : (
+                <Navigate
+                  to="/login"
+                  state={{ from: location.pathname }}
+                  replace
+                />
+              )
+            }
+          />
 
-        {/* Payment */}
-        <Route
-          path="/payment/:bookingId"
-          element={
-            user ? (
-              <PaymentPage user={user} />
-            ) : (
-              <Navigate
-                to="/login"
-                state={{ from: location.pathname }}
-                replace
-              />
-            )
-          }
-        />
+          {/* Payment */}
+          <Route
+            path="/payment/:bookingId"
+            element={
+              user ? (
+                <PaymentPage user={user} />
+              ) : (
+                <Navigate
+                  to="/login"
+                  state={{ from: location.pathname }}
+                  replace
+                />
+              )
+            }
+          />
 
-        {/* Booking success */}
-        <Route
-          path="/booking-success/:bookingId"
-          element={
-            user ? (
-              <BookingSuccess user={user} />
-            ) : (
-              <Navigate
-                to="/login"
-                state={{ from: location.pathname }}
-                replace
-              />
-            )
-          }
-        />
+          {/* Booking success */}
+          <Route
+            path="/booking-success/:bookingId"
+            element={
+              user ? (
+                <BookingSuccess user={user} />
+              ) : (
+                <Navigate
+                  to="/login"
+                  state={{ from: location.pathname }}
+                  replace
+                />
+              )
+            }
+          />
 
-        {/* My bookings */}
-        <Route
-          path="/my-bookings"
-          element={
-            user ? (
-              <UserBookings user={user} />
-            ) : (
-              <Navigate
-                to="/login"
-                state={{ from: location.pathname }}
-                replace
-              />
-            )
-          }
-        />
+          {/* My bookings */}
+          <Route
+            path="/my-bookings"
+            element={
+              user ? (
+                <UserBookings user={user} />
+              ) : (
+                <Navigate
+                  to="/login"
+                  state={{ from: location.pathname }}
+                  replace
+                />
+              )
+            }
+          />
 
-      </Routes>
+        </Routes>
+      </div>
     </div>
   );
 };
