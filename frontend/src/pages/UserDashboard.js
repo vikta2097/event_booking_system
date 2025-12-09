@@ -14,14 +14,17 @@ import ContactUs from "./ContactUs";
 import LoginForm from "../components/LoginForm";
 import SignupForm from "../components/SignupForm";
 
+// Components
 import NotificationBell from "./NotificationBell";
+
+// Import CSS
+import "../styles/UserDashboard.css";
 
 const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   const location = useLocation();
 
   return (
     <div className="user-dashboard">
-
       {/* ====================== */}
       {/*  FIXED TOP BAR         */}
       {/* ====================== */}
@@ -30,10 +33,12 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           <h2 className="brand-title">EventHyper</h2>
         </div>
         <div className="top-bar-right">
-          {user && (
+          {user ? (
             <>
-              <span className="welcome-text">Welcome, {user.name || user.email}</span>
-              <button className="my-bookings-btn" onClick={() => window.location.href = '/my-bookings'}>
+              <button
+                className="my-bookings-btn"
+                onClick={() => window.location.href = "/my-bookings"}
+              >
                 My Bookings
               </button>
               <NotificationBell user={user} />
@@ -41,13 +46,18 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
                 Logout
               </button>
             </>
-          )}
-          {!user && (
+          ) : (
             <>
-              <button className="login-btn" onClick={() => window.location.href = '/login'}>
+              <button
+                className="login-btn"
+                onClick={() => window.location.href = "/login"}
+              >
                 Login
               </button>
-              <button className="signup-btn" onClick={() => window.location.href = '/register'}>
+              <button
+                className="signup-btn"
+                onClick={() => window.location.href = "/register"}
+              >
                 Sign Up
               </button>
             </>
@@ -60,7 +70,6 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
       {/* ====================== */}
       <div className="user-content">
         <Routes>
-
           {/* Public home */}
           <Route
             path="/"
@@ -74,11 +83,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           <Route
             path="/login"
             element={
-              user ? (
-                <Navigate to="/" replace />
-              ) : (
-                <LoginForm onLoginSuccess={onLoginSuccess} />
-              )
+              user ? <Navigate to="/" replace /> : <LoginForm onLoginSuccess={onLoginSuccess} />
             }
           />
 
@@ -86,11 +91,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           <Route
             path="/register"
             element={
-              user ? (
-                <Navigate to="/" replace />
-              ) : (
-                <SignupForm onLoginSuccess={onLoginSuccess} />
-              )
+              user ? <Navigate to="/" replace /> : <SignupForm onLoginSuccess={onLoginSuccess} />
             }
           />
 
@@ -104,11 +105,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
               user ? (
                 <BookingForm user={user} />
               ) : (
-                <Navigate
-                  to="/login"
-                  state={{ from: location.pathname }}
-                  replace
-                />
+                <Navigate to="/login" state={{ from: location.pathname }} replace />
               )
             }
           />
@@ -120,11 +117,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
               user ? (
                 <PaymentPage user={user} />
               ) : (
-                <Navigate
-                  to="/login"
-                  state={{ from: location.pathname }}
-                  replace
-                />
+                <Navigate to="/login" state={{ from: location.pathname }} replace />
               )
             }
           />
@@ -136,11 +129,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
               user ? (
                 <BookingSuccess user={user} />
               ) : (
-                <Navigate
-                  to="/login"
-                  state={{ from: location.pathname }}
-                  replace
-                />
+                <Navigate to="/login" state={{ from: location.pathname }} replace />
               )
             }
           />
@@ -152,15 +141,10 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
               user ? (
                 <UserBookings user={user} />
               ) : (
-                <Navigate
-                  to="/login"
-                  state={{ from: location.pathname }}
-                  replace
-                />
+                <Navigate to="/login" state={{ from: location.pathname }} replace />
               )
             }
           />
-
         </Routes>
       </div>
     </div>

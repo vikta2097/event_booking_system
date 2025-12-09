@@ -11,6 +11,7 @@ const UserDashboardHome = ({ user, onLogout }) => {
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const navigate = useNavigate();
 
   const fetchEvents = async () => {
@@ -48,10 +49,14 @@ const UserDashboardHome = ({ user, onLogout }) => {
       );
     }
     if (filters.minPrice !== undefined) {
-      filtered = filtered.filter((e) => e.price >= parseFloat(filters.minPrice));
+      filtered = filtered.filter(
+        (e) => e.price >= parseFloat(filters.minPrice)
+      );
     }
     if (filters.maxPrice !== undefined) {
-      filtered = filtered.filter((e) => e.price <= parseFloat(filters.maxPrice));
+      filtered = filtered.filter(
+        (e) => e.price <= parseFloat(filters.maxPrice)
+      );
     }
     if (filters.startDate) {
       filtered = filtered.filter(
@@ -67,66 +72,24 @@ const UserDashboardHome = ({ user, onLogout }) => {
     setFilteredEvents(filtered);
   };
 
-  const getUserDisplayName = () => {
-    if (!user) return null;
-    return (
-      user.fullname ||
-      user.full_name ||
-      user.name ||
-      user.username ||
-      user.email?.split("@")[0] ||
-      "User"
-    );
-  };
-
-  const displayName = getUserDisplayName();
-
   return (
-    <div className="dashboard-home">
+    <div className="user-dashboard-home-container">
+      {/* --------------------- */}
+      {/*   FILTER SECTION      */}
+      {/* --------------------- */}
+      <div className="filters-wrapper">
+        <EventFilters onFilter={handleFilter} />
+      </div>
 
-      {user && (
-        <div className="dashboard-header">
-          <h2 className="welcome-title">Welcome back, {displayName}!</h2>
-
-          <div className="dashboard-actions">
-            <button onClick={() => navigate("/dashboard/my-bookings")}>
-              🎟️ My Bookings
-            </button>
-
-            <button onClick={onLogout} className="logout-btn">
-              🚪 Logout
-            </button>
-          </div>
-        </div>
+      {/* --------------------- */}
+      {/*   EVENT GRID          */}
+      {/* --------------------- */}
+      {loading && (
+        <p className="loading-text">Loading events...</p>
       )}
-
-      {!user && (
-        <div className="guest-notice">
-          <p className="guest-note">
-            Browse our events below! To book an event, please{" "}
-            <span
-              onClick={() => navigate("/dashboard/login")}
-              className="login-link"
-            >
-              log in
-            </span>{" "}
-            or{" "}
-            <span
-              onClick={() => navigate("/dashboard/register")}
-              className="register-link"
-            >
-              register
-            </span>
-            .
-          </p>
-        </div>
+      {error && (
+        <p className="error-text">{error}</p>
       )}
-
-      <EventFilters onFilter={handleFilter} />
-
-      {loading && <p className="loading-text">Loading events...</p>}
-      {error && <p className="error-text">{error}</p>}
-
       {!loading && filteredEvents.length === 0 && !error && (
         <p className="no-events">No events found matching your criteria.</p>
       )}
@@ -137,14 +100,19 @@ const UserDashboardHome = ({ user, onLogout }) => {
         ))}
       </div>
 
-      {/* ------------------------- FOOTER ADDED HERE ------------------------- */}
+      {/* --------------------- */}
+      {/*        FOOTER         */}
+      {/* --------------------- */}
       <footer className="dashboard-footer">
         <div className="footer-links">
           <span onClick={() => navigate("/dashboard")} className="footer-link">
             Home
           </span>
 
-          <span onClick={() => navigate("/dashboard/contact")} className="footer-link">
+          <span
+            onClick={() => navigate("/dashboard/contact")}
+            className="footer-link"
+          >
             Contact Us
           </span>
 
@@ -164,10 +132,13 @@ const UserDashboardHome = ({ user, onLogout }) => {
           )}
         </div>
 
-        <p className="footer-copy">© {new Date().getFullYear()} EventHyper</p>
+        <p className="footer-copy">
+          © {new Date().getFullYear()} EventHyper
+        </p>
       </footer>
-      <ChatbotWidget user={user} />
 
+      {/* Floating chatbot */}
+      <ChatbotWidget user={user} />
     </div>
   );
 };

@@ -1,188 +1,114 @@
-/* ======================== */
-/* USER DASHBOARD STRUCTURE */
-/* ======================== */
-.user-dashboard {
-  position: relative;
+/* =============================== */
+/*   MAIN HOME PAGE CONTAINER      */
+/* =============================== */
+.user-dashboard-home-container {
+  width: 100%;
   min-height: 100vh;
-  background: #f5f7fa;
+  padding-bottom: 50px;
 }
 
-/* ====================== */
-/*     FIXED TOP BAR      */
-/* ====================== */
-.user-top-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 70px;
-  background: white;
-  border-bottom: 1px solid #e6e6e6;
+/* =============================== */
+/*         FILTERS SECTION         */
+/* =============================== */
+.filters-wrapper {
+  max-width: 1200px;
+  margin: 0 auto 25px auto;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* =============================== */
+/*       LOADING / ERROR TEXT      */
+/* =============================== */
+.loading-text,
+.error-text,
+.no-events {
+  text-align: center;
+  font-size: 18px;
+  margin-top: 30px;
+  color: #444;
+}
+
+.error-text {
+  color: #d9534f;
+}
+
+/* =============================== */
+/*         EVENT CARDS GRID        */
+/* =============================== */
+.user-dashboard-home-container .event-grid {
+  margin-top: 20px;
+}
+
+/* =============================== */
+/*             FOOTER              */
+/* =============================== */
+.dashboard-footer {
+  margin-top: 40px;
+  text-align: center;
+  padding: 25px 0;
+  color: #555;
+  background: #f8f9fb;
+  border-top: 1px solid #ddd;
+}
+
+.footer-links {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 30px;
-  z-index: 100;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  justify-content: center;
+  gap: 25px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
-.top-bar-left {
-  display: flex;
-  align-items: center;
-}
-
-.brand-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #0d47a1;
-  margin: 0;
-}
-
-.top-bar-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.welcome-text {
-  font-size: 0.9rem;
-  color: #333;
-  font-weight: 500;
-}
-
-/* Buttons in top bar */
-.my-bookings-btn,
-.logout-btn,
-.login-btn,
-.signup-btn {
-  padding: 8px 16px;
-  border-radius: 6px;
-  border: none;
-  font-size: 0.9rem;
-  font-weight: 500;
+.footer-link {
   cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.my-bookings-btn {
-  background: #10b981;
-  color: white;
-}
-
-.my-bookings-btn:hover {
-  background: #059669;
-}
-
-.logout-btn {
-  background: #ef4444;
-  color: white;
-}
-
-.logout-btn:hover {
-  background: #dc2626;
-}
-
-.login-btn {
-  background: transparent;
+  font-weight: 500;
+  font-size: 0.95rem;
   color: #0d47a1;
-  border: 1px solid #0d47a1;
+  transition: 0.2s;
 }
 
-.login-btn:hover {
-  background: #0d47a1;
-  color: white;
+.footer-link:hover {
+  color: #084298;
+  text-decoration: underline;
 }
 
-.signup-btn {
-  background: #0d47a1;
-  color: white;
+.logout-link {
+  color: #d9534f !important;
 }
 
-.signup-btn:hover {
-  background: #084298;
+.logout-link:hover {
+  color: #b52b27 !important;
 }
 
-/* ====================== */
-/*     PAGE CONTENT       */
-/* ====================== */
-.user-content {
-  padding-top: 70px; /* Match top bar height */
-  min-height: 100vh;
+.footer-copy {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: #777;
 }
 
-/* Hide old dashboard header if it exists */
-.dashboard-header {
-  display: none !important;
-}
-
-.dashboard-title {
-  display: none !important;
-}
-
-/* ====================== */
-/*      RESPONSIVE        */
-/* ====================== */
-
-@media (max-width: 1024px) {
-  .user-top-bar {
-    padding: 0 20px;
-  }
-
-  .welcome-text {
-    display: none;
-  }
-}
-
+/* =============================== */
+/*           RESPONSIVE            */
+/* =============================== */
 @media (max-width: 768px) {
-  .user-top-bar {
-    height: 60px;
-    padding: 0 15px;
+  .filters-wrapper {
+    padding: 15px;
   }
-
-  .brand-title {
-    font-size: 1.2rem;
-  }
-
-  .top-bar-right {
-    gap: 10px;
-  }
-
-  .my-bookings-btn,
-  .logout-btn,
-  .login-btn,
-  .signup-btn {
-    padding: 6px 12px;
-    font-size: 0.85rem;
-  }
-
-  .user-content {
-    padding-top: 60px;
+  .footer-links {
+    gap: 15px;
   }
 }
 
 @media (max-width: 480px) {
-  .user-top-bar {
-    padding: 0 10px;
+  .filters-wrapper {
+    padding: 12px;
   }
 
-  .brand-title {
-    font-size: 1rem;
-  }
-
-  .top-bar-right {
-    gap: 8px;
-  }
-
-  .my-bookings-btn,
-  .logout-btn,
-  .login-btn,
-  .signup-btn {
-    padding: 5px 10px;
-    font-size: 0.8rem;
-  }
-
-  /* Stack buttons on very small screens */
-  .my-bookings-btn span {
-    display: none;
+  .loading-text,
+  .error-text,
+  .no-events {
+    font-size: 16px;
   }
 }
