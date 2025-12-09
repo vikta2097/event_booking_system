@@ -55,6 +55,7 @@ router.post("/mpesa", verifyToken, async (req, res) => {
     const formattedPhone = formatPhoneNumber(phone);
     debugLogs.push({ step: "Formatted phone number", formattedPhone });
 
+    // Fetch booking
     const bookingResult = await db.query("SELECT * FROM bookings WHERE id = $1", [booking_id]);
     if (bookingResult.rows.length === 0) return res.status(404).json({ error: "Booking not found", debugLogs });
 
@@ -96,19 +97,25 @@ router.post("/mpesa", verifyToken, async (req, res) => {
     let stkRes;
     try {
       stkRes = await stkPush({ amount, phone: formattedPhone, accountRef });
-      debugLogs.push({ step: "STK Push response", stkRes });
+
+      // Mask sensitive info before logging
+      const safeStkRes = { ...stkRes };
+      if (safeStkRes.Password) safeStkRes.Password = "****";
+
+      debugLogs.push({ step: "STK Push response", response: safeStkRes });
     } catch (err) {
-      debugLogs.push({ step: "STK Push error", error: err.message });
+      debugLogs.push({ step: "STK Push error", error: err.response?.data || err.message });
       return res.status(500).json({ error: "M-Pesa STK Push failed", debugLogs });
     }
 
     if (!stkRes.CheckoutRequestID) {
-      debugLogs.push({ step: "Missing CheckoutRequestID in STK response" });
+      debugLogs.push({ step: "Missing CheckoutRequestID in STK response", stkRes });
       return res.status(500).json({ error: "M-Pesa STK Push failed: No CheckoutRequestID", debugLogs });
     }
 
     const transactionRef = generateTransactionRef();
 
+    // Insert payment record
     const result = await db.query(
       `INSERT INTO payments 
        (booking_id, user_id, amount, method, status, checkout_request_id, transaction_ref)
@@ -119,7 +126,7 @@ router.post("/mpesa", verifyToken, async (req, res) => {
 
     debugLogs.push({ step: "Inserted payment record", payment_id: result.rows[0].id });
 
-    // 🔔 Notification with try/catch
+    // 🔔 Send notification
     try {
       sendNotification(
         user_id,
@@ -142,9 +149,13 @@ router.post("/mpesa", verifyToken, async (req, res) => {
 
   } catch (err) {
     console.error("M-Pesa payment error:", err);
-    res.status(500).json({ error: err.message || "M-Pesa payment failed. Please try again.", debugLogs });
+    res.status(500).json({
+      error: err.message || "M-Pesa payment failed. Please try again.",
+      debugLogs
+    });
   }
 });
+
 
 
 // ==============================
