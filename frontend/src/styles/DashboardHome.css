@@ -4,17 +4,17 @@
   margin: 0 auto;
 }
 
-.dashboard-header {
+.dashboard-home-header {
   margin-bottom: 2rem;
 }
 
-.dashboard-header h1 {
+.dashboard-home-header h1 {
   font-size: 2rem;
   margin-bottom: 0.5rem;
   color: #1a1a1a;
 }
 
-.dashboard-header p {
+.dashboard-home-header p {
   color: #666;
   font-size: 1rem;
 }
@@ -218,40 +218,4 @@
     grid-template-columns: 1fr;
     gap: 0.5rem;
   }
-}
-
-/* ------------------------------------------------- */
-/* 🔔 Notification bell styles (added cleanly below) */
-/* ------------------------------------------------- */
-
-.notification-bell {
-  position: absolute;
-  top: 15px;
-  right: 20px;
-  font-size: 28px;
-  cursor: pointer;
-  z-index: 1000;
-}
-
-.notification-bell .notification-count {
-  background: red;
-  color: white;
-  font-size: 12px;
-  padding: 2px 6px;
-  border-radius: 50%;
-  position: absolute;
-  top: -5px;
-  right: -10px;
-}
-
-.notification-panel {
-  position: absolute;
-  top: 55px;
-  right: 20px;
-  width: 250px;
-  background: #fff;
-  border-radius: 8px;
-  padding: 15px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  z-index: 1000;
 }

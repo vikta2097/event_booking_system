@@ -40,7 +40,7 @@ const DashboardHome = () => {
 
   return (
     <div className="dashboard-home">
-      <div className="dashboard-header">
+      <div className="dashboard-home-header">
         <h1>Dashboard Overview</h1>
         <p>Welcome back! Here's what's happening with your events.</p>
       </div>
