@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 // Pages
 import UserDashboardHome from "./UserDashboardHome";
@@ -22,6 +22,13 @@ import "../styles/UserDashboard.css";
 
 const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Logout handler that also redirects
+  const handleLogout = () => {
+    onLogout();           // Clear user session/state
+    navigate("/login");    // Redirect to login page via SPA routing
+  };
 
   return (
     <div className="user-dashboard">
@@ -37,12 +44,15 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             <>
               <button
                 className="my-bookings-btn"
-                onClick={() => window.location.href = "/my-bookings"}
+                onClick={() => navigate("/my-bookings")}
               >
                 My Bookings
               </button>
-              <NotificationBell user={user} unreadCount={user.unreadNotifications || 0} />
-              <button className="logout-btn" onClick={onLogout}>
+              <NotificationBell
+                user={user}
+                unreadCount={user.unreadNotifications || 0}
+              />
+              <button className="logout-btn" onClick={handleLogout}>
                 Logout
               </button>
             </>
@@ -50,13 +60,13 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             <>
               <button
                 className="login-btn"
-                onClick={() => window.location.href = "/login"}
+                onClick={() => navigate("/login")}
               >
                 Login
               </button>
               <button
                 className="signup-btn"
-                onClick={() => window.location.href = "/register"}
+                onClick={() => navigate("/register")}
               >
                 Sign Up
               </button>
@@ -72,7 +82,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
         <Routes>
           <Route
             path="/"
-            element={<UserDashboardHome user={user} onLogout={onLogout} />}
+            element={<UserDashboardHome user={user} onLogout={handleLogout} />}
           />
           <Route path="/contact" element={<ContactUs />} />
           <Route
