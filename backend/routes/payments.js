@@ -41,29 +41,34 @@ const formatPhoneNumber = (phone) => {
 // POST /payments/mpesa
 // ==============================
 router.post("/mpesa", verifyToken, async (req, res) => {
+  const debugLogs = [];
   try {
     const { booking_id, phone } = req.body;
     const user_id = req.user.id;
 
-    if (!booking_id) return res.status(400).json({ error: "Booking ID is required" });
-    if (!phone) return res.status(400).json({ error: "Phone number is required" });
-    if (!validatePhoneNumber(phone)) return res.status(400).json({ error: "Invalid phone number" });
+    debugLogs.push({ step: "Received request", booking_id, phone });
+
+    if (!booking_id) return res.status(400).json({ error: "Booking ID is required", debugLogs });
+    if (!phone) return res.status(400).json({ error: "Phone number is required", debugLogs });
+    if (!validatePhoneNumber(phone)) return res.status(400).json({ error: "Invalid phone number", debugLogs });
 
     const formattedPhone = formatPhoneNumber(phone);
+    debugLogs.push({ step: "Formatted phone number", formattedPhone });
 
     const bookingResult = await db.query("SELECT * FROM bookings WHERE id = $1", [booking_id]);
-    if (bookingResult.rows.length === 0) return res.status(404).json({ error: "Booking not found" });
+    if (bookingResult.rows.length === 0) return res.status(404).json({ error: "Booking not found", debugLogs });
 
     const booking = bookingResult.rows[0];
+    debugLogs.push({ step: "Fetched booking", booking });
 
     if (booking.user_id !== user_id)
-      return res.status(403).json({ error: "Cannot pay for others' bookings" });
+      return res.status(403).json({ error: "Cannot pay for others' bookings", debugLogs });
 
     if (booking.status === "cancelled")
-      return res.status(400).json({ error: "Cannot pay for cancelled booking" });
+      return res.status(400).json({ error: "Cannot pay for cancelled booking", debugLogs });
 
     if (booking.status === "confirmed")
-      return res.status(400).json({ error: "Booking already paid" });
+      return res.status(400).json({ error: "Booking already paid", debugLogs });
 
     const existingPayment = await db.query(
       `SELECT id, status FROM payments 
@@ -75,19 +80,35 @@ router.post("/mpesa", verifyToken, async (req, res) => {
     if (existingPayment.rows.length > 0) {
       return res.status(400).json({
         error: "Payment already in progress",
-        payment_id: existingPayment.rows[0].id
+        payment_id: existingPayment.rows[0].id,
+        debugLogs
       });
     }
 
-    const amount = Math.ceil(parseFloat(booking.total_amount));
-    if (amount < 1) return res.status(400).json({ error: "Invalid payment amount" });
+    const amount = Math.ceil(parseFloat(booking.total_amount) || 0);
+    debugLogs.push({ step: "Computed amount", amount });
+
+    if (!amount || amount < 1) return res.status(400).json({ error: "Invalid payment amount", debugLogs });
 
     const accountRef = booking.reference || `Booking${booking_id}`;
-    const stkRes = await stkPush({ amount, phone: formattedPhone, accountRef });
 
-    if (!stkRes.CheckoutRequestID) throw new Error("M-Pesa STK Push failed");
+    // 🔹 Attempt STK Push
+    let stkRes;
+    try {
+      stkRes = await stkPush({ amount, phone: formattedPhone, accountRef });
+      debugLogs.push({ step: "STK Push response", stkRes });
+    } catch (err) {
+      debugLogs.push({ step: "STK Push error", error: err.message });
+      return res.status(500).json({ error: "M-Pesa STK Push failed", debugLogs });
+    }
+
+    if (!stkRes.CheckoutRequestID) {
+      debugLogs.push({ step: "Missing CheckoutRequestID in STK response" });
+      return res.status(500).json({ error: "M-Pesa STK Push failed: No CheckoutRequestID", debugLogs });
+    }
 
     const transactionRef = generateTransactionRef();
+
     const result = await db.query(
       `INSERT INTO payments 
        (booking_id, user_id, amount, method, status, checkout_request_id, transaction_ref)
@@ -96,26 +117,35 @@ router.post("/mpesa", verifyToken, async (req, res) => {
       [booking_id, user_id, amount, "mpesa", "pending", stkRes.CheckoutRequestID, transactionRef]
     );
 
-    // 🔔 Notification: Payment attempt started
-    sendNotification(
-      user_id,
-      "Payment Initiated",
-      `M-Pesa payment for booking ${booking.reference} has been initiated. Check your phone to complete.`
-    );
+    debugLogs.push({ step: "Inserted payment record", payment_id: result.rows[0].id });
+
+    // 🔔 Notification with try/catch
+    try {
+      sendNotification(
+        user_id,
+        "Payment Initiated",
+        `M-Pesa payment for booking ${booking.reference} has been initiated. Check your phone to complete.`
+      );
+      debugLogs.push({ step: "Notification sent" });
+    } catch (notifErr) {
+      debugLogs.push({ step: "Notification failed", error: notifErr.message });
+    }
 
     res.json({
       message: "STK Push sent successfully. Check your phone.",
       payment_id: result.rows[0].id,
       transaction_ref: result.rows[0].transaction_ref,
       checkout_request_id: stkRes.CheckoutRequestID,
-      merchant_request_id: stkRes.MerchantRequestID
+      merchant_request_id: stkRes.MerchantRequestID,
+      debugLogs
     });
 
   } catch (err) {
     console.error("M-Pesa payment error:", err);
-    res.status(500).json({ error: err.message || "M-Pesa payment failed. Please try again." });
+    res.status(500).json({ error: err.message || "M-Pesa payment failed. Please try again.", debugLogs });
   }
 });
+
 
 // ==============================
 // GET /payments/by-booking/:id
