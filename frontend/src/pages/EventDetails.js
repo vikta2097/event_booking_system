@@ -33,7 +33,7 @@ const EventDetails = ({ user }) => {
     if (!user) {
       navigate("/dashboard/login");
     } else {
-      navigate(`/dashboard/book/${event.id}`); // ✅ Updated to new booking flow
+      navigate(`/dashboard/book/${event.id}`);
     }
   };
 
@@ -53,13 +53,39 @@ const EventDetails = ({ user }) => {
 
   return (
     <div className="event-details">
-      <img src={event.image_url || "/placeholder.jpg"} alt={event.title} />
+      {/* Correct backend field: event.image */}
+      <img src={event.image || "/placeholder.jpg"} alt={event.title} />
+
       <div className="event-info">
         <h2>{event.title}</h2>
+
         <p className="event-description">{event.description}</p>
+
         <p><strong>Venue:</strong> {event.location}</p>
         <p><strong>Date:</strong> {formatDate(event.event_date)}</p>
         <p><strong>Price:</strong> {formatPrice(event.price)}</p>
+
+        {/* ---- OPTIONAL ORGANIZER INFO ---- */}
+        {(event.organizer_name ||
+          event.organizer_email ||
+          event.organizer_profile) && (
+          <div className="organizer-section">
+            <h3>Organized By</h3>
+
+            {event.organizer_name && (
+              <p><strong>Name:</strong> {event.organizer_name}</p>
+            )}
+
+            {event.organizer_email && (
+              <p><strong>Email:</strong> {event.organizer_email}</p>
+            )}
+
+            {event.organizer_profile && (
+              <p><strong>About:</strong> {event.organizer_profile}</p>
+            )}
+          </div>
+        )}
+
         <button onClick={handleBookNow}>
           {user ? "Book Now" : "Login to Book"}
         </button>
@@ -69,3 +95,4 @@ const EventDetails = ({ user }) => {
 };
 
 export default EventDetails;
+    return res.status(400).json({ error: "Missing required fields" });

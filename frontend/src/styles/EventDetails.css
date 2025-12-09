@@ -1,54 +1,124 @@
+/* ============================
+   Event Details - Main Wrapper
+===============================*/
 .event-details {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px;
+  padding: 25px 15px;
+  background-color: #f8f9fc;
 }
 
+/* ============================
+   Event Image
+===============================*/
 .event-details img {
   width: 100%;
-  max-width: 600px;
-  border-radius: 10px;
-  margin-bottom: 20px;
+  max-width: 700px;
+  border-radius: 14px;
+  margin-bottom: 25px;
+  object-fit: cover;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
 }
 
+/* ============================
+   Event Info Section
+===============================*/
 .event-info {
-  max-width: 600px;
-  text-align: left;
+  width: 100%;
+  max-width: 700px;
+  background: #fff;
+  padding: 25px;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.1);
 }
 
 .event-info h2 {
   color: #0077ff;
   margin-bottom: 10px;
+  font-size: 1.8rem;
+  font-weight: 700;
 }
 
 .event-info p {
-  margin: 5px 0;
+  margin: 6px 0;
   font-size: 1rem;
   color: #333;
+  line-height: 1.5;
 }
 
-.event-info .event-description {
-  margin-bottom: 15px;
+.event-description {
+  margin: 12px 0 18px;
+  padding-left: 4px;
+  border-left: 3px solid #0077ff;
 }
 
+/* ============================
+   Organizer Section
+===============================*/
+.organizer-section {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f3f7ff;
+  border-radius: 10px;
+  border-left: 4px solid #0077ff;
+}
+
+.organizer-section h3 {
+  margin-bottom: 10px;
+  color: #005bb5;
+  font-size: 1.2rem;
+}
+
+/* ============================
+   Buttons
+===============================*/
 .event-info button {
-  padding: 10px 20px;
+  margin-top: 20px;
+  padding: 12px 25px;
   background-color: #0077ff;
-  color: white;
+  color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: bold;
+  font-size: 1rem;
+  transition: 0.25s ease-in-out;
+  width: 100%;
 }
 
 .event-info button:hover {
   background-color: #005bb5;
+  transform: translateY(-2px);
 }
 
+/* ============================
+   States
+===============================*/
 .loading-text,
-.no-event {
+.no-event,
+.error-text {
   padding: 20px;
+  text-align: center;
   font-style: italic;
+  font-size: 1.1rem;
   color: #777;
+}
+
+/* ============================
+   Mobile Responsiveness
+===============================*/
+@media (max-width: 600px) {
+  .event-info {
+    padding: 18px;
+  }
+
+  .event-info h2 {
+    font-size: 1.5rem;
+  }
+
+  .event-info button {
+    padding: 10px 20px;
+    font-size: 0.95rem;
+  }
 }

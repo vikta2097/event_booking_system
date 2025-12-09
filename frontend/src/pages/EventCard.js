@@ -7,9 +7,8 @@ const EventCard = ({ event, user }) => {
 
   const handleBookNow = () => {
     if (!user) {
-      navigate("/dashboard/login"); // Redirect to login if not authenticated
+      navigate("/dashboard/login");
     } else {
-      // ✅ FIXED: Navigate to ticket selection page first
       navigate(`/dashboard/book/${event.id}`);
     }
   };
@@ -21,7 +20,6 @@ const EventCard = ({ event, user }) => {
       month: "short",
       day: "numeric",
     };
-
     return new Date(dateStr).toLocaleDateString("en-GB", options);
   };
 
@@ -34,7 +32,7 @@ const EventCard = ({ event, user }) => {
     <div className="event-card">
       <div className="event-image-wrapper">
         <img
-          src={event.image_url || "/placeholder.jpg"}
+          src={event.image || "/placeholder.jpg"}
           alt={event.title}
           className="event-image"
         />
@@ -45,9 +43,22 @@ const EventCard = ({ event, user }) => {
         <p className="event-venue">{event.location}</p>
         <p className="event-date">{formatDate(event.event_date)}</p>
 
-        <p className="event-price">
-          {formatPrice(event.price)}
-        </p>
+        <p className="event-price">{formatPrice(event.price)}</p>
+
+        {/* ---- OPTIONAL ORGANIZER SECTION ---- */}
+        {(event.organizer_name || event.organizer_email) && (
+          <div className="event-organizer">
+            <h4 className="organizer-title">Organized by:</h4>
+
+            {event.organizer_name && (
+              <p className="organizer-name">{event.organizer_name}</p>
+            )}
+
+            {event.organizer_email && (
+              <p className="organizer-email">Email: {event.organizer_email}</p>
+            )}
+          </div>
+        )}
 
         <button className="book-btn" onClick={handleBookNow}>
           {user ? "Book Now" : "Login to Book"}
