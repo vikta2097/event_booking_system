@@ -95,4 +95,3 @@ const EventDetails = ({ user }) => {
 };
 
 export default EventDetails;
-    return res.status(400).json({ error: "Missing required fields" });
