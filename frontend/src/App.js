@@ -79,15 +79,26 @@ function App() {
     };
   }, []);
 
-  const isAuthenticated = !!token;
+  if (!authChecked) return <div>Loading...</div>;
 
-  if (!authChecked) {
-    return <div>Loading...</div>;
-  }
+  const isAuthenticated = !!token;
 
   return (
     <Router>
       <Routes>
+        {/* Root path: show user dashboard for all */}
+        <Route
+          path="/"
+          element={
+            <UserDashboard
+              user={user}
+              token={token}
+              onLogout={handleLogout}
+              onLoginSuccess={handleLogin}
+            />
+          }
+        />
+
         {/* Reset Password */}
         <Route
           path="/reset-password/:token"
@@ -97,46 +108,34 @@ function App() {
         {/* Login */}
         <Route
           path="/login"
-          element={
-            isAuthenticated ? (
-              user?.role === "admin" ? (
-                <Navigate to="/admin/dashboard" replace />
-              ) : user?.role === "organizer" ? (
-                <Navigate to="/organizer/dashboard" replace />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )
-            ) : (
-              <AuthForm onLoginSuccess={handleLogin} />
-            )
-          }
+          element={<AuthForm onLoginSuccess={handleLogin} />}
         />
 
-        {/* Admin dashboard */}
+        {/* Admin dashboard (protected) */}
         <Route
           path="/admin/dashboard/*"
           element={
             isAuthenticated && user?.role === "admin" ? (
               <AdminDashboard token={token} onLogout={handleLogout} />
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/" replace />
             )
           }
         />
 
-        {/* Organizer dashboard */}
+        {/* Organizer dashboard (protected) */}
         <Route
           path="/organizer/dashboard/*"
           element={
             isAuthenticated && user?.role === "organizer" ? (
               <OrganizerDashboard token={token} user={user} onLogout={handleLogout} />
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/" replace />
             )
           }
         />
 
-        {/* User dashboard */}
+        {/* User dashboard (protected) */}
         <Route
           path="/dashboard/*"
           element={
@@ -147,37 +146,14 @@ function App() {
                 onLogout={handleLogout}
                 onLoginSuccess={handleLogin}
               />
-            ) : isAuthenticated ? (
-              user?.role === "admin" ? (
-                <Navigate to="/admin/dashboard" replace />
-              ) : user?.role === "organizer" ? (
-                <Navigate to="/organizer/dashboard" replace />
-              ) : (
-                <Navigate to="/login" replace />
-              )
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/" replace />
             )
           }
         />
 
         {/* Catch-all redirect */}
-        <Route
-          path="*"
-          element={
-            isAuthenticated ? (
-              user.role === "admin" ? (
-                <Navigate to="/admin/dashboard" replace />
-              ) : user.role === "organizer" ? (
-                <Navigate to="/organizer/dashboard" replace />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
