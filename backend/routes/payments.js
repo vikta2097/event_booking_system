@@ -17,23 +17,45 @@ const generateTransactionRef = () => {
   return "PAY-" + Date.now() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 };
 
-// Validate Kenyan phone
+// Validate Kenyan phone number (accepts +254, 254, 07, or 7 formats)
 const validatePhoneNumber = (phone) => {
-  const cleaned = phone.replace(/[\s\-\(\)]/g, "");
+  if (!phone) return false;
+  
+  // Remove all non-digit characters except +
+  const cleaned = phone.replace(/[\s\-()]/g, "");
+  
+  // Valid patterns for Kenyan Safaricom numbers
   const patterns = [
-    /^254[17]\d{8}$/,
-    /^0[17]\d{8}$/,
-    /^\+254[17]\d{8}$/
+    /^254[17]\d{8}$/,        // 254712345678
+    /^\+254[17]\d{8}$/,      // +254712345678
+    /^0[17]\d{8}$/,          // 0712345678
+    /^[17]\d{8}$/            // 712345678
   ];
+  
   return patterns.some((pattern) => pattern.test(cleaned));
 };
 
-// Format phone
+// Format phone number to M-Pesa format (254XXXXXXXXX - 12 digits, no +)
 const formatPhoneNumber = (phone) => {
-  const cleaned = phone.replace(/[\s\-\(\)\+]/g, "");
-  if (cleaned.startsWith("254")) return cleaned;
-  if (cleaned.startsWith("0")) return "254" + cleaned.substring(1);
-  if (cleaned.startsWith("7") || cleaned.startsWith("1")) return "254" + cleaned;
+  // Remove all non-digit characters
+  const cleaned = phone.replace(/\D/g, "");
+  
+  // Already in correct format (254XXXXXXXXX)
+  if (cleaned.startsWith("254") && cleaned.length === 12) {
+    return cleaned;
+  }
+  
+  // Format: 0712345678 -> 254712345678
+  if (cleaned.startsWith("0") && cleaned.length === 10) {
+    return "254" + cleaned.substring(1);
+  }
+  
+  // Format: 712345678 -> 254712345678
+  if ((cleaned.startsWith("7") || cleaned.startsWith("1")) && cleaned.length === 9) {
+    return "254" + cleaned;
+  }
+  
+  // If none of the above patterns match, return as-is (will fail validation later)
   return cleaned;
 };
 
@@ -42,35 +64,108 @@ const formatPhoneNumber = (phone) => {
 // ==============================
 router.post("/mpesa", verifyToken, async (req, res) => {
   const debugLogs = [];
+  
   try {
     const { booking_id, phone } = req.body;
     const user_id = req.user.id;
 
     debugLogs.push({ step: "Received request", booking_id, phone });
 
-    if (!booking_id) return res.status(400).json({ error: "Booking ID is required", debugLogs });
-    if (!phone) return res.status(400).json({ error: "Phone number is required", debugLogs });
-    if (!validatePhoneNumber(phone)) return res.status(400).json({ error: "Invalid phone number", debugLogs });
+    // Validation checks
+    if (!booking_id) {
+      return res.status(400).json({ error: "Booking ID is required", debugLogs });
+    }
+    
+    if (!phone) {
+      return res.status(400).json({ error: "Phone number is required", debugLogs });
+    }
+    
+    if (!validatePhoneNumber(phone)) {
+      return res.status(400).json({ 
+        error: "Invalid phone number. Use format: +254712345678 or 0712345678", 
+        debugLogs 
+      });
+    }
 
+    // Format phone number
     const formattedPhone = formatPhoneNumber(phone);
-    debugLogs.push({ step: "Formatted phone number", formattedPhone });
+    
+    // Additional validation after formatting
+    if (formattedPhone.length !== 12) {
+      debugLogs.push({ 
+        step: "Phone format validation failed", 
+        original: phone,
+        formatted: formattedPhone,
+        length: formattedPhone.length 
+      });
+      return res.status(400).json({ 
+        error: `Invalid phone format. Expected 12 digits, got ${formattedPhone.length}`,
+        formatted: formattedPhone,
+        debugLogs 
+      });
+    }
+    
+    if (!formattedPhone.startsWith("254")) {
+      debugLogs.push({ 
+        step: "Phone prefix validation failed", 
+        formatted: formattedPhone 
+      });
+      return res.status(400).json({ 
+        error: "Phone number must be a Kenyan number (254)",
+        formatted: formattedPhone,
+        debugLogs 
+      });
+    }
+    
+    // Check if it's a Safaricom number (starts with 2547 or 2541)
+    if (!["7", "1"].includes(formattedPhone[3])) {
+      debugLogs.push({ 
+        step: "Network validation failed", 
+        formatted: formattedPhone,
+        fourthDigit: formattedPhone[3]
+      });
+      return res.status(400).json({ 
+        error: "Only Safaricom numbers are supported (2547XX or 2541XX)",
+        formatted: formattedPhone,
+        debugLogs 
+      });
+    }
+
+    debugLogs.push({ 
+      step: "Phone number validated and formatted", 
+      original: phone,
+      formatted: formattedPhone,
+      length: formattedPhone.length
+    });
 
     // Fetch booking
-    const bookingResult = await db.query("SELECT * FROM bookings WHERE id = $1", [booking_id]);
-    if (bookingResult.rows.length === 0) return res.status(404).json({ error: "Booking not found", debugLogs });
+    const bookingResult = await db.query(
+      "SELECT * FROM bookings WHERE id = $1", 
+      [booking_id]
+    );
+    
+    if (bookingResult.rows.length === 0) {
+      return res.status(404).json({ error: "Booking not found", debugLogs });
+    }
 
     const booking = bookingResult.rows[0];
-    debugLogs.push({ step: "Fetched booking", booking });
+    debugLogs.push({ step: "Fetched booking", booking_id: booking.id, status: booking.status });
 
-    if (booking.user_id !== user_id)
+    // Authorization check
+    if (booking.user_id !== user_id) {
       return res.status(403).json({ error: "Cannot pay for others' bookings", debugLogs });
+    }
 
-    if (booking.status === "cancelled")
+    // Booking status checks
+    if (booking.status === "cancelled") {
       return res.status(400).json({ error: "Cannot pay for cancelled booking", debugLogs });
+    }
 
-    if (booking.status === "confirmed")
+    if (booking.status === "confirmed") {
       return res.status(400).json({ error: "Booking already paid", debugLogs });
+    }
 
+    // Check for existing pending payment
     const existingPayment = await db.query(
       `SELECT id, status FROM payments 
        WHERE booking_id = $1 AND status = 'pending'
@@ -86,31 +181,67 @@ router.post("/mpesa", verifyToken, async (req, res) => {
       });
     }
 
+    // Calculate amount
     const amount = Math.ceil(parseFloat(booking.total_amount) || 0);
     debugLogs.push({ step: "Computed amount", amount });
 
-    if (!amount || amount < 1) return res.status(400).json({ error: "Invalid payment amount", debugLogs });
+    if (!amount || amount < 1) {
+      return res.status(400).json({ error: "Invalid payment amount", debugLogs });
+    }
 
     const accountRef = booking.reference || `Booking${booking_id}`;
 
-    // 🔹 Attempt STK Push
+    // Attempt STK Push
     let stkRes;
     try {
+      console.log("🔄 Initiating STK Push...");
+      console.log("📱 Phone:", formattedPhone);
+      console.log("💰 Amount:", amount, "KES");
+      console.log("📋 Account Ref:", accountRef);
+      
       stkRes = await stkPush({ amount, phone: formattedPhone, accountRef });
 
       // Mask sensitive info before logging
       const safeStkRes = { ...stkRes };
       if (safeStkRes.Password) safeStkRes.Password = "****";
 
+      console.log("✅ STK Push successful:", safeStkRes);
       debugLogs.push({ step: "STK Push response", response: safeStkRes });
+      
     } catch (err) {
-      debugLogs.push({ step: "STK Push error", error: err.response?.data || err.message });
-      return res.status(500).json({ error: "M-Pesa STK Push failed", debugLogs });
+      console.error("❌ STK Push failed:", err.response?.data || err.message);
+      debugLogs.push({ 
+        step: "STK Push error", 
+        error: err.response?.data || err.message 
+      });
+      return res.status(500).json({ 
+        error: "M-Pesa STK Push failed. Please try again.", 
+        details: err.response?.data?.errorMessage || err.message,
+        debugLogs 
+      });
     }
 
+    // Verify STK Push response
     if (!stkRes.CheckoutRequestID) {
       debugLogs.push({ step: "Missing CheckoutRequestID in STK response", stkRes });
-      return res.status(500).json({ error: "M-Pesa STK Push failed: No CheckoutRequestID", debugLogs });
+      return res.status(500).json({ 
+        error: "M-Pesa STK Push failed: No CheckoutRequestID returned", 
+        debugLogs 
+      });
+    }
+    
+    // Check response code (0 = success)
+    if (stkRes.ResponseCode && stkRes.ResponseCode !== "0") {
+      debugLogs.push({ 
+        step: "M-Pesa rejected request",
+        code: stkRes.ResponseCode,
+        description: stkRes.ResponseDescription
+      });
+      return res.status(400).json({ 
+        error: stkRes.ResponseDescription || stkRes.CustomerMessage || "M-Pesa request failed",
+        response_code: stkRes.ResponseCode,
+        debugLogs 
+      });
     }
 
     const transactionRef = generateTransactionRef();
@@ -126,20 +257,21 @@ router.post("/mpesa", verifyToken, async (req, res) => {
 
     debugLogs.push({ step: "Inserted payment record", payment_id: result.rows[0].id });
 
-    // 🔔 Send notification
+    // Send notification
     try {
-      sendNotification(
+      await sendNotification(
         user_id,
         "Payment Initiated",
         `M-Pesa payment for booking ${booking.reference} has been initiated. Check your phone to complete.`
       );
       debugLogs.push({ step: "Notification sent" });
     } catch (notifErr) {
+      console.error("Failed to send notification:", notifErr);
       debugLogs.push({ step: "Notification failed", error: notifErr.message });
     }
 
     res.json({
-      message: "STK Push sent successfully. Check your phone.",
+      message: "STK Push sent successfully. Check your phone to enter PIN.",
       payment_id: result.rows[0].id,
       transaction_ref: result.rows[0].transaction_ref,
       checkout_request_id: stkRes.CheckoutRequestID,
@@ -153,71 +285,6 @@ router.post("/mpesa", verifyToken, async (req, res) => {
       error: err.message || "M-Pesa payment failed. Please try again.",
       debugLogs
     });
-  }
-});
-
-
-
-// ==============================
-// GET /payments/by-booking/:id
-// ==============================
-router.get("/by-booking/:booking_id", verifyToken, async (req, res) => {
-  try {
-    const { booking_id } = req.params;
-    const result = await db.query(
-      `SELECT * FROM payments WHERE booking_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [booking_id]
-    );
-
-    if (result.rows.length === 0) return res.json(null);
-
-    const payment = result.rows[0];
-
-    if (payment.user_id !== req.user.id && req.user.role !== "admin") {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    res.json(payment);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch payment" });
-  }
-});
-
-// ==============================
-// GET /payments/:id — admin or owner
-// ==============================
-router.get("/:id", verifyToken, async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT p.*, b.user_id, b.reference AS booking_reference, b.event_id
-       FROM payments p
-       JOIN bookings b ON p.booking_id = b.id
-       WHERE p.id = $1`,
-      [req.params.id]
-    );
-
-    if (result.rows.length === 0)
-      return res.status(404).json({ error: "Payment not found" });
-
-    const payment = result.rows[0];
-
-    if (req.user.role !== "admin" && payment.user_id !== req.user.id) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    if (payment.tickets_generated) {
-      const ticketsRes = await db.query(
-        "SELECT id AS ticket_id, ticket_type_id, qr_code, manual_code FROM tickets WHERE booking_id = $1",
-        [payment.booking_id]
-      );
-      payment.tickets = ticketsRes.rows;
-    } else {
-      payment.tickets = [];
-    }
-
-    res.json(payment);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch payment" });
   }
 });
 
@@ -244,7 +311,74 @@ router.get("/", verifyToken, verifyAdmin, async (req, res) => {
 
     res.json(result.rows);
   } catch (err) {
+    console.error("Failed to fetch payments:", err);
     res.status(500).json({ error: "Failed to fetch payments" });
+  }
+});
+
+// ==============================
+// GET /payments/by-booking/:id
+// ==============================
+router.get("/by-booking/:booking_id", verifyToken, async (req, res) => {
+  try {
+    const { booking_id } = req.params;
+    const result = await db.query(
+      `SELECT * FROM payments WHERE booking_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [booking_id]
+    );
+
+    if (result.rows.length === 0) return res.json(null);
+
+    const payment = result.rows[0];
+
+    if (payment.user_id !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    res.json(payment);
+  } catch (err) {
+    console.error("Failed to fetch payment:", err);
+    res.status(500).json({ error: "Failed to fetch payment" });
+  }
+});
+
+// ==============================
+// GET /payments/:id — admin or owner
+// ==============================
+router.get("/:id", verifyToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT p.*, b.user_id, b.reference AS booking_reference, b.event_id
+       FROM payments p
+       JOIN bookings b ON p.booking_id = b.id
+       WHERE p.id = $1`,
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Payment not found" });
+    }
+
+    const payment = result.rows[0];
+
+    if (req.user.role !== "admin" && payment.user_id !== req.user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    if (payment.tickets_generated) {
+      const ticketsRes = await db.query(
+        "SELECT id AS ticket_id, ticket_type_id, qr_code, manual_code FROM tickets WHERE booking_id = $1",
+        [payment.booking_id]
+      );
+      payment.tickets = ticketsRes.rows;
+    } else {
+      payment.tickets = [];
+    }
+
+    res.json(payment);
+  } catch (err) {
+    console.error("Failed to fetch payment:", err);
+    res.status(500).json({ error: "Failed to fetch payment" });
   }
 });
 
@@ -261,13 +395,15 @@ router.put("/refund/:id", verifyToken, verifyAdmin, async (req, res) => {
       [req.params.id]
     );
 
-    if (paymentRes.rows.length === 0)
+    if (paymentRes.rows.length === 0) {
       throw new Error("Payment not found");
+    }
 
     const payment = paymentRes.rows[0];
 
-    if (payment.status !== "success")
+    if (payment.status !== "success") {
       throw new Error("Only successful payments can be refunded");
+    }
 
     await client.query(
       "UPDATE payments SET status = 'refunded', updated_at = NOW() WHERE id = $1",
@@ -286,16 +422,21 @@ router.put("/refund/:id", verifyToken, verifyAdmin, async (req, res) => {
 
     await client.query("COMMIT");
 
-    // 🔔 Notify user
-    sendNotification(
-      payment.user_id,
-      "Payment Refunded",
-      `Your payment for booking ${payment.booking_id} has been refunded.`
-    );
+    // Notify user (outside transaction)
+    try {
+      await sendNotification(
+        payment.user_id,
+        "Payment Refunded",
+        `Your payment for booking ${payment.booking_id} has been refunded.`
+      );
+    } catch (notifErr) {
+      console.error("Failed to send refund notification:", notifErr);
+    }
 
     res.json({ message: "Payment refunded successfully" });
   } catch (err) {
     await client.query("ROLLBACK");
+    console.error("Refund error:", err);
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
@@ -309,8 +450,10 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
   const client = await db.getClient();
   try {
     const { status } = req.body;
-    if (!status)
+    
+    if (!status) {
       return res.status(400).json({ error: "Status is required" });
+    }
 
     await client.query("BEGIN");
 
@@ -319,22 +462,24 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
       [req.params.id]
     );
 
-    if (paymentRes.rows.length === 0)
+    if (paymentRes.rows.length === 0) {
       throw new Error("Payment not found");
+    }
 
     const payment = paymentRes.rows[0];
 
-    await client.query("UPDATE payments SET status = $1 WHERE id = $2", [
-      status,
-      req.params.id
-    ]);
+    await client.query(
+      "UPDATE payments SET status = $1, updated_at = NOW() WHERE id = $2",
+      [status, req.params.id]
+    );
 
     if (status === "success") {
-      await client.query("UPDATE bookings SET status = 'confirmed' WHERE id = $1", [
-        payment.booking_id
-      ]);
+      await client.query(
+        "UPDATE bookings SET status = 'confirmed', updated_at = NOW() WHERE id = $1",
+        [payment.booking_id]
+      );
 
-      // Generate tickets
+      // Generate tickets if not already generated
       if (!payment.tickets_generated) {
         const bookedTickets = await client.query(
           "SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1",
@@ -356,28 +501,33 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
           [req.params.id]
         );
       }
-
-      // 🔔 Notify user of success
-      sendNotification(
-        payment.user_id,
-        "Payment Successful",
-        `Your payment for booking ${payment.booking_id} has been confirmed. Tickets are now available.`
-      );
-    }
-
-    if (status === "failed") {
-      sendNotification(
-        payment.user_id,
-        "Payment Failed",
-        "Your M-Pesa payment attempt failed. Please try again."
-      );
     }
 
     await client.query("COMMIT");
 
+    // Send notifications (outside transaction)
+    try {
+      if (status === "success") {
+        await sendNotification(
+          payment.user_id,
+          "Payment Successful",
+          `Your payment for booking ${payment.booking_id} has been confirmed. Tickets are now available.`
+        );
+      } else if (status === "failed") {
+        await sendNotification(
+          payment.user_id,
+          "Payment Failed",
+          "Your M-Pesa payment attempt failed. Please try again."
+        );
+      }
+    } catch (notifErr) {
+      console.error("Failed to send payment status notification:", notifErr);
+    }
+
     res.json({ message: "Payment updated successfully" });
   } catch (err) {
     await client.query("ROLLBACK");
+    console.error("Payment update error:", err);
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
