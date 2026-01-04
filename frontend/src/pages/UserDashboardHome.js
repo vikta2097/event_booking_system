@@ -79,7 +79,6 @@ const UserDashboardHome = ({ user, onLogout }) => {
 
   return (
     <div className="user-dashboard-home-container">
-      
       {/* FILTERS */}
       <div className="filters-wrapper">
         <EventFilters onFilter={handleFilter} />
@@ -94,18 +93,27 @@ const UserDashboardHome = ({ user, onLogout }) => {
 
       <div className="event-grid">
         {filteredEvents.map((event) => (
-          <EventCard key={event.id} event={event} user={user} />
+          <EventCard
+            key={event.id}
+            event={event}
+            user={user}
+            onBook={() =>
+              user
+                ? navigate(`book/${event.id}`) // relative navigation
+                : navigate("login", { state: { from: `book/${event.id}` } })
+            }
+          />
         ))}
       </div>
 
       {/* FOOTER */}
       <footer className="dashboard-footer">
         <div className="footer-links">
-          <span onClick={() => navigate("/")} className="footer-link">
+          <span onClick={() => navigate("")} className="footer-link">
             Home
           </span>
 
-          <span onClick={() => navigate("/contact")} className="footer-link">
+          <span onClick={() => navigate("contact")} className="footer-link">
             Contact Us
           </span>
         </div>
