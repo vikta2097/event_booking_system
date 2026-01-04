@@ -27,7 +27,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   // Logout handler that also redirects
   const handleLogout = () => {
     onLogout();           // Clear user session/state
-    navigate("/login");    // Redirect to login page via SPA routing
+    navigate("login");    // Redirect to login page via SPA routing (relative path)
   };
 
   return (
@@ -44,7 +44,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             <>
               <button
                 className="my-bookings-btn"
-                onClick={() => navigate("/my-bookings")}
+                onClick={() => navigate("my-bookings")}
               >
                 My Bookings
               </button>
@@ -60,13 +60,13 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             <>
               <button
                 className="login-btn"
-                onClick={() => navigate("/login")}
+                onClick={() => navigate("login")}
               >
                 Login
               </button>
               <button
                 className="signup-btn"
-                onClick={() => navigate("/register")}
+                onClick={() => navigate("register")}
               >
                 Sign Up
               </button>
@@ -80,48 +80,62 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
       {/* ====================== */}
       <div className="user-content">
         <Routes>
+          {/* Home */}
           <Route
-            path="/"
+            path=""
             element={<UserDashboardHome user={user} onLogout={handleLogout} />}
           />
-          <Route path="/contact" element={<ContactUs />} />
+
+          {/* Contact */}
+          <Route path="contact" element={<ContactUs />} />
+
+          {/* Login & Register */}
           <Route
-            path="/login"
+            path="login"
             element={
-              user ? <Navigate to="/" replace /> : <LoginForm onLoginSuccess={onLoginSuccess} />
+              user ? <Navigate to="" replace /> : <LoginForm onLoginSuccess={onLoginSuccess} />
             }
           />
           <Route
-            path="/register"
+            path="register"
             element={
-              user ? <Navigate to="/" replace /> : <SignupForm onLoginSuccess={onLoginSuccess} />
+              user ? <Navigate to="" replace /> : <SignupForm onLoginSuccess={onLoginSuccess} />
             }
           />
-          <Route path="/events/:id" element={<EventDetails user={user} />} />
+
+          {/* Event Details */}
+          <Route path="events/:id" element={<EventDetails user={user} />} />
+
+          {/* Booking / Payment */}
           <Route
-            path="/book/:id"
+            path="book/:id"
             element={
-              user ? <BookingForm user={user} /> : <Navigate to="/login" state={{ from: location.pathname }} replace />
-            }
-          />
-          <Route
-            path="/payment/:bookingId"
-            element={
-              user ? <PaymentPage user={user} /> : <Navigate to="/login" state={{ from: location.pathname }} replace />
+              user ? <BookingForm user={user} /> : <Navigate to="login" state={{ from: location.pathname }} replace />
             }
           />
           <Route
-            path="/booking-success/:bookingId"
+            path="payment/:bookingId"
             element={
-              user ? <BookingSuccess user={user} /> : <Navigate to="/login" state={{ from: location.pathname }} replace />
+              user ? <PaymentPage user={user} /> : <Navigate to="login" state={{ from: location.pathname }} replace />
             }
           />
           <Route
-            path="/my-bookings"
+            path="booking-success/:bookingId"
             element={
-              user ? <UserBookings user={user} /> : <Navigate to="/login" state={{ from: location.pathname }} replace />
+              user ? <BookingSuccess user={user} /> : <Navigate to="login" state={{ from: location.pathname }} replace />
             }
           />
+
+          {/* My Bookings */}
+          <Route
+            path="my-bookings"
+            element={
+              user ? <UserBookings user={user} /> : <Navigate to="login" state={{ from: location.pathname }} replace />
+            }
+          />
+
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="" replace />} />
         </Routes>
       </div>
     </div>
