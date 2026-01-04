@@ -35,7 +35,15 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
       {/* ====================== */}
       {/*  FIXED TOP BAR         */}
       {/* ====================== */}
-      <div className="user-top-bar">
+      <div className="user-top-bar" style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        zIndex: 1000,
+        backgroundColor: '#fff',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}>
         <div className="top-bar-left">
           <h2 className="brand-title">EventHyper</h2>
         </div>
@@ -78,7 +86,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
       {/* ====================== */}
       {/*    PAGE CONTENT        */}
       {/* ====================== */}
-      <div className="user-content">
+      <div className="user-content" style={{ paddingTop: '80px' }}>
         <Routes>
           {/* Home */}
           <Route
