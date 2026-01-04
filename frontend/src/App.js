@@ -15,6 +15,7 @@ function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const logoutTimerRef = useRef(null);
 
+  // Logout handler
   const handleLogout = () => {
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
     localStorage.removeItem("token");
@@ -25,6 +26,7 @@ function App() {
     setToken(null);
   };
 
+  // Login handler
   const handleLogin = ({ token, role, user }) => {
     const loginTime = Date.now();
     localStorage.setItem("token", token);
@@ -42,6 +44,7 @@ function App() {
     }, SESSION_TIMEOUT);
   };
 
+  // Restore session on page load
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
@@ -84,14 +87,16 @@ function App() {
   return (
     <Router>
       <Routes>
-
-        {/* Root redirect */}
+        {/* Root path loads UserDashboard (unprotected) */}
         <Route
-          path="/"
+          path="/*"
           element={
-            isAuthenticated && user?.role === "user"
-              ? <Navigate to="/dashboard" replace />
-              : <Navigate to="/login" replace />
+            <UserDashboard
+              user={user}
+              token={token}
+              onLogout={handleLogout}
+              onLoginSuccess={handleLogin}
+            />
           }
         />
 
@@ -104,23 +109,6 @@ function App() {
         <Route
           path="/reset-password/:token"
           element={<AuthForm onLoginSuccess={handleLogin} />}
-        />
-
-        {/* User dashboard (ONLY place it exists) */}
-        <Route
-          path="/dashboard/*"
-          element={
-            isAuthenticated && user?.role === "user" ? (
-              <UserDashboard
-                user={user}
-                token={token}
-                onLogout={handleLogout}
-                onLoginSuccess={handleLogin}
-              />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
         />
 
         {/* Admin dashboard */}
@@ -147,7 +135,7 @@ function App() {
           }
         />
 
-        {/* Catch-all */}
+        {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
