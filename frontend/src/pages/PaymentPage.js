@@ -125,17 +125,20 @@ const PaymentPage = ({ user }) => {
     };
   }, [isPolling, bookingId, navigate]);
 
+  // Handle payment initiation
   const handlePayment = async () => {
     if (!phoneNumber.trim()) {
       setError("Phone number is required");
       return;
     }
-    // eslint-disable-next-line no-useless-escape
-    const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
+
     // eslint-disable-next-line no-useless-escape
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+    // eslint-disable-next-line no-useless-escape
+    const phoneRegex = /^(\+?254|0)(7\d{8}|1\d{8})$/;
+
     if (!phoneRegex.test(cleanPhone)) {
-      setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
+      setError("Please enter a valid Safaricom phone number (07 or 01)");
       return;
     }
 
@@ -239,7 +242,7 @@ const PaymentPage = ({ user }) => {
               <input
                 id="phone"
                 type="tel"
-                placeholder="0712345678"
+                placeholder="0712345678 or 0112345678"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 disabled={loading}

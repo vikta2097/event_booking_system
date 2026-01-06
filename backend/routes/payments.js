@@ -81,11 +81,12 @@ router.post("/mpesa", verifyToken, async (req, res) => {
     }
     
     if (!validatePhoneNumber(phone)) {
-      return res.status(400).json({ 
-        error: "Invalid phone number. Use format: +254712345678 or 0712345678", 
-        debugLogs 
-      });
-    }
+  return res.status(400).json({ 
+    error: "Invalid phone number. Use format: +254712345678, 0712345678, +254112345678, or 0112345678", 
+    debugLogs 
+  });
+}
+
 
     // Format phone number
     const formattedPhone = formatPhoneNumber(phone);

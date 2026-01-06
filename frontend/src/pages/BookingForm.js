@@ -92,25 +92,28 @@ const BookingForm = ({ user }) => {
   const totalTickets = Object.values(selectedTickets).reduce((sum, q) => sum + q, 0);
 
   const handleBooking = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!user) {
-      setError("Please log in to complete booking");
-      navigate("/login");
-      return;
-    }
+  if (!user) {
+    setError("Please log in to complete booking");
+    navigate("/dashboard/login");
+    return;
+  }
 
-    if (!phoneNumber.trim()) {
-      setError("Phone number is required for M-Pesa payment");
-      return;
-    }
-    // eslint-disable-next-line no-useless-escape
-    const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
-    // eslint-disable-next-line no-useless-escape
-    const cleanPhone = phoneNumber.replace(/[\s\-()]/g, "");
-    if (!phoneRegex.test(cleanPhone)) {
-      setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
-      return;
+  if (!phoneNumber.trim()) {
+    setError("Phone number is required for M-Pesa payment");
+    return;
+  }
+
+  // eslint-disable-next-line no-useless-escape
+  const phoneRegex = /^(?:\+254|254|0)7\d{8}$/;
+
+  // eslint-disable-next-line no-useless-escape
+  const cleanPhone = phoneNumber.replace(/[\s\-()]/g, "");
+
+  if (!phoneRegex.test(cleanPhone)) {
+    setError("Please enter a valid Kenyan mobile number (e.g., 0712345678)");
+    return;
     }
 
     if (totalTickets === 0) {
