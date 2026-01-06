@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "../styles/AuthForm.css";
-import api from "../api"; // ✅ axios instance
+import api from "../api";
 
 const ResetPasswordForm = ({ token, onLoginClick }) => {
   const [password, setPassword] = useState("");
@@ -27,17 +27,17 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
     }
 
     const passwordRegex = /^(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{6,}$/;
-if (!passwordRegex.test(password)) {
-  setError("Password must be at least 6 characters and include a lowercase letter, number, and special character");
-  return;
-}
+    if (!passwordRegex.test(password)) {
+      setError(
+        "Password must be at least 6 characters and include a lowercase letter, number, and special character"
+      );
+      return;
+    }
 
     setLoading(true);
 
     try {
-      // Remove unused variable 'res'
       await api.post(`/auth/reset-password/${token}`, { password });
-
       setMessage("Password reset successful! Redirecting to login...");
       setTimeout(() => onLoginClick(), 2000);
     } catch (err) {
@@ -45,7 +45,8 @@ if (!passwordRegex.test(password)) {
       if (err.response && err.response.data) {
         setError(err.response.data.message || "Reset failed");
       } else {
-        setError("Network error. Please try again.");
+        setError("Network error. Retrying in 3 seconds...");
+        setTimeout(handleResetSubmit, 3000);
       }
     } finally {
       setLoading(false);
