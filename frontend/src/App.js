@@ -1,89 +1,147 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import LoginForm from "./components/LoginForm";
-import UserDashboardHome from "./components/UserDashboardHome";
-import BookingPage from "./pages/BookingPage"; // ✅ Booking page route
+import AuthForm from "./components/AuthForm";
 import AdminDashboard from "./pages/AdminDashboard";
-import OrganizerDashboard from "./pages/OrganizerDashboard";
-import NotFound from "./pages/NotFound";
+import OrganizerDashboard from "./Organizer/OrganizerDashboard";
+import UserDashboard from "./pages/UserDashboard";
+import BookingPage from "./pages/BookingPage"; // ✅ new booking page route
+import "./styles/responsive.css";
+
+const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 
 function App() {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const logoutTimerRef = useRef(null);
 
-  // Optional: fetch user from localStorage / API on app load
+  // Logout handler
+  const handleLogout = () => {
+    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("user");
+    localStorage.removeItem("loginTime");
+    setUser(null);
+    setToken(null);
+  };
+
+  // Login handler
+  const handleLogin = ({ token, role, user }) => {
+    const loginTime = Date.now();
+    localStorage.setItem("token", token);
+    localStorage.setItem("role", role);
+    localStorage.setItem("loginTime", loginTime);
+    localStorage.setItem("user", JSON.stringify(user));
+
+    setToken(token);
+    setUser({ ...user, role });
+
+    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+    logoutTimerRef.current = setTimeout(() => {
+      handleLogout();
+      alert("Session expired. Please log in again.");
+    }, SESSION_TIMEOUT);
+  };
+
+  // Restore session on page load
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
-    const userId = localStorage.getItem("userId");
+    const storedToken = localStorage.getItem("token");
+    const storedRole = localStorage.getItem("role");
+    const storedUser = localStorage.getItem("user");
+    const storedLoginTime = localStorage.getItem("loginTime");
 
-    if (token && role && userId) {
-      setUser({ token, role, id: userId });
+    if (storedToken && storedRole && storedUser && storedLoginTime) {
+      try {
+        const userObj = JSON.parse(storedUser);
+        const timeElapsed = Date.now() - Number(storedLoginTime);
+
+        if (timeElapsed < SESSION_TIMEOUT) {
+          setToken(storedToken);
+          setUser({ ...userObj, role: storedRole });
+
+          const remainingTime = SESSION_TIMEOUT - timeElapsed;
+          logoutTimerRef.current = setTimeout(() => {
+            handleLogout();
+            alert("Session expired. Please log in again.");
+          }, remainingTime);
+        } else {
+          handleLogout();
+        }
+      } catch {
+        handleLogout();
+      }
     }
+
+    setAuthChecked(true);
+
+    return () => {
+      if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+    };
   }, []);
 
-  const handleLoginSuccess = (userObj) => {
-    setUser(userObj.user); // full user object
-  };
+  if (!authChecked) return <div>Loading...</div>;
 
-  const ProtectedRoute = ({ children }) => {
-    if (!user) {
-      // Guest → redirect to login with post-login redirect
-      return <Navigate to="/dashboard/login" state={{ from: window.location.pathname }} replace />;
-    }
-    return children;
-  };
+  const isAuthenticated = !!token;
 
   return (
     <Router>
       <Routes>
-        {/* ===== LOGIN ===== */}
-        <Route
-          path="/dashboard/login"
-          element={<LoginForm onLoginSuccess={handleLoginSuccess} />}
-        />
+        {/* Root / dashboard routes */}
+        <Route path="/dashboard/*" element={<UserDashboard user={user} token={token} onLogout={handleLogout} onLoginSuccess={handleLogin} />} />
 
-        {/* ===== USER DASHBOARD HOME ===== */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <UserDashboardHome user={user} />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* ===== BOOKING PAGE ===== */}
+        {/* Booking route (protected) */}
         <Route
           path="/dashboard/book/:id"
           element={
-            <ProtectedRoute>
-              <BookingPage user={user} />
-            </ProtectedRoute>
+            isAuthenticated ? (
+              <BookingPage user={user} token={token} />
+            ) : (
+              <Navigate
+                to="/dashboard/login"
+                state={{ from: window.location.pathname }}
+                replace
+              />
+            )
           }
         />
 
-        {/* ===== ADMIN DASHBOARD ===== */}
+        {/* Login / Auth */}
         <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedRoute>
-              {user?.role === "admin" ? <AdminDashboard /> : <Navigate to="/dashboard" replace />}
-            </ProtectedRoute>
-          }
+          path="/dashboard/login"
+          element={<AuthForm onLoginSuccess={handleLogin} />}
         />
-
-        {/* ===== ORGANIZER DASHBOARD ===== */}
         <Route
-          path="/organizer/dashboard"
+          path="/reset-password/:token"
+          element={<AuthForm onLoginSuccess={handleLogin} />}
+        />
+
+        {/* Admin dashboard */}
+        <Route
+          path="/admin/dashboard/*"
           element={
-            <ProtectedRoute>
-              {user?.role === "organizer" ? <OrganizerDashboard /> : <Navigate to="/dashboard" replace />}
-            </ProtectedRoute>
+            isAuthenticated && user?.role === "admin" ? (
+              <AdminDashboard token={token} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/" replace />
+            )
           }
         />
 
-        {/* ===== FALLBACK / 404 ===== */}
-        <Route path="*" element={<NotFound />} />
+        {/* Organizer dashboard */}
+        <Route
+          path="/organizer/dashboard/*"
+          element={
+            isAuthenticated && user?.role === "organizer" ? (
+              <OrganizerDashboard token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
+        {/* Catch-all redirect */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>
   );
