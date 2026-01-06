@@ -27,7 +27,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   // Logout clears session and sends user to public login
   const handleLogout = () => {
     onLogout();
-    navigate("/login", { replace: true }); // ✅ ABSOLUTE
+    navigate("login", { replace: true }); // ✅ relative path
   };
 
   return (
@@ -51,7 +51,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           <h2
             className="brand-title"
             style={{ cursor: "pointer" }}
-            onClick={() => navigate("/")} // ✅ Go to dashboard home
+            onClick={() => navigate("")} // ✅ go to dashboard home
           >
             EventHyper
           </h2>
@@ -62,7 +62,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             <>
               <button
                 className="my-bookings-btn"
-                onClick={() => navigate("my-bookings")} // relative OK
+                onClick={() => navigate("my-bookings")}
               >
                 My Bookings
               </button>
@@ -80,14 +80,14 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             <>
               <button
                 className="login-btn"
-                onClick={() => navigate("/login")} // ✅ ABSOLUTE
+                onClick={() => navigate("login")}
               >
                 Login
               </button>
 
               <button
                 className="signup-btn"
-                onClick={() => navigate("/register")} // ✅ ABSOLUTE
+                onClick={() => navigate("register")}
               >
                 Sign Up
               </button>
@@ -112,7 +112,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             path="login"
             element={
               user ? (
-                <Navigate to="/" replace />
+                <Navigate to="" replace />
               ) : (
                 <LoginForm onLoginSuccess={onLoginSuccess} />
               )
@@ -122,7 +122,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             path="register"
             element={
               user ? (
-                <Navigate to="/" replace />
+                <Navigate to="" replace />
               ) : (
                 <SignupForm onLoginSuccess={onLoginSuccess} />
               )
@@ -140,7 +140,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
                 <BookingForm user={user} />
               ) : (
                 <Navigate
-                  to="/login" // ✅ ABSOLUTE
+                  to="login"
                   state={{ from: location.pathname }}
                   replace
                 />
@@ -155,7 +155,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
                 <PaymentPage user={user} />
               ) : (
                 <Navigate
-                  to="/login" // ✅ ABSOLUTE
+                  to="login"
                   state={{ from: location.pathname }}
                   replace
                 />
@@ -169,7 +169,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
               user ? (
                 <BookingSuccess user={user} />
               ) : (
-                <Navigate to="/login" replace />
+                <Navigate to="login" replace />
               )
             }
           />
@@ -182,7 +182,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
                 <UserBookings user={user} />
               ) : (
                 <Navigate
-                  to="/login" // ✅ ABSOLUTE
+                  to="login"
                   state={{ from: location.pathname }}
                   replace
                 />
@@ -191,7 +191,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           />
 
           {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="" replace />} />
         </Routes>
       </div>
     </div>
