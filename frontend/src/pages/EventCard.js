@@ -5,21 +5,23 @@ import "../styles/EventCard.css";
 const EventCard = ({ event, user }) => {
   const navigate = useNavigate();
 
-  const handleBookNow = () => {
+  const handleBookNow = (e) => {
+    e.preventDefault(); // ✅ prevent any default behavior
+
     if (!user) {
-      navigate("/dashboard/login");
+      // Guest → login with post-login redirect
+      navigate("/dashboard/login", {
+        state: { from: `/dashboard/book/${event.id}` },
+        replace: true,
+      });
     } else {
+      // Logged-in → navigate directly
       navigate(`/dashboard/book/${event.id}`);
     }
   };
 
   const formatDate = (dateStr) => {
-    const options = {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    };
+    const options = { weekday: "short", year: "numeric", month: "short", day: "numeric" };
     return new Date(dateStr).toLocaleDateString("en-GB", options);
   };
 
@@ -31,32 +33,20 @@ const EventCard = ({ event, user }) => {
   return (
     <div className="event-card">
       <div className="event-image-wrapper">
-        <img
-          src={event.image || "/placeholder.jpg"}
-          alt={event.title}
-          className="event-image"
-        />
+        <img src={event.image || "/placeholder.jpg"} alt={event.title} className="event-image" />
       </div>
 
       <div className="event-details">
         <h3 className="event-title">{event.title}</h3>
         <p className="event-venue">{event.location}</p>
         <p className="event-date">{formatDate(event.event_date)}</p>
-
         <p className="event-price">{formatPrice(event.price)}</p>
 
-        {/* ---- OPTIONAL ORGANIZER SECTION ---- */}
         {(event.organizer_name || event.organizer_email) && (
           <div className="event-organizer">
             <h4 className="organizer-title">Organized by:</h4>
-
-            {event.organizer_name && (
-              <p className="organizer-name">{event.organizer_name}</p>
-            )}
-
-            {event.organizer_email && (
-              <p className="organizer-email">Email: {event.organizer_email}</p>
-            )}
+            {event.organizer_name && <p className="organizer-name">{event.organizer_name}</p>}
+            {event.organizer_email && <p className="organizer-email">Email: {event.organizer_email}</p>}
           </div>
         )}
 
