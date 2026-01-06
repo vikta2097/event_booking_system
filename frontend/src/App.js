@@ -4,7 +4,7 @@ import AuthForm from "./components/AuthForm";
 import AdminDashboard from "./pages/AdminDashboard";
 import OrganizerDashboard from "./Organizer/OrganizerDashboard";
 import UserDashboard from "./pages/UserDashboard";
-import BookingPage from "./pages/BookingPage"; // ✅ new booking page route
+import BookingPage from "./pages/BookingForm"; // ✅ new booking page route
 import "./styles/responsive.css";
 
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
@@ -95,7 +95,7 @@ function App() {
           path="/dashboard/book/:id"
           element={
             isAuthenticated ? (
-              <BookingPage user={user} token={token} />
+              <BookingForm user={user} token={token} />
             ) : (
               <Navigate
                 to="/dashboard/login"
@@ -127,7 +127,6 @@ function App() {
             )
           }
         />
-
         {/* Organizer dashboard */}
         <Route
           path="/organizer/dashboard/*"
