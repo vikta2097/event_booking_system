@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; // ✅ Added useLocation
 import "../styles/AuthForm.css";
 import api from "../api";
 
@@ -11,6 +11,10 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation(); // ✅ Capture current location
+
+  // ✅ Determine where to redirect after login
+  const from = location.state?.from || null; // null if direct login click
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -32,7 +36,6 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
 
       // Fetch user profile (token automatically sent via interceptor)
       const profileRes = await api.get("/auth/me");
-
       const role = profileRes.data.role;
       const userObj = profileRes.data;
 
@@ -46,13 +49,18 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
         user: userObj,
       });
 
-      // Role-based redirect
-      if (role === "admin") {
-        navigate("/admin/dashboard", { replace: true });
-      } else if (role === "organizer") {
-        navigate("/organizer/dashboard", { replace: true });
+      // ✅ Post-login redirect logic
+      if (from) {
+        navigate(from, { replace: true }); // Return user to intended page
       } else {
-        navigate("/dashboard", { replace: true });
+        // Default role-based redirect
+        if (role === "admin") {
+          navigate("/admin/dashboard", { replace: true });
+        } else if (role === "organizer") {
+          navigate("/organizer/dashboard", { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
       }
 
     } catch (err) {

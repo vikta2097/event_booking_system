@@ -6,7 +6,7 @@ import api from "../api";
 import { useNavigate } from "react-router-dom";
 import ChatbotWidget from "./ChatbotWidget";
 
-const UserDashboardHome = ({ user, onLogout }) => {
+const UserDashboardHome = ({ user }) => {
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,22 +14,22 @@ const UserDashboardHome = ({ user, onLogout }) => {
 
   const navigate = useNavigate();
 
-  const fetchEvents = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.get("/events");
-      setEvents(res.data);
-      setFilteredEvents(res.data);
-    } catch (err) {
-      console.error(err);
-      setError("Unable to load events. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchEvents = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await api.get("/events");
+        setEvents(res.data);
+        setFilteredEvents(res.data);
+      } catch (err) {
+        console.error(err);
+        setError("Unable to load events. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchEvents();
   }, []);
 
@@ -84,13 +84,14 @@ const UserDashboardHome = ({ user, onLogout }) => {
         <EventFilters onFilter={handleFilter} />
       </div>
 
-      {/* EVENT GRID / STATES */}
+      {/* STATES */}
       {loading && <p className="loading-text">Loading events...</p>}
       {error && <p className="error-text">{error}</p>}
       {!loading && filteredEvents.length === 0 && !error && (
         <p className="no-events">No events found matching your criteria.</p>
       )}
 
+      {/* EVENTS */}
       <div className="event-grid">
         {filteredEvents.map((event) => (
           <EventCard
@@ -99,8 +100,11 @@ const UserDashboardHome = ({ user, onLogout }) => {
             user={user}
             onBook={() =>
               user
-                ? navigate(`book/${event.id}`) // relative navigation
-                : navigate("login", { state: { from: `book/${event.id}` } })
+                ? navigate(`book/${event.id}`) // relative OK
+                : navigate("/login", {
+                    // ✅ ABSOLUTE
+                    state: { from: `/book/${event.id}` },
+                  })
             }
           />
         ))}
@@ -109,7 +113,7 @@ const UserDashboardHome = ({ user, onLogout }) => {
       {/* FOOTER */}
       <footer className="dashboard-footer">
         <div className="footer-links">
-          <span onClick={() => navigate("")} className="footer-link">
+          <span onClick={() => navigate("/")} className="footer-link">
             Home
           </span>
 
@@ -123,7 +127,7 @@ const UserDashboardHome = ({ user, onLogout }) => {
         </p>
       </footer>
 
-      {/* CHATBOT WIDGET */}
+      {/* CHATBOT */}
       <ChatbotWidget user={user} />
     </div>
   );
