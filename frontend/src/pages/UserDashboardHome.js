@@ -100,10 +100,11 @@ const UserDashboardHome = ({ user }) => {
             user={user}
             onBook={() =>
               user
-                ? navigate(`book/${event.id}`) // relative OK
-                : navigate("/login", {
-                    // ✅ ABSOLUTE
-                    state: { from: `/book/${event.id}` },
+                ? navigate(`book/${event.id}`) // relative OK (within /dashboard)
+                : navigate("/dashboard/login", {
+                    // ✅ Fixed: added /dashboard prefix
+                    state: { from: `/dashboard/book/${event.id}` }, // ✅ Fixed: full path
+                    replace: true,
                   })
             }
           />

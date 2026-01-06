@@ -31,8 +31,13 @@ const EventDetails = ({ user }) => {
 
   const handleBookNow = () => {
     if (!user) {
-      navigate("/dashboard/login");
+      // ✅ Guest → redirect to login with return path
+      navigate("/dashboard/login", {
+        state: { from: `/dashboard/book/${event.id}` },
+        replace: true,
+      });
     } else {
+      // ✅ Logged-in → go directly to booking
       navigate(`/dashboard/book/${event.id}`);
     }
   };
