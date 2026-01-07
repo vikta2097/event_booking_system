@@ -12,9 +12,6 @@ import ContactUs from "./ContactUs";
 
 // Auth components
 import LoginForm from "../components/LoginForm";
-import SignupForm from "../components/SignupForm";
-import ForgotPasswordForm from "../components/ForgotPasswordForm";
-import ResetPasswordForm from "../components/ResetPasswordForm";
 
 // Components
 import NotificationBell from "./NotificationBell";
@@ -88,7 +85,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
 
               <button
                 className="signup-btn"
-                onClick={() => navigate("/dashboard/register")}
+                onClick={() => navigate("/dashboard/login")}
               >
                 Sign Up
               </button>
@@ -109,8 +106,6 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           <Route path="contact" element={<ContactUs />} />
 
           {/* ============ AUTH ROUTES ============ */}
-          
-          {/* Login */}
           <Route
             path="login"
             element={
@@ -122,50 +117,11 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             }
           />
 
-          {/* Register */}
-          <Route
-            path="register"
-            element={
-              user ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <SignupForm onLoginSuccess={onLoginSuccess} />
-              )
-            }
-          />
-
-          {/* Forgot Password */}
-          <Route
-            path="forgot-password"
-            element={
-              user ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <ForgotPasswordForm />
-              )
-            }
-          />
-
-          {/* Reset Password */}
-          <Route
-            path="reset-password/:token"
-            element={
-              user ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <ResetPasswordForm />
-              )
-            }
-          />
-
           {/* ============ PUBLIC ROUTES ============ */}
-          
-          {/* Event Details (public) */}
+          {/* Event Details */}
           <Route path="events/:id" element={<EventDetails user={user} />} />
 
           {/* ============ PROTECTED ROUTES ============ */}
-          
-          {/* Booking / Payment / My Bookings (requires login) */}
           <Route
             path="book/:id"
             element={
@@ -223,6 +179,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             }
           />
 
+          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </div>
