@@ -16,14 +16,15 @@ function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const logoutTimerRef = useRef(null);
 
+  // ===== LOGOUT =====
   const handleLogout = () => {
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-
     localStorage.clear();
     setUser(null);
     setToken(null);
   };
 
+  // ===== LOGIN =====
   const handleLogin = ({ token, role, user }) => {
     const loginTime = Date.now();
 
@@ -36,13 +37,13 @@ function App() {
     setUser({ ...user, role });
 
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-
     logoutTimerRef.current = setTimeout(() => {
       handleLogout();
       alert("Session expired. Please log in again.");
     }, SESSION_TIMEOUT);
   };
 
+  // ===== RESTORE SESSION =====
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
@@ -71,7 +72,6 @@ function App() {
     }
 
     setAuthChecked(true);
-
     return () => {
       if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
     };
@@ -82,7 +82,7 @@ function App() {
   const isAuthenticated = !!token;
 
   const roleRedirect = () => {
-    if (!user?.role) return "/dashboard";
+    if (!user?.role) return "/login";
     if (user.role === "admin") return "/admin/dashboard";
     if (user.role === "organizer") return "/organizer/dashboard";
     return "/dashboard";
@@ -91,17 +91,12 @@ function App() {
   return (
     <Router>
       <Routes>
-
         {/* ================= USER ================= */}
         <Route
           path="/dashboard/*"
           element={
             isAuthenticated && user?.role === "user" ? (
-              <UserDashboard
-                user={user}
-                token={token}
-                onLogout={handleLogout}
-              />
+              <UserDashboard user={user} token={token} onLogout={handleLogout} />
             ) : (
               <Navigate to={roleRedirect()} replace />
             )
@@ -125,11 +120,7 @@ function App() {
           path="/organizer/dashboard/*"
           element={
             isAuthenticated && user?.role === "organizer" ? (
-              <OrganizerDashboard
-                token={token}
-                user={user}
-                onLogout={handleLogout}
-              />
+              <OrganizerDashboard token={token} user={user} onLogout={handleLogout} />
             ) : (
               <Navigate to={roleRedirect()} replace />
             )
@@ -137,17 +128,10 @@ function App() {
         />
 
         {/* ================= AUTH ================= */}
-        <Route
-          path="/login"
-          element={<AuthForm onLoginSuccess={handleLogin} />}
-        />
+        <Route path="/login" element={<AuthForm onLoginSuccess={handleLogin} />} />
 
         {/* ================= FALLBACK ================= */}
-        <Route
-          path="*"
-          element={<Navigate to={roleRedirect()} replace />}
-        />
-
+        <Route path="*" element={<Navigate to={roleRedirect()} replace />} />
       </Routes>
     </Router>
   );

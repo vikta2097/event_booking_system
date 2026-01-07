@@ -6,21 +6,21 @@ import ResetPasswordForm from "./ResetPasswordForm";
 import "../styles/AuthForm.css";
 
 const AuthForm = ({ onLoginSuccess }) => {
-  const [view, setView] = useState("login");
+  const [view, setView] = useState("login"); // login | signup | forgot | reset
   const [resetToken, setResetToken] = useState("");
 
-  // Handle password reset token manually (optional)
+  // Detect token in URL (e.g., /reset-password/:token)
   useEffect(() => {
-  // Extract token from path like /reset-password/:token
-  const pathMatch = window.location.pathname.match(/\/reset-password\/(.+)/);
-  if (pathMatch && pathMatch[1]) {
-    setResetToken(pathMatch[1]);
-    setView("reset");
-  }
-}, []);
+    const pathMatch = window.location.pathname.match(/\/reset-password\/(.+)/);
+    if (pathMatch && pathMatch[1]) {
+      setResetToken(pathMatch[1]);
+      setView("reset");
+    }
+  }, []);
 
   const handleSwitch = (target) => {
     setView(target);
+    setResetToken(""); // clear token if switching away from reset
   };
 
   return (
@@ -32,19 +32,23 @@ const AuthForm = ({ onLoginSuccess }) => {
           onLoginSuccess={onLoginSuccess}
         />
       )}
+
       {view === "signup" && (
-        <SignupForm onLoginClick={() => handleSwitch("login")} />
+        <SignupForm
+          onLoginClick={() => handleSwitch("login")}
+        />
       )}
+
       {view === "forgot" && (
         <ForgotPasswordForm
           onLoginClick={() => handleSwitch("login")}
           onResetClick={(token) => {
             setResetToken(token);
             setView("reset");
-            // no need for URL params
           }}
         />
       )}
+
       {view === "reset" && (
         <ResetPasswordForm
           token={resetToken}
