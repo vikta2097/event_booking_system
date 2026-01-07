@@ -16,20 +16,14 @@ function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const logoutTimerRef = useRef(null);
 
-  // ===== LOGOUT =====
   const handleLogout = () => {
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
 
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("user");
-    localStorage.removeItem("loginTime");
-
+    localStorage.clear();
     setUser(null);
     setToken(null);
   };
 
-  // ===== LOGIN =====
   const handleLogin = ({ token, role, user }) => {
     const loginTime = Date.now();
 
@@ -49,7 +43,6 @@ function App() {
     }, SESSION_TIMEOUT);
   };
 
-  // ===== RESTORE SESSION =====
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
@@ -88,26 +81,31 @@ function App() {
 
   const isAuthenticated = !!token;
 
+  const roleRedirect = () => {
+    if (!user?.role) return "/dashboard";
+    if (user.role === "admin") return "/admin/dashboard";
+    if (user.role === "organizer") return "/organizer/dashboard";
+    return "/dashboard";
+  };
+
   return (
     <Router>
       <Routes>
-        {/* ================= USER DASHBOARD (LAYOUT ROUTE) ================= */}
+
+        {/* ================= USER ================= */}
         <Route
           path="/dashboard/*"
           element={
-            <UserDashboard
-              user={user}
-              token={token}
-              onLogout={handleLogout}
-              onLoginSuccess={handleLogin}
-            />
+            isAuthenticated && user?.role === "user" ? (
+              <UserDashboard
+                user={user}
+                token={token}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to={roleRedirect()} replace />
+            )
           }
-        />
-
-        {/* ================= PASSWORD RESET ================= */}
-        <Route
-          path="/reset-password/:token"
-          element={<AuthForm onLoginSuccess={handleLogin} />}
         />
 
         {/* ================= ADMIN ================= */}
@@ -117,7 +115,7 @@ function App() {
             isAuthenticated && user?.role === "admin" ? (
               <AdminDashboard token={token} onLogout={handleLogout} />
             ) : (
-              <Navigate to="/dashboard" replace />
+              <Navigate to={roleRedirect()} replace />
             )
           }
         />
@@ -133,13 +131,23 @@ function App() {
                 onLogout={handleLogout}
               />
             ) : (
-              <Navigate to="/dashboard" replace />
+              <Navigate to={roleRedirect()} replace />
             )
           }
         />
 
+        {/* ================= AUTH ================= */}
+        <Route
+          path="/login"
+          element={<AuthForm onLoginSuccess={handleLogin} />}
+        />
+
         {/* ================= FALLBACK ================= */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="*"
+          element={<Navigate to={roleRedirect()} replace />}
+        />
+
       </Routes>
     </Router>
   );
