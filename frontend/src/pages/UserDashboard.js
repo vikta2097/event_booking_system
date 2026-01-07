@@ -24,10 +24,9 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Logout clears session and sends user to login
   const handleLogout = () => {
     onLogout();
-    navigate("/dashboard/login", { replace: true }); // ✅ absolute path
+    navigate("/dashboard/login", { replace: true });
   };
 
   return (
@@ -51,7 +50,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
           <h2
             className="brand-title"
             style={{ cursor: "pointer" }}
-            onClick={() => navigate("/dashboard")} // ✅ absolute path
+            onClick={() => navigate("/dashboard")}
           >
             EventHyper
           </h2>
@@ -101,10 +100,10 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
       {/* ====================== */}
       <div className="user-content" style={{ paddingTop: "80px" }}>
         <Routes>
-          {/* Home */}
-          <Route path="" element={<UserDashboardHome user={user} />} />
+          {/* Home page */}
+          <Route index element={<UserDashboardHome user={user} />} />
 
-          {/* Contact */}
+          {/* Contact page (public) */}
           <Route path="contact" element={<ContactUs />} />
 
           {/* Login & Register */}
@@ -129,10 +128,10 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             }
           />
 
-          {/* Event Details */}
+          {/* Event Details (public) */}
           <Route path="events/:id" element={<EventDetails user={user} />} />
 
-          {/* Booking / Payment */}
+          {/* Booking / Payment / My Bookings (requires login) */}
           <Route
             path="book/:id"
             element={
@@ -147,7 +146,6 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
               )
             }
           />
-
           <Route
             path="payment/:bookingId"
             element={
@@ -162,19 +160,20 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
               )
             }
           />
-
           <Route
             path="booking-success/:bookingId"
             element={
               user ? (
                 <BookingSuccess user={user} />
               ) : (
-                <Navigate to="/dashboard/login" replace />
+                <Navigate
+                  to="/dashboard/login"
+                  state={{ from: location.pathname }}
+                  replace
+                />
               )
             }
           />
-
-          {/* My Bookings */}
           <Route
             path="my-bookings"
             element={
@@ -190,7 +189,6 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             }
           />
 
-          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </div>
