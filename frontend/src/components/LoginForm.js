@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom"; // ✅ Added useLocation
+import { useNavigate, useLocation } from "react-router-dom"; 
 import "../styles/AuthForm.css";
 import api from "../api";
 

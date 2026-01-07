@@ -11,8 +11,7 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleResetSubmit = async (e) => {
-    e.preventDefault();
+  const handleResetSubmit = async () => {
     setError("");
     setMessage("");
 
@@ -35,9 +34,10 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
     }
 
     setLoading(true);
-
     try {
-      await api.post(`/auth/reset-password/${token}`, { password });
+      // Include token in body in case backend expects it
+      await api.post("/auth/reset-password", { token, password });
+
       setMessage("Password reset successful! Redirecting to login...");
       setTimeout(() => onLoginClick(), 2000);
     } catch (err) {
@@ -45,8 +45,7 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
       if (err.response && err.response.data) {
         setError(err.response.data.message || "Reset failed");
       } else {
-        setError("Network error. Retrying in 3 seconds...");
-        setTimeout(handleResetSubmit, 3000);
+        setError("Network error. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -107,7 +106,7 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? "👁️" : "👁️‍🗨️"}
+              {showPassword ? "👁️" : "👁️"}
             </button>
           </div>
         </div>
@@ -130,7 +129,7 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
               onClick={() => setShowConfirm(!showConfirm)}
               aria-label={showConfirm ? "Hide password" : "Show password"}
             >
-              {showConfirm ? "👁️" : "👁️‍🗨️"}
+              {showConfirm ? "👁️" : "👁️"}
             </button>
           </div>
           {confirm && password !== confirm && (
