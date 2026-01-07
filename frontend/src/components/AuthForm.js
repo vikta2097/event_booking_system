@@ -6,10 +6,10 @@ import ResetPasswordForm from "./ResetPasswordForm";
 import "../styles/AuthForm.css";
 
 const AuthForm = ({ onLoginSuccess }) => {
-  const [view, setView] = useState("login"); // login | signup | forgot | reset
+  const [view, setView] = useState("login"); // login, signup, forgot, reset
   const [resetToken, setResetToken] = useState("");
 
-  // Detect token in URL (e.g., /reset-password/:token)
+  // Extract reset token from URL if available
   useEffect(() => {
     const pathMatch = window.location.pathname.match(/\/reset-password\/(.+)/);
     if (pathMatch && pathMatch[1]) {
@@ -18,10 +18,7 @@ const AuthForm = ({ onLoginSuccess }) => {
     }
   }, []);
 
-  const handleSwitch = (target) => {
-    setView(target);
-    setResetToken(""); // clear token if switching away from reset
-  };
+  const handleSwitch = (target) => setView(target);
 
   return (
     <div className="auth-container">
@@ -34,9 +31,7 @@ const AuthForm = ({ onLoginSuccess }) => {
       )}
 
       {view === "signup" && (
-        <SignupForm
-          onLoginClick={() => handleSwitch("login")}
-        />
+        <SignupForm onLoginClick={() => handleSwitch("login")} />
       )}
 
       {view === "forgot" && (

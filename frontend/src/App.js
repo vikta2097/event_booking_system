@@ -72,6 +72,7 @@ function App() {
     }
 
     setAuthChecked(true);
+
     return () => {
       if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
     };
@@ -81,17 +82,18 @@ function App() {
 
   const isAuthenticated = !!token;
 
+  // ===== Role-based redirect helper =====
   const roleRedirect = () => {
-    if (!user?.role) return "/login";
+    if (!user?.role) return "/dashboard"; // Default landing route for unauthenticated
     if (user.role === "admin") return "/admin/dashboard";
     if (user.role === "organizer") return "/organizer/dashboard";
-    return "/dashboard";
+    return "/dashboard"; // normal user
   };
 
   return (
     <Router>
       <Routes>
-        {/* ================= USER ================= */}
+        {/* ================= USER DASHBOARD ================= */}
         <Route
           path="/dashboard/*"
           element={
@@ -103,7 +105,7 @@ function App() {
           }
         />
 
-        {/* ================= ADMIN ================= */}
+        {/* ================= ADMIN DASHBOARD ================= */}
         <Route
           path="/admin/dashboard/*"
           element={
@@ -115,7 +117,7 @@ function App() {
           }
         />
 
-        {/* ================= ORGANIZER ================= */}
+        {/* ================= ORGANIZER DASHBOARD ================= */}
         <Route
           path="/organizer/dashboard/*"
           element={
