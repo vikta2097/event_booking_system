@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import "../styles/AuthForm.css";
 import api from "../api";
 
-const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
+const LoginForm = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

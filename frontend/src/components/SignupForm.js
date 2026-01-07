@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/AuthForm.css";
-import api from "../api"; // ✅ axios instance
+import api from "../api";
 
-const SignupForm = ({ onLoginClick }) => {
+const SignupForm = ({ onLoginSuccess }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -11,6 +12,8 @@ const SignupForm = ({ onLoginClick }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -27,10 +30,10 @@ const SignupForm = ({ onLoginClick }) => {
     }
 
     const passwordRegex = /^(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{6,}$/;
-if (!passwordRegex.test(password)) {
-  setError("Password must be at least 6 characters and include a lowercase letter, number, and special character");
-  return;
-}
+    if (!passwordRegex.test(password)) {
+      setError("Password must be at least 6 characters and include a lowercase letter, number, and special character");
+      return;
+    }
 
     setLoading(true);
 
@@ -42,7 +45,11 @@ if (!passwordRegex.test(password)) {
       });
 
       alert("✅ Signup successful! Please login.");
-      setTimeout(() => onLoginClick(), 1500);
+      
+      // Navigate to login page after successful signup
+      setTimeout(() => {
+        navigate("/dashboard/login");
+      }, 1500);
     } catch (err) {
       console.error("Signup error:", err);
       if (err.response && err.response.data) {
@@ -153,12 +160,13 @@ if (!passwordRegex.test(password)) {
           </button>
         </form>
 
+        {/* ✅ UPDATED: Use navigate instead of onLoginClick */}
         <div className="form-footer">
           <span>Already have an account? </span>
           <button
             type="button"
             className="link-btn primary"
-            onClick={onLoginClick}
+            onClick={() => navigate("/dashboard/login")}
           >
             Sign in
           </button>

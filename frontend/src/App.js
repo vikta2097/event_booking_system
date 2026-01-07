@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
-import AuthForm from "./components/AuthForm";
 import AdminDashboard from "./pages/AdminDashboard";
 import OrganizerDashboard from "./Organizer/OrganizerDashboard";
 import UserDashboard from "./pages/UserDashboard";

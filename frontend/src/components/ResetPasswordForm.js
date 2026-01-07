@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import "../styles/AuthForm.css";
 import api from "../api";
 
-const ResetPasswordForm = ({ token, onLoginClick }) => {
+const ResetPasswordForm = () => {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -10,6 +11,9 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  const navigate = useNavigate();
+  const { token } = useParams(); // ✅ Get token from URL params (/dashboard/reset-password/:token)
 
   const handleResetSubmit = async () => {
     setError("");
@@ -39,7 +43,11 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
       await api.post("/auth/reset-password", { token, password });
 
       setMessage("Password reset successful! Redirecting to login...");
-      setTimeout(() => onLoginClick(), 2000);
+      
+      // Navigate to login after successful reset
+      setTimeout(() => {
+        navigate("/dashboard/login");
+      }, 2000);
     } catch (err) {
       console.error("Reset password error:", err);
       if (err.response && err.response.data) {
@@ -52,6 +60,7 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
     }
   };
 
+  // ✅ Check if token exists in URL
   if (!token) {
     return (
       <div className="form-container">
@@ -61,7 +70,10 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
         <div className="error-message">
           <span>⚠️</span> No reset token provided. Please use the link from your email.
         </div>
-        <button className="submit-btn" onClick={onLoginClick}>
+        <button 
+          className="submit-btn" 
+          onClick={() => navigate("/dashboard/login")}
+        >
           Back to Login
         </button>
       </div>
@@ -145,6 +157,18 @@ const ResetPasswordForm = ({ token, onLoginClick }) => {
         >
           {loading ? "Resetting..." : "Reset Password"}
         </button>
+
+        {/* ✅ UPDATED: Use navigate instead of onLoginClick */}
+        <div className="form-footer">
+          <span>Remember your password? </span>
+          <button
+            type="button"
+            className="link-btn primary"
+            onClick={() => navigate("/dashboard/login")}
+          >
+            Back to Login
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,12 +1,15 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/AuthForm.css";
 import api from "../api";
 
-const ForgotPasswordForm = ({ onLoginClick, onResetClick }) => {
+const ForgotPasswordForm = () => {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
@@ -25,11 +28,20 @@ const ForgotPasswordForm = ({ onLoginClick, onResetClick }) => {
 
       if (res.data && res.data.token) {
         setMessage("Check your email for the reset link!");
-        // Pass token to ResetPasswordForm if you want inline reset
-        onResetClick && onResetClick(res.data.token);
+        
+        // Optional: If backend returns token directly, navigate to reset page
+        // setTimeout(() => {
+        //   navigate(`/dashboard/reset-password/${res.data.token}`);
+        // }, 2000);
       } else {
         setMessage("If the email exists, a reset link has been sent.");
       }
+
+      // Optionally redirect to login after showing message
+      setTimeout(() => {
+        navigate("/dashboard/login");
+      }, 3000);
+      
     } catch (err) {
       console.error("Forgot password error:", err);
       if (err.response && err.response.data) {
@@ -87,12 +99,13 @@ const ForgotPasswordForm = ({ onLoginClick, onResetClick }) => {
           </button>
         </form>
 
+        {/* ✅ UPDATED: Use navigate instead of onLoginClick */}
         <div className="form-footer">
           <span>Remembered your password? </span>
           <button
             type="button"
             className="link-btn primary"
-            onClick={onLoginClick}
+            onClick={() => navigate("/dashboard/login")}
           >
             Sign in
           </button>
