@@ -11,10 +11,10 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
-  const location = useLocation(); // ✅ Capture current location
+  const location = useLocation();
 
-  // ✅ Determine where to redirect after login
-  const from = location.state?.from || null; // null if direct login click
+  // Get the page user was trying to access before login
+  const from = location.state?.from || null;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -50,10 +50,12 @@ const LoginForm = ({ onSignupClick, onForgotClick, onLoginSuccess }) => {
       });
 
       // ✅ Post-login redirect logic
-      if (from) {
-        navigate(from, { replace: true }); // Return user to intended page
+      // If user was trying to access a specific page, return them there
+      // BUT: if they were on public dashboard (/dashboard) or root, redirect to role dashboard
+      if (from && from !== "/dashboard" && from !== "/") {
+        navigate(from, { replace: true });
       } else {
-        // Default role-based redirect
+        // Default role-based redirect after login
         if (role === "admin") {
           navigate("/admin/dashboard", { replace: true });
         } else if (role === "organizer") {
