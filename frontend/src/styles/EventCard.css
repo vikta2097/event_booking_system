@@ -1,3 +1,10 @@
+/* ===========================
+   EVENT CARD - CLEAN VERSION
+=========================== */
+
+/* ===========================
+   MAIN CARD
+=========================== */
 .event-card {
   background-color: #fff;
   border-radius: 14px;
@@ -6,6 +13,7 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .event-card:hover {
@@ -13,8 +21,28 @@
   box-shadow: 0 10px 26px rgba(0,0,0,0.12);
 }
 
-/* IMAGE SECTION */
+.event-card.loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.event-card.loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
+  animation: shimmer 1.5s infinite;
+  z-index: 3;
+}
+
+/* ===========================
+   IMAGE SECTION
+=========================== */
 .event-image-wrapper {
+  position: relative;
   width: 100%;
   height: 190px;
   overflow: hidden;
@@ -26,91 +54,32 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.4s ease;
 }
 
-/* DETAILS */
-.event-details {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.event-card:hover .event-image-wrapper img {
+  transform: scale(1.05);
 }
 
-.event-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #222;
-  margin: 0;
-  line-height: 1.4;
+.event-image-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 1;
 }
 
-.event-venue,
-.event-date,
-.event-price {
-  font-size: 14px;
-  color: #555;
-  margin: 0;
+.event-card:hover .event-image-wrapper::after {
+  opacity: 1;
 }
-
-/* ORGANIZER SECTION */
-.event-organizer {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: #f6f9ff;
-  border-left: 3px solid #3b82f6;
-}
-
-.organizer-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1e3a8a;
-  margin-bottom: 6px;
-}
-
-.organizer-name,
-.organizer-email,
-.organizer-phone {
-  font-size: 13px;
-  color: #333;
-  margin: 2px 0;
-}
-
-/* BUTTON */
-.book-btn {
-  margin-top: 12px;
-  padding: 10px 15px;
-  background-color: #0077ff;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
-}
-
-.book-btn:hover {
-  background-color: #005fcc;
-}
-
-/* MOBILE FRIENDLY */
-@media (max-width: 480px) {
-  .event-image-wrapper {
-    height: 160px;
-  }
-
-  .event-title {
-    font-size: 17px;
-  }
-
-  .event-details {
-    padding: 14px;
-  }
-}
-
 
 /* ===========================
-   ENHANCED BADGES & INDICATORS
+   BADGES & INDICATORS
 =========================== */
 .event-badges-top {
   position: absolute;
@@ -159,13 +128,8 @@
   color: white;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
-}
-
 /* ===========================
-   ACTION BUTTONS (Favorite/Share)
+   ACTION BUTTONS
 =========================== */
 .event-actions {
   position: absolute;
@@ -205,6 +169,32 @@
 .action-btn.share-btn:hover {
   background-color: rgba(59, 130, 246, 0.95);
   color: white;
+}
+
+/* ===========================
+   DETAILS SECTION
+=========================== */
+.event-details {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.event-venue,
+.event-date,
+.event-price {
+  font-size: 14px;
+  color: #555;
+  margin: 0;
 }
 
 /* ===========================
@@ -257,7 +247,7 @@
 }
 
 /* ===========================
-   PRICING WITH DISCOUNTS
+   PRICING
 =========================== */
 .event-pricing {
   display: flex;
@@ -287,8 +277,31 @@
 }
 
 /* ===========================
-   ORGANIZER RATING
+   ORGANIZER SECTION
 =========================== */
+.event-organizer {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f6f9ff;
+  border-left: 3px solid #3b82f6;
+}
+
+.organizer-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e3a8a;
+  margin-bottom: 6px;
+}
+
+.organizer-name,
+.organizer-email,
+.organizer-phone {
+  font-size: 13px;
+  color: #333;
+  margin: 2px 0;
+}
+
 .organizer-rating {
   display: flex;
   align-items: center;
@@ -322,64 +335,26 @@
 }
 
 /* ===========================
-   HOVER EFFECTS
+   BOOK BUTTON
 =========================== */
-.event-image-wrapper {
-  position: relative;
-  overflow: hidden;
+.book-btn {
+  margin-top: 12px;
+  padding: 10px 15px;
+  background-color: #0077ff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+  width: 100%;
+  font-size: 14px;
 }
 
-.event-image-wrapper::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 50%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+.book-btn:hover {
+  background-color: #005fcc;
 }
 
-.event-card:hover .event-image-wrapper::after {
-  opacity: 1;
-}
-
-.event-image-wrapper img {
-  transition: transform 0.4s ease;
-}
-
-.event-card:hover .event-image-wrapper img {
-  transform: scale(1.05);
-}
-
-/* ===========================
-   LOADING STATE
-=========================== */
-.event-card.loading {
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-.event-card.loading::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
-  animation: shimmer 1.5s infinite;
-}
-
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-/* ===========================
-   SOLD OUT STATE
-=========================== */
 .book-btn.sold-out {
   background-color: #9ca3af;
   cursor: not-allowed;
@@ -388,4 +363,49 @@
 .book-btn.sold-out:hover {
   background-color: #9ca3af;
   transform: none;
+}
+
+/* ===========================
+   ANIMATIONS
+=========================== */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ===========================
+   RESPONSIVE
+=========================== */
+@media (max-width: 480px) {
+  .event-image-wrapper {
+    height: 160px;
+  }
+
+  .event-title {
+    font-size: 17px;
+  }
+
+  .event-details {
+    padding: 14px;
+  }
+  
+  .event-badges-top {
+    gap: 6px;
+  }
+  
+  .badge {
+    padding: 3px 10px;
+    font-size: 10px;
+  }
+  
+  .action-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
 }
