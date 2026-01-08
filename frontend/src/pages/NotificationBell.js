@@ -135,23 +135,44 @@ useEffect(() => {
 
   const handleDropdownPosition = () => {
     const dropdown = dropdownRef.current.querySelector('.notification-dropdown');
-    if (!dropdown) return;
+    const bellButton = dropdownRef.current.querySelector('.notification-bell-button');
+    if (!dropdown || !bellButton) return;
 
-    const rect = dropdown.getBoundingClientRect();
+    const bellRect = bellButton.getBoundingClientRect();
+    const dropdownWidth = dropdown.offsetWidth;
+    const dropdownHeight = dropdown.offsetHeight;
 
-    // If dropdown overflows on the right, move it slightly left
-    if (rect.right > window.innerWidth) {
-      dropdown.style.right = "10px";
-    } else {
-      dropdown.style.right = "0px";
+    let top = bellRect.bottom + 8; // small gap below bell
+    let left = bellRect.right - dropdownWidth; // align right edge
+
+    // Adjust if overflowing right
+    if (left + dropdownWidth > window.innerWidth) {
+      left = window.innerWidth - dropdownWidth - 8; // 8px padding from screen
     }
+
+    // Adjust if overflowing left
+    if (left < 8) left = 8;
+
+    // Adjust if dropdown would overflow bottom
+    if (top + dropdownHeight > window.innerHeight) {
+      top = bellRect.top - dropdownHeight - 8; // show above bell instead
+    }
+
+    dropdown.style.position = "fixed";
+    dropdown.style.top = `${top}px`;
+    dropdown.style.left = `${left}px`;
   };
 
   handleDropdownPosition();
   window.addEventListener("resize", handleDropdownPosition);
+  window.addEventListener("scroll", handleDropdownPosition); // handle scrolling
 
-  return () => window.removeEventListener("resize", handleDropdownPosition);
+  return () => {
+    window.removeEventListener("resize", handleDropdownPosition);
+    window.removeEventListener("scroll", handleDropdownPosition);
+  };
 }, [isOpen]);
+
 
 
   const fetchNotifications = async () => {
