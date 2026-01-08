@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import api from "../api";
 import "../styles/Reports.css";
 import {
@@ -20,7 +20,7 @@ import {
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-const OrganizerReports = ({ currentUser }) => {
+const OrganizerReports = () => {
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState({ totalRevenue: 0, totalBookings: 0, totalEvents: 0 });
   const [analytics, setAnalytics] = useState(null);
@@ -37,10 +37,9 @@ const OrganizerReports = ({ currentUser }) => {
   const [darkMode, setDarkMode] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
-  const [previousPeriodData, setPreviousPeriodData] = useState(null);
 
   // Fetch reports for organizer's events only
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -57,14 +56,13 @@ const OrganizerReports = ({ currentUser }) => {
         const prevStart = new Date(start.getTime() - diff);
         const prevEnd = new Date(start);
 
-        const prevRes = await api.get("/reports/organizer", {
+        await api.get("/reports/organizer", {
           params: {
             ...filters,
             startDate: prevStart.toISOString().split('T')[0],
             endDate: prevEnd.toISOString().split('T')[0]
           }
         });
-        setPreviousPeriodData(prevRes.data);
       }
     } catch (err) {
       console.error(err);
@@ -72,14 +70,14 @@ const OrganizerReports = ({ currentUser }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, compareMode]);
 
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [fetchReports]);
 
   // Quick date range selector
-  const applyDateRange = (range) => {
+  const applyDateRange = useCallback((range) => {
     const end = new Date();
     const start = new Date();
 
@@ -111,7 +109,7 @@ const OrganizerReports = ({ currentUser }) => {
       startDate: start.toISOString().split("T")[0],
       endDate: end.toISOString().split("T")[0],
     }));
-  };
+  }, []);
 
   // Enhanced analytics with predictions
   const enhancedAnalytics = useMemo(() => {
@@ -257,7 +255,7 @@ const OrganizerReports = ({ currentUser }) => {
   const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
   // Export to CSV
-  const exportToCSV = () => {
+  const exportToCSV = useCallback(() => {
     if (!reports || reports.length === 0) return;
 
     const headers = [
@@ -297,10 +295,10 @@ const OrganizerReports = ({ currentUser }) => {
     a.download = `organizer-reports-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
-  };
+  }, [reports]);
 
   // Export to PDF
-  const exportToPDF = () => {
+  const exportToPDF = useCallback(() => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
 
@@ -356,7 +354,7 @@ const OrganizerReports = ({ currentUser }) => {
     }
 
     doc.save(`organizer-report-${new Date().toISOString().split("T")[0]}.pdf`);
-  };
+  }, [filters, stats, enhancedAnalytics, reports]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -368,11 +366,11 @@ const OrganizerReports = ({ currentUser }) => {
     fetchReports();
   };
 
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setFilters({ startDate: "", endDate: "", eventId: "", paymentStatus: "" });
     setDateRange("30days");
     fetchReports();
-  };
+  }, [fetchReports]);
 
   const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
 
