@@ -7,7 +7,7 @@
   align-items: center;
 }
 
-/* Bell button - Enhanced for visibility */
+/* Bell button */
 .notification-bell-button {
   position: relative;
   background: white;
@@ -51,10 +51,11 @@
 /* ============================ */
 .notification-dropdown {
   position: absolute;
-  right: 0;
   top: 50px;
+  right: 0;
   width: 320px;
-  max-height: 480px;
+  max-width: 95vw; /* never exceed viewport width */
+  max-height: 80vh; /* never exceed 80% of viewport height */
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.15);
@@ -62,6 +63,7 @@
   display: flex;
   flex-direction: column;
   z-index: 50;
+  transition: right 0.2s ease;
 }
 
 /* Header */
@@ -81,69 +83,7 @@
   color: #1a1a1a;
 }
 
-.notification-header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.icon-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background 0.2s;
-}
-
-.icon-btn:hover {
-  background: rgba(0,0,0,0.05);
-}
-
-/* Mark all read button */
-.mark-all-read-btn {
-  background: #10b981;
-  color: #fff;
-  border-radius: 6px;
-  padding: 2px 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.mark-all-read-btn:hover {
-  background: #059669;
-}
-
-/* Filter Tabs */
-.notification-filters {
-  display: flex;
-  justify-content: space-around;
-  border-bottom: 1px solid #f0f0f0;
-  background: #f9f9f9;
-}
-
-.notification-filters button {
-  flex: 1;
-  padding: 6px 0;
-  font-size: 0.85rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.notification-filters button.active {
-  background: #10b981;
-  color: white;
-  font-weight: 600;
-}
-
-/* Notification list */
+/* Notification List */
 .notification-list {
   flex: 1;
   overflow-y: auto;
@@ -168,6 +108,7 @@
   background: #f9f9f9;
 }
 
+/* Notification Content */
 .notification-icon {
   font-size: 1.3rem;
   width: 28px;
@@ -197,7 +138,7 @@
   color: #999;
 }
 
-/* Actions inside each notification */
+/* Notification Actions */
 .notification-actions {
   display: flex;
   flex-direction: column;
@@ -215,21 +156,6 @@
 
 .mark-read-btn:hover, .delete-btn:hover {
   background: rgba(0,0,0,0.05);
-}
-
-/* Loading / Empty states */
-.notification-loading, .notification-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 10px;
-  color: #666;
-}
-
-.notification-empty p {
-  margin-top: 12px;
-  font-size: 0.875rem;
 }
 
 /* Footer */
@@ -254,7 +180,7 @@
   background: #059669;
 }
 
-/* Scrollbar for notification list */
+/* Scrollbar */
 .notification-list::-webkit-scrollbar {
   width: 6px;
 }
@@ -276,9 +202,10 @@
 /* Responsive */
 @media (max-width: 768px) {
   .notification-dropdown {
-    width: 280px;
+    width: auto;
+    right: 10px;
+    max-width: 95vw;
     top: 45px;
-    right: -10px;
   }
 
   .notification-bell-button {

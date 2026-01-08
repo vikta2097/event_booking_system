@@ -129,6 +129,31 @@ const NotificationBell = ({ user }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Ensure dropdown stays within viewport horizontally
+useEffect(() => {
+  if (!isOpen) return;
+
+  const handleDropdownPosition = () => {
+    const dropdown = dropdownRef.current.querySelector('.notification-dropdown');
+    if (!dropdown) return;
+
+    const rect = dropdown.getBoundingClientRect();
+
+    // If dropdown overflows on the right, move it slightly left
+    if (rect.right > window.innerWidth) {
+      dropdown.style.right = "10px";
+    } else {
+      dropdown.style.right = "0px";
+    }
+  };
+
+  handleDropdownPosition();
+  window.addEventListener("resize", handleDropdownPosition);
+
+  return () => window.removeEventListener("resize", handleDropdownPosition);
+}, [isOpen]);
+
+
   const fetchNotifications = async () => {
     try {
       setLoading(true);
