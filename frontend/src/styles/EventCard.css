@@ -107,3 +107,285 @@
     padding: 14px;
   }
 }
+
+
+/* ===========================
+   ENHANCED BADGES & INDICATORS
+=========================== */
+.event-badges-top {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  z-index: 2;
+}
+
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.badge-sold-out {
+  background-color: rgba(239, 68, 68, 0.95);
+  color: white;
+}
+
+.badge-early-bird {
+  background-color: rgba(16, 185, 129, 0.95);
+  color: white;
+}
+
+.badge-trending {
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+.badge-almost-full {
+  background-color: rgba(251, 191, 36, 0.95);
+  color: #78350f;
+}
+
+.badge-category {
+  background-color: rgba(59, 130, 246, 0.9);
+  color: white;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* ===========================
+   ACTION BUTTONS (Favorite/Share)
+=========================== */
+.event-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.action-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.action-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.action-btn.favorite-btn.active {
+  background-color: rgba(239, 68, 68, 0.95);
+  color: white;
+}
+
+.action-btn.share-btn:hover {
+  background-color: rgba(59, 130, 246, 0.95);
+  color: white;
+}
+
+/* ===========================
+   COUNTDOWN TIMER
+=========================== */
+.event-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #78350f;
+  margin-bottom: 8px;
+}
+
+/* ===========================
+   AVAILABILITY INDICATORS
+=========================== */
+.event-availability {
+  margin: 8px 0;
+}
+
+.availability-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background-color: #fef2f2;
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.availability-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background-color: #eff6ff;
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1e40af;
+}
+
+/* ===========================
+   PRICING WITH DISCOUNTS
+=========================== */
+.event-pricing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.price-discount {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.price-discount s {
+  color: #9ca3af;
+}
+
+.discount-percentage {
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ===========================
+   ORGANIZER RATING
+=========================== */
+.organizer-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.rating-stars {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.event-count {
+  color: #9ca3af;
+}
+
+.verified-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* ===========================
+   HOVER EFFECTS
+=========================== */
+.event-image-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.event-image-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.event-card:hover .event-image-wrapper::after {
+  opacity: 1;
+}
+
+.event-image-wrapper img {
+  transition: transform 0.4s ease;
+}
+
+.event-card:hover .event-image-wrapper img {
+  transform: scale(1.05);
+}
+
+/* ===========================
+   LOADING STATE
+=========================== */
+.event-card.loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.event-card.loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ===========================
+   SOLD OUT STATE
+=========================== */
+.book-btn.sold-out {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.book-btn.sold-out:hover {
+  background-color: #9ca3af;
+  transform: none;
+}

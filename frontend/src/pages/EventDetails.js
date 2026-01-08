@@ -7,14 +7,52 @@ const EventDetails = ({ user }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
+  const [ticketTypes, setTicketTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [similarEvents, setSimilarEvents] = useState([]);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
-    const fetchEvent = async () => {
+    const fetchEventDetails = async () => {
       try {
-        const res = await api.get(`/events/${id}`);
-        setEvent(res.data);
+        setLoading(true);
+        
+        // Fetch event details
+        const eventRes = await api.get(`/events/${id}`);
+        setEvent(eventRes.data);
+
+        // Fetch ticket types
+        const ticketsRes = await api.get(`/events/${id}/ticket-types`);
+        setTicketTypes(ticketsRes.data.ticket_types || []);
+
+        // Fetch similar events
+        if (eventRes.data.category_id) {
+          const similarRes = await api.get(`/events?category=${eventRes.data.category_id}&limit=4&exclude=${id}`);
+          setSimilarEvents(similarRes.data.events || similarRes.data || []);
+        }
+
+        // Check if favorited (if user logged in)
+        if (user) {
+          try {
+            const favRes = await api.get(`/events/${id}/is-favorite`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+            });
+            setIsFavorite(favRes.data.is_favorite);
+          } catch (err) {
+            console.log("Not checking favorite status");
+          }
+        }
+
+        // Track view for analytics
+        if (user) {
+          api.post(`/events/${id}/track-view`, {}, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+          }).catch(err => console.log("View tracking failed"));
+        }
+
       } catch (err) {
         console.error(err);
         setError("Failed to load event details.");
@@ -22,24 +60,80 @@ const EventDetails = ({ user }) => {
         setLoading(false);
       }
     };
-    fetchEvent();
-  }, [id]);
+    
+    fetchEventDetails();
+  }, [id, user]);
 
-  if (loading) return <p className="loading-text">Loading event details...</p>;
+  if (loading) {
+    return (
+      <div className="event-details-loading">
+        <div className="spinner-large"></div>
+        <p>Loading event details...</p>
+      </div>
+    );
+  }
+
   if (error) return <p className="error-text">{error}</p>;
   if (!event) return <p className="no-event">Event not found.</p>;
 
   const handleBookNow = () => {
     if (!user) {
-      // ✅ Guest → redirect to login with return path
       navigate("/dashboard/login", {
         state: { from: `/dashboard/book/${event.id}` },
         replace: true,
       });
     } else {
-      // ✅ Logged-in → go directly to booking
       navigate(`/dashboard/book/${event.id}`);
     }
+  };
+
+  const handleFavoriteToggle = async () => {
+    if (!user) {
+      alert("Please login to save favorites");
+      return;
+    }
+
+    try {
+      if (isFavorite) {
+        await api.delete(`/events/${id}/favorite`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        });
+      } else {
+        await api.post(`/events/${id}/favorite`, {}, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        });
+      }
+      setIsFavorite(!isFavorite);
+    } catch (err) {
+      console.error("Error toggling favorite:", err);
+      alert("Failed to update favorite");
+    }
+  };
+
+  const handleShare = async (platform) => {
+    const eventUrl = window.location.href;
+    const text = `Check out ${event.title} on ${formatDate(event.event_date)}!`;
+    
+    const shareUrls = {
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(text + " " + eventUrl)}`,
+      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(eventUrl)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(eventUrl)}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(eventUrl)}`,
+      copy: eventUrl
+    };
+
+    if (platform === "copy") {
+      try {
+        await navigator.clipboard.writeText(eventUrl);
+        alert("Link copied to clipboard!");
+      } catch (err) {
+        console.error("Failed to copy:", err);
+      }
+    } else {
+      window.open(shareUrls[platform], "_blank", "width=600,height=400");
+    }
+    
+    setShowShareModal(false);
   };
 
   const formatDate = (dateStr) => {
@@ -53,48 +147,293 @@ const EventDetails = ({ user }) => {
 
   const formatPrice = (price) => {
     if (!price || isNaN(price)) return "Free";
-    return `From KES ${Number(price).toLocaleString()}`;
+    return `KES ${Number(price).toLocaleString()}`;
   };
 
+  const availableSeats = event.capacity - (event.total_seats_booked || 0);
+  const isSoldOut = availableSeats <= 0;
+
+  // Handle multiple images (if available)
+  const eventImages = event.images || [event.image || "/placeholder.jpg"];
+
   return (
-    <div className="event-details">
-      {/* Correct backend field: event.image */}
-      <img src={event.image || "/placeholder.jpg"} alt={event.title} />
+    <div className="event-details-container">
+      {/* Hero Section */}
+      <div className="event-hero">
+        <div className="event-image-gallery">
+          <img 
+            src={eventImages[activeImageIndex]} 
+            alt={event.title} 
+            className="main-image"
+          />
+          
+          {eventImages.length > 1 && (
+            <div className="image-thumbnails">
+              {eventImages.map((img, idx) => (
+                <img
+                  key={idx}
+                  src={img}
+                  alt={`View ${idx + 1}`}
+                  className={`thumbnail ${idx === activeImageIndex ? 'active' : ''}`}
+                  onClick={() => setActiveImageIndex(idx)}
+                />
+              ))}
+            </div>
+          )}
 
-      <div className="event-info">
-        <h2>{event.title}</h2>
+          {/* Quick actions overlay */}
+          <div className="hero-actions">
+            <button 
+              className={`action-btn ${isFavorite ? 'active' : ''}`}
+              onClick={handleFavoriteToggle}
+              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              {isFavorite ? '❤️' : '🤍'}
+            </button>
+            <button 
+              className="action-btn"
+              onClick={() => setShowShareModal(true)}
+              title="Share event"
+            >
+              📤
+            </button>
+          </div>
+        </div>
 
-        <p className="event-description">{event.description}</p>
-
-        <p><strong>Venue:</strong> {event.location}</p>
-        <p><strong>Date:</strong> {formatDate(event.event_date)}</p>
-        <p><strong>Price:</strong> {formatPrice(event.price)}</p>
-
-        {/* ---- OPTIONAL ORGANIZER INFO ---- */}
-        {(event.organizer_name ||
-          event.organizer_email ||
-          event.organizer_profile) && (
-          <div className="organizer-section">
-            <h3>Organized By</h3>
-
-            {event.organizer_name && (
-              <p><strong>Name:</strong> {event.organizer_name}</p>
+        {/* Event header info */}
+        <div className="event-header-info">
+          <div className="event-badges">
+            {event.category_name && (
+              <span className="badge badge-category">{event.category_name}</span>
             )}
-
-            {event.organizer_email && (
-              <p><strong>Email:</strong> {event.organizer_email}</p>
+            {isSoldOut && (
+              <span className="badge badge-sold-out">Sold Out</span>
             )}
-
-            {event.organizer_profile && (
-              <p><strong>About:</strong> {event.organizer_profile}</p>
+            {event.is_early_bird && (
+              <span className="badge badge-early-bird">Early Bird</span>
             )}
           </div>
-        )}
 
-        <button onClick={handleBookNow}>
-          {user ? "Book Now" : "Login to Book"}
-        </button>
+          <h1 className="event-title">{event.title}</h1>
+          
+          <div className="event-meta">
+            <div className="meta-item">
+              <span className="icon">📅</span>
+              <span>{formatDate(event.event_date)}</span>
+            </div>
+            <div className="meta-item">
+              <span className="icon">⏰</span>
+              <span>{event.start_time} - {event.end_time}</span>
+            </div>
+            <div className="meta-item">
+              <span className="icon">📍</span>
+              <span>{event.location}</span>
+            </div>
+            {!isSoldOut && (
+              <div className="meta-item">
+                <span className="icon">🎫</span>
+                <span>{availableSeats} seats available</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <div className="event-content">
+        {/* Left Column - Details */}
+        <div className="event-main">
+          {/* Description */}
+          <section className="content-section">
+            <h2>About This Event</h2>
+            <p className="event-description">{event.description}</p>
+          </section>
+
+          {/* Ticket Types */}
+          {ticketTypes.length > 0 && (
+            <section className="content-section">
+              <h2>Available Tickets</h2>
+              <div className="ticket-types-grid">
+                {ticketTypes.map((ticket) => {
+                  const ticketAvailable = ticket.quantity_available - ticket.quantity_sold;
+                  const isTicketSoldOut = ticketAvailable <= 0;
+                  
+                  return (
+                    <div key={ticket.id} className={`ticket-type-card ${isTicketSoldOut ? 'sold-out' : ''}`}>
+                      <div className="ticket-header">
+                        <h3>{ticket.name}</h3>
+                        <p className="ticket-price">{formatPrice(ticket.price)}</p>
+                      </div>
+                      {ticket.description && (
+                        <p className="ticket-description">{ticket.description}</p>
+                      )}
+                      <div className="ticket-footer">
+                        {isTicketSoldOut ? (
+                          <span className="ticket-status sold-out">Sold Out</span>
+                        ) : (
+                          <span className="ticket-status available">
+                            {ticketAvailable} available
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Venue Details */}
+          {(event.venue || event.parking_info) && (
+            <section className="content-section">
+              <h2>Venue Information</h2>
+              {event.venue && <p><strong>Venue:</strong> {event.venue}</p>}
+              {event.parking_info && <p><strong>Parking:</strong> {event.parking_info}</p>}
+            </section>
+          )}
+
+          {/* Map */}
+          {event.map_link && (
+            <section className="content-section">
+              <h2>Location Map</h2>
+              <div className="map-container">
+                <iframe
+                  src={event.map_link}
+                  width="100%"
+                  height="400"
+                  style={{ border: 0 }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Event location map"
+                ></iframe>
+              </div>
+              <a 
+                href={event.map_link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="map-link"
+              >
+                📍 Open in Google Maps
+              </a>
+            </section>
+          )}
+
+          {/* Organizer Info */}
+          {event.organizer_name && (
+            <section className="content-section organizer-section">
+              <h2>Organized By</h2>
+              <div className="organizer-card">
+                {event.organizer_profile && (
+                  <img 
+                    src={event.organizer_profile} 
+                    alt={event.organizer_name}
+                    className="organizer-avatar"
+                  />
+                )}
+                <div className="organizer-details">
+                  <h3>
+                    {event.organizer_name}
+                    {event.is_verified_organizer && (
+                      <span className="verified-badge" title="Verified">✓</span>
+                    )}
+                  </h3>
+                  {event.organizer_rating && (
+                    <div className="organizer-rating">
+                      ⭐ {event.organizer_rating.toFixed(1)} 
+                      {event.organizer_event_count && (
+                        <span> · {event.organizer_event_count} events hosted</span>
+                      )}
+                    </div>
+                  )}
+                  {event.organizer_email && (
+                    <p className="organizer-contact">
+                      📧 {event.organizer_email}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Right Column - Booking Card */}
+        <aside className="event-sidebar">
+          <div className="booking-card sticky">
+            <div className="booking-price">
+              <span className="price-label">Starting from</span>
+              <h2 className="price-value">{formatPrice(event.price)}</h2>
+            </div>
+
+            <button 
+              className={`book-btn-large ${isSoldOut ? 'sold-out' : ''}`}
+              onClick={handleBookNow}
+              disabled={isSoldOut}
+            >
+              {isSoldOut ? "Sold Out" : user ? "Book Now" : "Login to Book"}
+            </button>
+
+            <div className="booking-features">
+              <div className="feature">✓ Instant confirmation</div>
+              <div className="feature">✓ E-ticket via email</div>
+              <div className="feature">✓ Mobile entry</div>
+              <div className="feature">✓ Free cancellation</div>
+            </div>
+          </div>
+
+          {/* Similar Events */}
+          {similarEvents.length > 0 && (
+            <div className="similar-events">
+              <h3>Similar Events</h3>
+              <div className="similar-events-list">
+                {similarEvents.map(simEvent => (
+                  <div 
+                    key={simEvent.id} 
+                    className="similar-event-item"
+                    onClick={() => navigate(`/dashboard/events/${simEvent.id}`)}
+                  >
+                    <img src={simEvent.image || "/placeholder.jpg"} alt={simEvent.title} />
+                    <div className="similar-event-info">
+                      <h4>{simEvent.title}</h4>
+                      <p>{formatDate(simEvent.event_date)}</p>
+                      <p className="price">{formatPrice(simEvent.price)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="modal-overlay" onClick={() => setShowShareModal(false)}>
+          <div className="share-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Share this event</h3>
+            <div className="share-buttons">
+              <button onClick={() => handleShare("whatsapp")} className="share-btn whatsapp">
+                WhatsApp
+              </button>
+              <button onClick={() => handleShare("twitter")} className="share-btn twitter">
+                Twitter
+              </button>
+              <button onClick={() => handleShare("facebook")} className="share-btn facebook">
+                Facebook
+              </button>
+              <button onClick={() => handleShare("linkedin")} className="share-btn linkedin">
+                LinkedIn
+              </button>
+              <button onClick={() => handleShare("copy")} className="share-btn copy">
+                Copy Link
+              </button>
+            </div>
+            <button className="close-modal" onClick={() => setShowShareModal(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

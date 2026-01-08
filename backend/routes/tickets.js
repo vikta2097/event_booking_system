@@ -7,7 +7,7 @@ const QRCode = require("qrcode");
 
 // ======================
 // POST /tickets/validate
-// Validate and mark ticket as used (Admin/Staff only)
+// Validate and mark ticket as used (Admin/Staff only) - Enhanced with fraud detection
 // ======================
 router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
   const client = await db.getClient();
@@ -15,7 +15,6 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { qr_code, manual_code } = req.body;
 
-    // Must provide either QR code or manual code
     if (!qr_code && !manual_code) {
       return res.status(400).json({ 
         valid: false, 
@@ -25,7 +24,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
 
     await client.query("BEGIN");
 
-    // Find ticket by either QR code OR manual code
+    // Find ticket
     let ticketResult;
     if (qr_code) {
       ticketResult = await client.query(`
@@ -37,6 +36,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
           t.used_at,
           t.booking_id,
           t.ticket_type_id,
+          t.validated_by,
           tt.name AS ticket_type_name,
           b.reference AS booking_reference,
           b.status AS booking_status,
@@ -60,8 +60,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
         FOR UPDATE
       `, [qr_code]);
     } else {
-      // Normalize manual code (remove spaces, convert to uppercase)
-      const normalizedCode = manual_code.replace(/[\s\-]/g, '').toUpperCase();
+      const normalizedCode = manual_code.replace(/[\s-]/g, '').toUpperCase();
       
       ticketResult = await client.query(`
         SELECT 
@@ -72,6 +71,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
           t.used_at,
           t.booking_id,
           t.ticket_type_id,
+          t.validated_by,
           tt.name AS ticket_type_name,
           b.reference AS booking_reference,
           b.status AS booking_status,
@@ -96,7 +96,6 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
       `, [normalizedCode]);
     }
 
-    // Ticket not found
     if (ticketResult.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ 
@@ -109,7 +108,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
 
     const ticket = ticketResult.rows[0];
 
-    // Check if booking is confirmed
+    // Check booking status
     if (ticket.booking_status !== "confirmed") {
       await client.query("ROLLBACK");
       return res.status(400).json({ 
@@ -122,7 +121,33 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
-    // Check if ticket already used
+    // FRAUD DETECTION: Check for duplicate scans within last 5 seconds
+    if (ticket.used_at) {
+      const timeSinceLastScan = Date.now() - new Date(ticket.used_at).getTime();
+      if (timeSinceLastScan < 5000) {
+        // Log fraud attempt
+        await client.query(`
+          INSERT INTO fraud_alerts (ticket_id, alert_type, details, created_at)
+          VALUES ($1, 'duplicate_scan', $2, NOW())
+        `, [ticket.id, `Scan attempted ${timeSinceLastScan}ms after last scan`]);
+
+        await client.query("ROLLBACK");
+        return res.status(400).json({ 
+          valid: false, 
+          message: "⚠️ FRAUD ALERT: Ticket scanned multiple times in short period",
+          ticket: {
+            id: ticket.id,
+            manual_code: ticket.manual_code,
+            ticket_type: ticket.ticket_type_name,
+            used_at: ticket.used_at,
+            attendee_name: ticket.attendee_name,
+            event_title: ticket.event_title
+          }
+        });
+      }
+    }
+
+    // Check if already used
     if (ticket.status === "used") {
       await client.query("ROLLBACK");
       return res.status(400).json({ 
@@ -139,7 +164,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
-    // Check if ticket is cancelled
+    // Check if cancelled
     if (ticket.status === "cancelled") {
       await client.query("ROLLBACK");
       return res.status(400).json({ 
@@ -148,7 +173,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
-    // Check if event date matches today (optional - remove if you want early check-in)
+    // Check event date
     const eventDate = new Date(ticket.event_date).toDateString();
     const today = new Date().toDateString();
     
@@ -172,12 +197,17 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
       WHERE id = $2
     `, [req.user.id, ticket.id]);
 
+    // Log validation event
+    await client.query(`
+      INSERT INTO ticket_validations (ticket_id, validated_by, validated_at, validation_method)
+      VALUES ($1, $2, NOW(), $3)
+    `, [ticket.id, req.user.id, qr_code ? 'qr_scan' : 'manual']);
+
     await client.query("COMMIT");
 
-    // Return success with ticket details
     res.json({
       valid: true,
-      message: "Ticket validated successfully",
+      message: "✅ Ticket validated successfully",
       ticket: {
         id: ticket.id,
         manual_code: ticket.manual_code,
@@ -207,7 +237,7 @@ router.post("/validate", verifyToken, verifyAdmin, async (req, res) => {
 
 // ======================
 // GET /tickets/validate/:qr_code
-// Check ticket status without marking as used (preview)
+// Preview ticket status without marking as used
 // ======================
 router.get("/validate/:qr_code", verifyToken, verifyAdmin, async (req, res) => {
   try {
@@ -274,7 +304,7 @@ router.get("/validate/:qr_code", verifyToken, verifyAdmin, async (req, res) => {
 
 // ======================
 // PUT /tickets/unvalidate/:id
-// Undo validation (Admin only - in case of mistake)
+// Undo validation (Admin only)
 // ======================
 router.put("/unvalidate/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
@@ -294,6 +324,12 @@ router.put("/unvalidate/:id", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
+    // Log reversal
+    await db.query(`
+      INSERT INTO ticket_validations (ticket_id, validated_by, validated_at, validation_method)
+      VALUES ($1, $2, NOW(), 'reversal')
+    `, [id, req.user.id]);
+
     res.json({ 
       success: true, 
       message: "Ticket validation reversed" 
@@ -310,12 +346,13 @@ router.put("/unvalidate/:id", verifyToken, verifyAdmin, async (req, res) => {
 
 // ======================
 // GET /tickets/event/:eventId/stats
-// Get validation stats for an event (Admin only)
+// Get comprehensive validation stats for an event
 // ======================
 router.get("/event/:eventId/stats", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { eventId } = req.params;
 
+    // Overall stats
     const statsResult = await db.query(`
       SELECT 
         COUNT(*) AS total_tickets,
@@ -329,6 +366,40 @@ router.get("/event/:eventId/stats", verifyToken, verifyAdmin, async (req, res) =
 
     const stats = statsResult.rows[0];
 
+    // Hourly check-in pattern
+    const hourlyResult = await db.query(`
+      SELECT 
+        EXTRACT(HOUR FROM used_at) as hour,
+        COUNT(*) as count
+      FROM tickets t
+      JOIN bookings b ON t.booking_id = b.id
+      WHERE b.event_id = $1 AND t.status = 'used'
+      GROUP BY hour
+      ORDER BY hour
+    `, [eventId]);
+
+    // Ticket type breakdown
+    const ticketTypeResult = await db.query(`
+      SELECT 
+        tt.name as ticket_type,
+        COUNT(CASE WHEN t.status = 'used' THEN 1 END) as checked_in,
+        COUNT(*) as total
+      FROM tickets t
+      JOIN bookings b ON t.booking_id = b.id
+      JOIN ticket_types tt ON t.ticket_type_id = tt.id
+      WHERE b.event_id = $1
+      GROUP BY tt.name
+    `, [eventId]);
+
+    // Fraud alerts
+    const fraudResult = await db.query(`
+      SELECT COUNT(*) as fraud_count
+      FROM fraud_alerts fa
+      JOIN tickets t ON fa.ticket_id = t.id
+      JOIN bookings b ON t.booking_id = b.id
+      WHERE b.event_id = $1 AND fa.created_at > NOW() - INTERVAL '24 hours'
+    `, [eventId]);
+
     res.json({
       total_tickets: parseInt(stats.total_tickets),
       checked_in: parseInt(stats.checked_in),
@@ -336,7 +407,10 @@ router.get("/event/:eventId/stats", verifyToken, verifyAdmin, async (req, res) =
       cancelled: parseInt(stats.cancelled),
       check_in_rate: stats.total_tickets > 0 
         ? ((stats.checked_in / stats.total_tickets) * 100).toFixed(1) + '%' 
-        : '0%'
+        : '0%',
+      hourly_pattern: hourlyResult.rows,
+      ticket_type_breakdown: ticketTypeResult.rows,
+      fraud_alerts_24h: parseInt(fraudResult.rows[0].fraud_count)
     });
 
   } catch (error) {
@@ -346,8 +420,63 @@ router.get("/event/:eventId/stats", verifyToken, verifyAdmin, async (req, res) =
 });
 
 // ======================
+// GET /tickets/event/:eventId/analytics
+// Advanced analytics for event
+// ======================
+router.get("/event/:eventId/analytics", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    // Peak hours
+    const peakHoursResult = await db.query(`
+      SELECT 
+        EXTRACT(HOUR FROM used_at) as hour,
+        COUNT(*) as validations
+      FROM tickets t
+      JOIN bookings b ON t.booking_id = b.id
+      WHERE b.event_id = $1 AND t.status = 'used'
+      GROUP BY hour
+      ORDER BY validations DESC
+      LIMIT 3
+    `, [eventId]);
+
+    // Average validation time
+    const avgTimeResult = await db.query(`
+      SELECT 
+        AVG(EXTRACT(EPOCH FROM (t.used_at - e.start_time::time))) / 60 as avg_minutes_after_start
+      FROM tickets t
+      JOIN bookings b ON t.booking_id = b.id
+      JOIN events e ON b.event_id = e.id
+      WHERE b.event_id = $1 AND t.status = 'used'
+    `, [eventId]);
+
+    // Validation method breakdown
+    const methodResult = await db.query(`
+      SELECT 
+        validation_method,
+        COUNT(*) as count
+      FROM ticket_validations tv
+      JOIN tickets t ON tv.ticket_id = t.id
+      JOIN bookings b ON t.booking_id = b.id
+      WHERE b.event_id = $1
+      GROUP BY validation_method
+    `, [eventId]);
+
+    res.json({
+      peak_hours: peakHoursResult.rows,
+      avg_minutes_after_start: parseFloat(avgTimeResult.rows[0].avg_minutes_after_start || 0).toFixed(1),
+      validation_methods: methodResult.rows
+    });
+
+  } catch (error) {
+    console.error("Analytics error:", error);
+    res.status(500).json({ message: "Failed to fetch analytics" });
+  }
+});
+
+// ======================
 // POST /tickets/generate/:bookingId
-// Generate tickets for a confirmed booking (Admin only)
+// Generate tickets for a confirmed booking
 // ======================
 router.post("/generate/:bookingId", verifyToken, verifyAdmin, async (req, res) => {
   const client = await db.getClient();
@@ -441,21 +570,23 @@ router.get("/by-booking/:bookingId", verifyToken, async (req, res) => {
     }
 
     const result = await db.query(`
-  SELECT 
-    t.id, 
-    t.qr_code,
-    t.manual_code,
-    t.ticket_type_id, 
-    t.status,
-    tt.name AS ticket_type_name, 
-    tt.price,
-    bt.quantity
-  FROM tickets t
-  LEFT JOIN ticket_types tt ON t.ticket_type_id = tt.id
-  LEFT JOIN booking_tickets bt ON bt.booking_id = t.booking_id 
-    AND bt.ticket_type_id = t.ticket_type_id
-  WHERE t.booking_id = $1
-`, [bookingId]);
+      SELECT 
+        t.id, 
+        t.qr_code,
+        t.manual_code,
+        t.ticket_type_id, 
+        t.status,
+        t.used_at,
+        tt.name AS ticket_type_name, 
+        tt.price,
+        bt.quantity
+      FROM tickets t
+      LEFT JOIN ticket_types tt ON t.ticket_type_id = tt.id
+      LEFT JOIN booking_tickets bt ON bt.booking_id = t.booking_id 
+        AND bt.ticket_type_id = t.ticket_type_id
+      WHERE t.booking_id = $1
+      ORDER BY t.id
+    `, [bookingId]);
 
     res.json(result.rows);
   } catch (err) {
@@ -466,7 +597,7 @@ router.get("/by-booking/:bookingId", verifyToken, async (req, res) => {
 
 // ======================
 // POST /tickets/send-email/:bookingId
-// Send tickets via email
+// Send tickets via email with QR codes
 // ======================
 router.post("/send-email/:bookingId", verifyToken, async (req, res) => {
   const { bookingId } = req.params;
@@ -494,7 +625,7 @@ router.post("/send-email/:bookingId", verifyToken, async (req, res) => {
       return res.status(400).json({ message: "Booking is not confirmed yet" });
     }
 
-    // Get tickets for this booking
+    // Get tickets
     const ticketsResult = await db.query(
       `SELECT t.*, tt.name as ticket_type_name, tt.price
        FROM tickets t
@@ -509,7 +640,7 @@ router.post("/send-email/:bookingId", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "No tickets found for this booking" });
     }
 
-    // Generate QR code images as base64
+    // Generate QR code images
     const ticketAttachments = await Promise.all(
       tickets.map(async (ticket, index) => {
         const qrDataUrl = await QRCode.toDataURL(ticket.qr_code, {
@@ -540,8 +671,8 @@ router.post("/send-email/:bookingId", verifyToken, async (req, res) => {
         (ticket, index) => `
         <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px;">
           <h4 style="margin: 0 0 10px 0;">${ticket.ticket_type_name || "General Admission"}</h4>
-          <p style="margin: 5px 0;">Quantity: ${ticket.quantity || 1}</p>
-          <p style="margin: 5px 0;">Price: KES ${(ticket.price * (ticket.quantity || 1)).toLocaleString()}</p>
+          <p style="margin: 5px 0;">Manual Code: <strong>${ticket.manual_code}</strong></p>
+          <p style="margin: 5px 0;">Price: KES ${(ticket.price || 0).toLocaleString()}</p>
           <div style="text-align: center; margin-top: 15px;">
             <img src="cid:ticket-${ticket.id}" alt="QR Code" style="width: 200px; height: 200px;" />
           </div>
@@ -554,7 +685,7 @@ router.post("/send-email/:bookingId", verifyToken, async (req, res) => {
       .join("");
 
     // Create email transporter
-    const transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransporter({
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,

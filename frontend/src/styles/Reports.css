@@ -1,7 +1,10 @@
-/* Reports.css - Modern Analytics Dashboard */
+/* ===========================
+   Reports.css - Modern Analytics Dashboard
+   Clean and Organized Version
+=========================== */
 
 /* ===========================
-   Base Container
+   BASE STYLES
 =========================== */
 .modern-reports-container {
   padding: 24px;
@@ -19,7 +22,7 @@
 }
 
 /* ===========================
-   Header
+   HEADER
 =========================== */
 .reports-header {
   display: flex;
@@ -58,7 +61,7 @@
 }
 
 /* ===========================
-   Buttons
+   BUTTONS
 =========================== */
 .btn-primary,
 .btn-secondary {
@@ -90,6 +93,13 @@
   background: #9ca3af;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.btn-primary.loading::before {
+  content: "⟳";
+  display: inline-block;
+  animation: rotate 1s linear infinite;
+  margin-right: 8px;
 }
 
 .btn-secondary {
@@ -136,8 +146,33 @@
   background-color: #374151;
 }
 
+.export-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.export-btn {
+  padding: 10px 20px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  transform: translateY(-2px);
+}
+
 /* ===========================
-   Date Range Selector
+   DATE RANGE SELECTOR
 =========================== */
 .date-range-selector {
   display: flex;
@@ -180,7 +215,7 @@
 }
 
 /* ===========================
-   Advanced Filters
+   FILTERS
 =========================== */
 .advanced-filters {
   display: flex;
@@ -232,7 +267,7 @@
 }
 
 /* ===========================
-   Alerts
+   ALERTS
 =========================== */
 .alert {
   padding: 16px 20px;
@@ -258,7 +293,7 @@
 }
 
 /* ===========================
-   Insights Section
+   INSIGHTS
 =========================== */
 .insights-section {
   margin-bottom: 32px;
@@ -288,6 +323,7 @@
   gap: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  animation: slideIn 0.4s ease;
 }
 
 .insight-card:hover {
@@ -363,7 +399,7 @@
 }
 
 /* ===========================
-   Stats Grid
+   STATISTICS CARDS
 =========================== */
 .stats-grid {
   display: grid;
@@ -451,7 +487,7 @@
 }
 
 /* ===========================
-   Tabs
+   TABS
 =========================== */
 .tabs-container {
   margin-bottom: 24px;
@@ -508,26 +544,12 @@
   color: #60a5fa;
 }
 
-/* ===========================
-   Tab Content
-=========================== */
 .tab-content {
   animation: fadeIn 0.3s ease;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* ===========================
-   Chart Grid
+   CHARTS
 =========================== */
 .chart-grid {
   display: grid;
@@ -564,7 +586,7 @@
 }
 
 /* ===========================
-   Payment Stats (Custom)
+   PAYMENT STATS
 =========================== */
 .payment-stats {
   display: flex;
@@ -598,9 +620,10 @@
 }
 
 /* ===========================
-   Tables
+   TABLES
 =========================== */
-.table-wrapper {
+.table-wrapper,
+.table-card {
   overflow-x: auto;
   border-radius: 12px;
   background: white;
@@ -608,17 +631,27 @@
   margin-bottom: 24px;
 }
 
-.dark-mode .table-wrapper {
+.table-card {
+  padding: 24px;
+}
+
+.dark-mode .table-wrapper,
+.dark-mode .table-card {
   background-color: #1f2937;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .events-table table,
 .suspicious-bookings table,
-.data-content table {
+.data-content table,
+.modern-table {
   width: 100%;
   border-collapse: collapse;
   min-width: 800px;
+}
+
+.modern-table {
+  min-width: 0;
 }
 
 .events-table th,
@@ -626,7 +659,9 @@
 .suspicious-bookings th,
 .suspicious-bookings td,
 .data-content th,
-.data-content td {
+.data-content td,
+.modern-table th,
+.modern-table td {
   padding: 12px 16px;
   text-align: left;
   border-bottom: 1px solid #e5e7eb;
@@ -637,13 +672,16 @@
 .dark-mode .suspicious-bookings th,
 .dark-mode .suspicious-bookings td,
 .dark-mode .data-content th,
-.dark-mode .data-content td {
+.dark-mode .data-content td,
+.dark-mode .modern-table th,
+.dark-mode .modern-table td {
   border-color: #374151;
 }
 
 .events-table th,
 .suspicious-bookings th,
-.data-content th {
+.data-content th,
+.modern-table th {
   background-color: #f9fafb;
   font-weight: 600;
   font-size: 13px;
@@ -654,63 +692,251 @@
 
 .dark-mode .events-table th,
 .dark-mode .suspicious-bookings th,
-.dark-mode .data-content th {
+.dark-mode .data-content th,
+.dark-mode .modern-table th {
   background-color: #111827;
   color: #9ca3af;
 }
 
+.modern-table thead tr {
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.dark-mode .modern-table thead tr {
+  border-color: #374151;
+}
+
+.modern-table td {
+  padding: 16px;
+}
+
 .events-table tbody tr:hover,
 .suspicious-bookings tbody tr:hover,
-.data-content tbody tr:hover {
+.data-content tbody tr:hover,
+.modern-table tbody tr:hover {
   background-color: #f9fafb;
 }
 
 .dark-mode .events-table tbody tr:hover,
 .dark-mode .suspicious-bookings tbody tr:hover,
-.dark-mode .data-content tbody tr:hover {
+.dark-mode .data-content tbody tr:hover,
+.dark-mode .modern-table tbody tr:hover {
   background-color: #374151;
 }
 
 .events-table td,
 .suspicious-bookings td,
-.data-content td {
+.data-content td,
+.modern-table td {
   font-size: 14px;
   color: #1f2937;
 }
 
 .dark-mode .events-table td,
 .dark-mode .suspicious-bookings td,
-.dark-mode .data-content td {
+.dark-mode .data-content td,
+.dark-mode .modern-table td {
   color: #f9fafb;
 }
 
 /* ===========================
-   Suspicious Bookings Section
+   COMPARISON MODE
+=========================== */
+.comparison-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.comparison-card {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.dark-mode .comparison-card {
+  background-color: #1f2937;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.comparison-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.comparison-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.dark-mode .comparison-value {
+  color: #f9fafb;
+}
+
+/* ===========================
+   TREND INDICATORS
+=========================== */
+.trend-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trend-up {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.trend-down {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.trend-neutral {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* ===========================
+   PROGRESS BARS
+=========================== */
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  transition: width 0.3s ease;
+}
+
+/* ===========================
+   LOADING & EMPTY STATES
+=========================== */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 20px auto;
+}
+
+.empty-state,
+.no-data-message {
+  text-align: center;
+  padding: 80px 20px;
+  color: #6b7280;
+}
+
+.dark-mode .empty-state,
+.dark-mode .no-data-message {
+  color: #9ca3af;
+}
+
+.empty-state p,
+.no-data-message p {
+  font-size: 16px;
+  margin: 0;
+}
+
+.no-data-message svg {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+/* ===========================
+   TOOLTIP
+=========================== */
+.tooltip {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+}
+
+.tooltip:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  font-size: 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 100;
+  margin-bottom: 8px;
+}
+
+/* ===========================
+   SUSPICIOUS BOOKINGS
 =========================== */
 .suspicious-bookings {
   margin-top: 32px;
 }
 
 /* ===========================
-   Empty State
+   ANIMATIONS
 =========================== */
-.empty-state {
-  text-align: center;
-  padding: 80px 20px;
-  color: #6b7280;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.dark-mode .empty-state {
-  color: #9ca3af;
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.empty-state p {
-  font-size: 16px;
-  margin: 0;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===========================
-   Responsive Design
+   RESPONSIVE DESIGN
 =========================== */
 @media (max-width: 1024px) {
   .chart-grid {
@@ -770,10 +996,15 @@
   .filter-buttons button {
     flex: 1;
   }
+
+  .comparison-view {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
-  .stat-value {
+  .stat-value,
+  .comparison-value {
     font-size: 24px;
   }
   
