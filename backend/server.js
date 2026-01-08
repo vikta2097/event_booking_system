@@ -40,6 +40,7 @@ const ticketsRouter = require("./routes/tickets");
 const contactRoutes = require("./routes/contact");
 const testRoutes = require("./routes/test");
 const chatbotRoutes = require("./routes/chatbot");
+const tagsRouter = require('./routes/tags');
 
 // Notifications
 const {
@@ -134,6 +135,7 @@ app.use("/api/tickets", ticketsRouter);
 app.use("/api/contact", contactRoutes);
 app.use("/api", testRoutes);
 app.use("/api/chatbot", chatbotRoutes);
+app.use('/api/tags', tagsRouter);
 
 // 🔒 Protected notifications route
 app.use("/api/notifications", verifyToken, notificationRoutes);

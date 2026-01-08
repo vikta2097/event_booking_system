@@ -6,6 +6,8 @@ const EventFilters = ({ onFilter }) => {
   const [categories, setCategories] = useState([]);
   const [tags, setTags] = useState([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   
   const [filters, setFilters] = useState({
     category: "",
@@ -20,19 +22,59 @@ const EventFilters = ({ onFilter }) => {
     search: ""
   });
 
-  // Fetch categories and tags
+  // Fetch categories and tags with proper error handling
   useEffect(() => {
     const fetchFiltersData = async () => {
+      setLoading(true);
+      setError("");
+      
       try {
         const [categoriesRes, tagsRes] = await Promise.all([
-          api.get("/categories"),
-          api.get("/tags")
+          api.get("/categories").catch(err => {
+            console.error("Categories fetch error:", err);
+            return { data: [] };
+          }),
+          api.get("/tags").catch(err => {
+            console.error("Tags fetch error:", err);
+            return { data: [] };
+          })
         ]);
         
-        setCategories(categoriesRes.data || []);
-        setTags(tagsRes.data || []);
+        // Debug logging
+        console.log("✅ API Response: /categories", categoriesRes.status || 200);
+        console.log("✅ API Response: /tags", tagsRes.status || 200);
+        console.log("Categories data:", categoriesRes.data);
+        console.log("Tags data:", tagsRes.data);
+        
+        // Ensure we have arrays
+        const categoriesData = Array.isArray(categoriesRes.data) 
+          ? categoriesRes.data 
+          : [];
+        const tagsData = Array.isArray(tagsRes.data) 
+          ? tagsRes.data 
+          : [];
+        
+        console.log("Is categories array?", Array.isArray(categoriesData), "Length:", categoriesData.length);
+        console.log("Is tags array?", Array.isArray(tagsData), "Length:", tagsData.length);
+        
+        setCategories(categoriesData);
+        setTags(tagsData);
+        
+        if (categoriesData.length === 0) {
+          console.warn("⚠️ No categories loaded");
+        }
+        if (tagsData.length === 0) {
+          console.warn("⚠️ No tags loaded");
+        }
+        
       } catch (err) {
-        console.error("Error fetching filter data:", err);
+        console.error("❌ Error fetching filter data:", err);
+        setError("Failed to load filters. Using defaults.");
+        // Ensure arrays even on error
+        setCategories([]);
+        setTags([]);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -129,8 +171,20 @@ const EventFilters = ({ onFilter }) => {
     Array.isArray(v) ? v.length > 0 : v !== ""
   ).length - 1; // Subtract 1 for sortBy which is always set
 
+  if (loading) {
+    return (
+      <div className="event-filters-container">
+        <div className="filters-loading">
+          <p>Loading filters...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="event-filters-container">
+      {error && <div className="filters-error">{error}</div>}
+      
       {/* Quick Filters */}
       <div className="quick-filters">
         <button 
@@ -182,7 +236,7 @@ const EventFilters = ({ onFilter }) => {
             aria-label="Filter by category"
           >
             <option value="">All Categories</option>
-            {categories.map(cat => (
+            {Array.isArray(categories) && categories.map(cat => (
               <option key={cat.id} value={cat.id}>
                 {cat.name}
               </option>
@@ -236,7 +290,7 @@ const EventFilters = ({ onFilter }) => {
         </div>
 
         {/* Tags Filter (Visible when tags exist) */}
-        {tags.length > 0 && (
+        {Array.isArray(tags) && tags.length > 0 && (
           <div className="tags-filter">
             <label className="tags-label">Tags:</label>
             <div className="tags-container">
@@ -262,7 +316,7 @@ const EventFilters = ({ onFilter }) => {
             className="toggle-advanced-btn"
             onClick={() => setShowAdvanced(!showAdvanced)}
           >
-            {showAdvanced ? "− Hide" : "+ Show"} Advanced Filters
+            {showAdvanced ? "∧ Hide" : "+ Show"} Advanced Filters
           </button>
         </div>
 
