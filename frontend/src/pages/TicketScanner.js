@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import api from "../api";
 import "../styles/TicketScanner.css";
@@ -44,7 +44,7 @@ const TicketScanner = () => {
   }, []);
 
   // Fetch event stats
-  const fetchEventStats = async (eventId) => {
+  const fetchEventStats = useCallback(async (eventId) => {
     try {
       const res = await api.get(`/tickets/event/${eventId}/stats`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
@@ -53,7 +53,7 @@ const TicketScanner = () => {
     } catch (err) {
       console.error("Failed to fetch stats", err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (selectedEvent) {
@@ -64,9 +64,21 @@ const TicketScanner = () => {
       }, 30000);
       return () => clearInterval(interval);
     }
-  }, [selectedEvent]);
+  }, [selectedEvent, fetchEventStats]);
 
-  const validateTicket = async (code, isManual = false) => {
+  const playSound = useCallback((type) => {
+    try {
+      if (type === "success" && audioSuccess.current) {
+        audioSuccess.current.play();
+      } else if (type === "error" && audioError.current) {
+        audioError.current.play();
+      }
+    } catch (err) {
+      console.log("Audio play failed:", err);
+    }
+  }, []);
+
+  const validateTicket = useCallback(async (code, isManual = false) => {
     if (isProcessing.current) return;
     
     isProcessing.current = true;
@@ -136,19 +148,7 @@ const TicketScanner = () => {
         }, 2000);
       }
     }
-  };
-
-  const playSound = (type) => {
-    try {
-      if (type === "success" && audioSuccess.current) {
-        audioSuccess.current.play();
-      } else if (type === "error" && audioError.current) {
-        audioError.current.play();
-      }
-    } catch (err) {
-      console.log("Audio play failed:", err);
-    }
-  };
+  }, [bulkScanMode, selectedEvent, fetchEventStats, playSound, scannerActive]);
 
   useEffect(() => {
     if (!scannerActive) return;
@@ -190,7 +190,7 @@ const TicketScanner = () => {
         scannerRef.current.clear().catch(console.error);
       }
     };
-  }, [scannerActive, bulkScanMode]);
+  }, [scannerActive, bulkScanMode, validateTicket]);
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
