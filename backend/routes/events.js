@@ -12,6 +12,7 @@ const upload = multer({ dest: "uploads/" });
 // ======================
 // GET all upcoming events (public) with advanced filtering
 // ======================
+
 router.get("/", async (req, res) => {
   try {
     const {
@@ -170,7 +171,7 @@ router.get("/", async (req, res) => {
       is_early_bird: event.early_bird_deadline && new Date(event.early_bird_deadline) > new Date()
     }));
 
-    res.json({ events: enhancedEvents, page: parseInt(page), limit: parseInt(limit) });
+    res.json(enhancedEvents);
   } catch (err) {
     console.error("Error fetching events:", err);
     res.status(500).json({ error: "Failed to fetch events" });
