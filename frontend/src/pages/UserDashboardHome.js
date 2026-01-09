@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import "../styles/UserDashboardHome.css";
+import "../styles/UserDashboard.css";
 import EventCard from "./EventCard";
 import EventFilters from "./EventFilters";
 import api from "../api";
