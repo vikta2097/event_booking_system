@@ -10,29 +10,24 @@ import BookingSuccess from "./BookingSuccess";
 import UserBookings from "./UserBookings";
 import ContactUs from "./ContactUs";
 
-// Auth components
-import LoginForm from "../components/LoginForm";
-
 // Components
 import NotificationBell from "./NotificationBell";
 
 // Styles
 import "../styles/UserDashboard.css";
 
-const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
+const UserDashboard = ({ user, token, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     onLogout();
-    navigate("/dashboard/login", { replace: true });
+    navigate("/auth/login", { replace: true });
   };
 
   return (
     <div className="user-dashboard">
-      {/* ====================== */}
-      {/* FIXED TOP BAR          */}
-      {/* ====================== */}
+      {/* ================= TOP BAR ================= */}
       <div
         className="user-top-bar"
         style={{
@@ -65,10 +60,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
                 My Bookings
               </button>
 
-              <NotificationBell
-                user={user}
-                unreadCount={user.unreadNotifications || 0}
-              />
+              <NotificationBell user={user} />
 
               <button className="logout-btn" onClick={handleLogout}>
                 Logout
@@ -78,14 +70,14 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             <>
               <button
                 className="login-btn"
-                onClick={() => navigate("/dashboard/login")}
+                onClick={() => navigate("/auth/login")}
               >
                 Login
               </button>
 
               <button
                 className="signup-btn"
-                onClick={() => navigate("/dashboard/login")}
+                onClick={() => navigate("/auth/login")}
               >
                 Sign Up
               </button>
@@ -94,34 +86,13 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
         </div>
       </div>
 
-      {/* ====================== */}
-      {/* PAGE CONTENT           */}
-      {/* ====================== */}
+      {/* ================= CONTENT ================= */}
       <div className="user-content" style={{ paddingTop: "80px" }}>
         <Routes>
-          {/* Home page */}
           <Route index element={<UserDashboardHome user={user} />} />
-
-          {/* Contact page (public) */}
           <Route path="contact" element={<ContactUs />} />
-
-          {/* ============ AUTH ROUTES ============ */}
-          <Route
-            path="login"
-            element={
-              user ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <LoginForm onLoginSuccess={onLoginSuccess} />
-              )
-            }
-          />
-
-          {/* ============ PUBLIC ROUTES ============ */}
-          {/* Event Details */}
           <Route path="events/:id" element={<EventDetails user={user} />} />
 
-          {/* ============ PROTECTED ROUTES ============ */}
           <Route
             path="book/:id"
             element={
@@ -129,49 +100,7 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
                 <BookingForm user={user} />
               ) : (
                 <Navigate
-                  to="/dashboard/login"
-                  state={{ from: location.pathname }}
-                  replace
-                />
-              )
-            }
-          />
-          <Route
-            path="payment/:bookingId"
-            element={
-              user ? (
-                <PaymentPage user={user} />
-              ) : (
-                <Navigate
-                  to="/dashboard/login"
-                  state={{ from: location.pathname }}
-                  replace
-                />
-              )
-            }
-          />
-          <Route
-            path="booking-success/:bookingId"
-            element={
-              user ? (
-                <BookingSuccess user={user} />
-              ) : (
-                <Navigate
-                  to="/dashboard/login"
-                  state={{ from: location.pathname }}
-                  replace
-                />
-              )
-            }
-          />
-          <Route
-            path="my-bookings"
-            element={
-              user ? (
-                <UserBookings user={user} />
-              ) : (
-                <Navigate
-                  to="/dashboard/login"
+                  to="/auth/login"
                   state={{ from: location.pathname }}
                   replace
                 />
@@ -179,7 +108,39 @@ const UserDashboard = ({ user, token, onLogout, onLoginSuccess }) => {
             }
           />
 
-          {/* Catch-all */}
+          <Route
+            path="payment/:bookingId"
+            element={
+              user ? (
+                <PaymentPage user={user} />
+              ) : (
+                <Navigate to="/auth/login" replace />
+              )
+            }
+          />
+
+          <Route
+            path="booking-success/:bookingId"
+            element={
+              user ? (
+                <BookingSuccess user={user} />
+              ) : (
+                <Navigate to="/auth/login" replace />
+              )
+            }
+          />
+
+          <Route
+            path="my-bookings"
+            element={
+              user ? (
+                <UserBookings user={user} />
+              ) : (
+                <Navigate to="/auth/login" replace />
+              )
+            }
+          />
+
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </div>

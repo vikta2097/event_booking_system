@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
+// Dashboards
 import AdminDashboard from "./pages/AdminDashboard";
 import OrganizerDashboard from "./Organizer/OrganizerDashboard";
 import UserDashboard from "./pages/UserDashboard";
 
+// Auth
+import LoginForm from "./components/LoginForm";
+
+// Styles
 import "./styles/responsive.css";
 
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
@@ -32,7 +37,6 @@ function App() {
     setToken(token);
     setUser({ ...user, role });
 
-    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
     logoutTimerRef.current = setTimeout(() => {
       handleLogout();
       alert("Session expired. Please log in again.");
@@ -67,9 +71,7 @@ function App() {
     }
 
     setAuthChecked(true);
-    return () => {
-      if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-    };
+    return () => logoutTimerRef.current && clearTimeout(logoutTimerRef.current);
   }, []);
 
   if (!authChecked) return <div>Loading...</div>;
@@ -79,7 +81,20 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* ================= USER DASHBOARD (Public + User routes) ================= */}
+
+        {/* ================= AUTH ================= */}
+        <Route
+          path="/auth/login"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <LoginForm onLoginSuccess={handleLogin} />
+            )
+          }
+        />
+
+        {/* ================= USER DASHBOARD ================= */}
         <Route
           path="/dashboard/*"
           element={
@@ -87,7 +102,6 @@ function App() {
               user={user}
               token={token}
               onLogout={handleLogout}
-              onLoginSuccess={handleLogin}
             />
           }
         />
@@ -98,16 +112,8 @@ function App() {
           element={
             isAuthenticated && user?.role === "admin" ? (
               <AdminDashboard token={token} onLogout={handleLogout} />
-            ) : isAuthenticated ? (
-              // If authenticated but not admin, redirect to their correct dashboard
-              user?.role === "organizer" ? (
-                <Navigate to="/organizer/dashboard" replace />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )
             ) : (
-              // If not authenticated, redirect to public dashboard
-              <Navigate to="/dashboard" replace />
+              <Navigate to="/auth/login" replace />
             )
           }
         />
@@ -117,34 +123,22 @@ function App() {
           path="/organizer/dashboard/*"
           element={
             isAuthenticated && user?.role === "organizer" ? (
-              <OrganizerDashboard token={token} user={user} onLogout={handleLogout} />
-            ) : isAuthenticated ? (
-              // If authenticated but not organizer, redirect to their correct dashboard
-              user?.role === "admin" ? (
-                <Navigate to="/admin/dashboard" replace />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )
+              <OrganizerDashboard
+                token={token}
+                user={user}
+                onLogout={handleLogout}
+              />
             ) : (
-              // If not authenticated, redirect to public dashboard
-              <Navigate to="/dashboard" replace />
+              <Navigate to="/auth/login" replace />
             )
           }
         />
 
-        {/* ================= AUTH (Legacy route - redirect to dashboard) ================= */}
-        <Route
-          path="/login"
-          element={<Navigate to="/dashboard/login" replace />}
-        />
-
-        {/* ================= ROOT & FALLBACK ================= */}
-        {/* Root path: redirect based on authentication */}
+        {/* ================= ROOT ================= */}
         <Route
           path="/"
           element={
             isAuthenticated ? (
-              // Authenticated users go to their role-specific dashboard
               user?.role === "admin" ? (
                 <Navigate to="/admin/dashboard" replace />
               ) : user?.role === "organizer" ? (
@@ -153,14 +147,14 @@ function App() {
                 <Navigate to="/dashboard" replace />
               )
             ) : (
-              // Unauthenticated users go to public dashboard
               <Navigate to="/dashboard" replace />
             )
           }
         />
 
-        {/* All other paths: redirect to public dashboard */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* ================= FALLBACK ================= */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+
       </Routes>
     </Router>
   );
