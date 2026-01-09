@@ -1,4 +1,3 @@
-// src/components/BookingSuccess.js
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
@@ -9,6 +8,7 @@ const BookingSuccess = ({ user }) => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
+  const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [emailSending, setEmailSending] = useState(false);
@@ -35,6 +35,10 @@ const BookingSuccess = ({ user }) => {
           return;
         }
 
+        // Fetch event details for additional info
+        const eventRes = await api.get(`/events/${bookingData.event_id}`);
+        setEvent(eventRes.data);
+
         const ticketsRes = await api.get(`/tickets/by-booking/${bookingData.id}`);
         const ticketsData = Array.isArray(ticketsRes.data) ? ticketsRes.data : [];
 
@@ -54,13 +58,58 @@ const BookingSuccess = ({ user }) => {
     };
   }, [bookingId, navigate]);
 
-  // Helper: convert an SVG element to an Image (returns HTMLImageElement)
+  // Add to Calendar
+  const handleAddToCalendar = () => {
+    if (!booking || !event) return;
+    
+    const startDate = new Date(`${booking.event_date}T${booking.start_time}`);
+    const endDate = new Date(`${booking.event_date}T${booking.end_time || booking.start_time}`);
+    
+    const formatDate = (date) => {
+      return date.toISOString().replace(/-|:|\.\d+/g, '');
+    };
+
+    const title = encodeURIComponent(booking.event_title);
+    const location = encodeURIComponent(event.venue || event.location || '');
+    const details = encodeURIComponent(
+      `Booking Reference: ${booking.reference}\n` +
+      `Tickets: ${booking.seats}\n` +
+      `${event.parking_info ? `Parking: ${event.parking_info}\n` : ''}` +
+      `Total: KES ${Number(booking.total_amount).toLocaleString()}`
+    );
+    
+    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${details}&location=${location}`;
+    
+    window.open(googleCalendarUrl, '_blank');
+  };
+
+  // Get Directions
+  const handleGetDirections = () => {
+    if (event?.map_link) {
+      window.open(event.map_link, '_blank');
+    } else if (event?.venue || event?.location) {
+      const query = encodeURIComponent(event.venue || event.location);
+      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+      window.open(googleMapsUrl, '_blank');
+    } else {
+      alert("Location information not available");
+    }
+  };
+
+  // Contact Organizer
+  const handleContactOrganizer = () => {
+    if (event?.organizer_email) {
+      window.location.href = `mailto:${event.organizer_email}?subject=Inquiry about ${booking.event_title}&body=Booking Reference: ${booking.reference}`;
+    } else {
+      alert("Organizer contact information not available");
+    }
+  };
+
+  // Helper: convert an SVG element to an Image
   const svgToImage = (svgElement) =>
     new Promise((resolve, reject) => {
       try {
         const svgData = new XMLSerializer().serializeToString(svgElement);
-
-        // Add XML namespace if missing (helps some browsers)
         const hasNS = svgData.indexOf("xmlns") !== -1;
         const finalSvg = hasNS ? svgData : svgData.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
 
@@ -68,14 +117,11 @@ const BookingSuccess = ({ user }) => {
         const url = URL.createObjectURL(blob);
 
         const img = new Image();
-
-        // For browsers that enforce tainted canvas when images are cross-origin:
-        // we are using an object URL so crossOrigin is unnecessary — but keep fallback if needed.
         img.onload = () => {
           URL.revokeObjectURL(url);
           resolve(img);
         };
-        img.onerror = (e) => {
+        img.onerror = () => {
           URL.revokeObjectURL(url);
           reject(new Error("Failed to load SVG as image"));
         };
@@ -85,22 +131,19 @@ const BookingSuccess = ({ user }) => {
       }
     });
 
-  // Download a single ticket as PNG (async)
+  // Download a single ticket
   const handleDownloadTicket = async (ticket) => {
     try {
-      // Select the QR SVG by the stable id (set below on the QR component)
       const svg = document.getElementById(`qr-${ticket.id}`);
       if (!svg) {
-        alert("QR code not found — please ensure it is visible on screen and try again.");
+        alert("QR code not found – please ensure it is visible on screen and try again.");
         return;
       }
 
       const img = await svgToImage(svg);
-
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
 
-      // Use the natural image size to preserve sharpness
       const width = img.width || 300;
       const height = img.height || 300;
       canvas.width = width;
@@ -120,7 +163,6 @@ const BookingSuccess = ({ user }) => {
         const safeName = (ticket.ticket_type_name || "Ticket").replace(/[^a-z0-9_\- ]/gi, "");
         link.download = `Ticket-${safeName}-${booking?.reference || bookingId}.png`;
         link.click();
-        // revoke objectURL after a short delay so download can start
         setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       }, "image/png");
     } catch (err) {
@@ -129,7 +171,7 @@ const BookingSuccess = ({ user }) => {
     }
   };
 
-  // Download all tickets combined into one PNG
+  // Download all tickets combined
   const handleDownloadAllTickets = async () => {
     if (!booking?.tickets?.length) {
       alert("No tickets to download.");
@@ -149,11 +191,9 @@ const BookingSuccess = ({ user }) => {
       canvas.width = cols * (ticketWidth + padding) + padding;
       canvas.height = rows * (ticketHeight + padding) + padding + 120;
 
-      // Background
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Header
       ctx.fillStyle = "#333";
       ctx.font = "bold 24px Arial, sans-serif";
       ctx.textAlign = "center";
@@ -166,7 +206,6 @@ const BookingSuccess = ({ user }) => {
         : "";
       ctx.fillText(`${dateStr} | ${booking.location || ""}`, canvas.width / 2, 70);
 
-      // Draw each ticket
       for (let i = 0; i < booking.tickets.length; i++) {
         const ticket = booking.tickets[i];
         const col = i % cols;
@@ -174,42 +213,29 @@ const BookingSuccess = ({ user }) => {
         const x = padding + col * (ticketWidth + padding);
         const y = 100 + padding + row * (ticketHeight + padding);
 
-        // Ticket background
         ctx.fillStyle = "#f9f9f9";
         ctx.fillRect(x, y, ticketWidth, ticketHeight);
         ctx.strokeStyle = "#ddd";
         ctx.strokeRect(x, y, ticketWidth, ticketHeight);
 
-        // Ticket title
         ctx.fillStyle = "#333";
         ctx.font = "bold 16px Arial, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(ticket.ticket_type_name || "General", x + ticketWidth / 2, y + 28);
 
-        // QR Image (safely load & draw)
         const svg = document.getElementById(`qr-${ticket.id}`);
         if (svg) {
           try {
-            // await each image so drawing order is deterministic
-            // eslint-disable-next-line no-await-in-loop
             const img = await svgToImage(svg);
-            // draw scaled QR into ticket area (centered)
             const qrSize = Math.min(200, ticketWidth - 40);
             const qrX = x + (ticketWidth - qrSize) / 2;
             const qrY = y + 50;
             ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
           } catch (imgErr) {
             console.warn(`Failed to render QR for ticket ${ticket.id}`, imgErr);
-            // continue drawing the rest (fail gracefully)
           }
-        } else {
-          // no svg found: optional placeholder or text
-          ctx.font = "12px Arial, sans-serif";
-          ctx.fillStyle = "#999";
-          ctx.fillText("QR not available", x + ticketWidth / 2, y + ticketHeight / 2);
         }
 
-        // Quantity & reference
         ctx.font = "14px Arial, sans-serif";
         ctx.fillStyle = "#333";
         ctx.fillText(`Qty: ${ticket.quantity || 1}`, x + ticketWidth / 2, y + 280);
@@ -219,7 +245,6 @@ const BookingSuccess = ({ user }) => {
         ctx.fillText(`Ref: ${booking.reference || bookingId}`, x + ticketWidth / 2, y + 305);
       }
 
-      // Create blob and trigger download
       canvas.toBlob((blob) => {
         if (!blob) {
           alert("Failed to create combined ticket image. Please try individually.");
@@ -299,6 +324,21 @@ const BookingSuccess = ({ user }) => {
         <p className="success-message">Your booking has been confirmed. Check your email for details.</p>
       </div>
 
+      {/* Quick Action Buttons */}
+      <div className="quick-actions-bar">
+        <button onClick={handleAddToCalendar} className="quick-action-btn">
+          📅 Add to Calendar
+        </button>
+        <button onClick={handleGetDirections} className="quick-action-btn">
+          📍 Get Directions
+        </button>
+        {event?.organizer_email && (
+          <button onClick={handleContactOrganizer} className="quick-action-btn">
+            📧 Contact Organizer
+          </button>
+        )}
+      </div>
+
       <div className="booking-info-card">
         <div className="booking-header">
           <h3>{booking.event_title}</h3>
@@ -327,7 +367,7 @@ const BookingSuccess = ({ user }) => {
           </div>
           <div className="detail-row">
             <span className="label">Venue:</span>
-            <span className="value">{booking.location || "TBA"}</span>
+            <span className="value">{event?.venue || booking.location || "TBA"}</span>
           </div>
           <div className="detail-row">
             <span className="label">Total Paid:</span>
@@ -336,6 +376,49 @@ const BookingSuccess = ({ user }) => {
             </span>
           </div>
         </div>
+
+        {/* Event Venue Information Card */}
+        {event && (event.venue || event.parking_info || event.map_link) && (
+          <div className="venue-info-card">
+            <h4>📍 Venue Information</h4>
+            <div className="venue-details">
+              {event.venue && (
+                <div className="venue-item">
+                  <span className="venue-label">Venue:</span>
+                  <span className="venue-value">{event.venue}</span>
+                </div>
+              )}
+              {event.location && (
+                <div className="venue-item">
+                  <span className="venue-label">Location:</span>
+                  <span className="venue-value">{event.location}</span>
+                </div>
+              )}
+              {event.parking_info && (
+                <div className="venue-item parking-info">
+                  <span className="venue-label">🅿️ Parking:</span>
+                  <span className="venue-value">{event.parking_info}</span>
+                </div>
+              )}
+            </div>
+            {event.map_link && (
+              <button className="btn-directions-large" onClick={handleGetDirections}>
+                🗺️ Open in Google Maps
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Organizer Contact Card */}
+        {event && event.organizer_email && (
+          <div className="organizer-contact-card">
+            <h4>📧 Need Help?</h4>
+            <p>Contact the event organizer if you have any questions</p>
+            <button className="btn-contact-organizer" onClick={handleContactOrganizer}>
+              Email Organizer
+            </button>
+          </div>
+        )}
 
         {booking.tickets && booking.tickets.length > 0 && (
           <div className="tickets-section">
@@ -355,7 +438,6 @@ const BookingSuccess = ({ user }) => {
                     )}
                   </div>
 
-                  {/* Manual Entry Code - NEW */}
                   {ticket.manual_code && (
                     <div className="manual-code-section">
                       <label>🔑 Manual Entry Code:</label>
@@ -379,7 +461,6 @@ const BookingSuccess = ({ user }) => {
                   )}
 
                   <div id={`ticket-${ticket.id}`} className="ticket-qr">
-                    {/* stable id so our DOM selection is reliable */}
                     <QRCodeSVG id={`qr-${ticket.id}`} value={ticket.qr_code} size={150} level="H" includeMargin />
                     <p className="qr-hint">Scan QR code at venue</p>
                   </div>
@@ -422,6 +503,7 @@ const BookingSuccess = ({ user }) => {
           <li>This ticket is non-transferable</li>
           <li>Save or screenshot the QR codes for entry</li>
           <li>Check your email for full booking details</li>
+          {event?.parking_info && <li>Parking: {event.parking_info}</li>}
         </ul>
       </div>
     </div>

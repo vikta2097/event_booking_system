@@ -48,6 +48,21 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
   const isAlmostFull = capacityPercentage >= 80 && !isSoldOut;
   const isLowSeats = availableSeats <= 10 && availableSeats > 0;
 
+  // Check if early bird is active
+  const isEarlyBirdActive = event.is_early_bird && 
+    event.early_bird_deadline && 
+    new Date(event.early_bird_deadline) >= new Date();
+
+  // Calculate early bird savings
+  const earlyBirdSavings = isEarlyBirdActive && event.early_bird_price
+    ? Math.round(((event.price - event.early_bird_price) / event.price) * 100)
+    : 0;
+
+  // Parse tags (display first 3)
+  const eventTags = event.tags_display 
+    ? event.tags_display.split(', ').filter(Boolean).slice(0, 3) 
+    : [];
+
   const handleBookNow = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -91,9 +106,19 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
         console.log("Share cancelled");
       }
     } else {
-      // Fallback: copy to clipboard
       navigator.clipboard.writeText(shareData.url);
       alert("Link copied to clipboard!");
+    }
+  };
+
+  const handleGetDirections = (e) => {
+    e.stopPropagation();
+    if (event.map_link) {
+      window.open(event.map_link, '_blank');
+    } else if (event.venue || event.location) {
+      const query = encodeURIComponent(event.venue || event.location);
+      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+      window.open(googleMapsUrl, '_blank');
     }
   };
 
@@ -109,7 +134,7 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
 
   const getStatusBadge = () => {
     if (isSoldOut) return { text: "Sold Out", class: "sold-out" };
-    if (event.is_early_bird) return { text: "Early Bird", class: "early-bird" };
+    if (isEarlyBirdActive) return { text: `🎉 Save ${earlyBirdSavings}%`, class: "early-bird" };
     if (event.is_trending) return { text: "🔥 Trending", class: "trending" };
     if (isAlmostFull) return { text: "Almost Full", class: "almost-full" };
     return null;
@@ -160,12 +185,29 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
           >
             📤
           </button>
+          <button 
+            className="action-btn directions-btn"
+            onClick={handleGetDirections}
+            aria-label="Get directions"
+            title="Get directions"
+          >
+            📍
+          </button>
         </div>
       </div>
 
       <div className="event-details">
         {/* Title */}
         <h3 className="event-title">{event.title}</h3>
+
+        {/* Tags */}
+        {eventTags.length > 0 && (
+          <div className="event-tags-row">
+            {eventTags.map((tag, idx) => (
+              <span key={idx} className="event-tag">{tag}</span>
+            ))}
+          </div>
+        )}
 
         {/* Countdown timer */}
         {timeUntilEvent && timeUntilEvent !== "Started" && (
@@ -175,8 +217,15 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
         )}
 
         {/* Venue & Date */}
-        <p className="event-venue">📍 {event.location}</p>
-        <p className="event-date">📅 {formatDate(event.event_date)}</p>
+        <div className="event-info-row">
+          <p className="event-venue">
+            📍 {event.venue || event.location}
+            {event.parking_info && (
+              <span className="parking-indicator" title="Parking available">🅿️</span>
+            )}
+          </p>
+          <p className="event-date">📅 {formatDate(event.event_date)}</p>
+        </div>
 
         {/* Availability indicator */}
         {!isSoldOut && (
@@ -196,8 +245,19 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
 
         {/* Price */}
         <div className="event-pricing">
-          <p className="event-price">{formatPrice(event.price)}</p>
-          {event.original_price && event.original_price > event.price && (
+          {isEarlyBirdActive && event.early_bird_price ? (
+            <div className="early-bird-price">
+              <p className="event-price-original">
+                <s>KES {Number(event.price).toLocaleString()}</s>
+              </p>
+              <p className="event-price">KES {Number(event.early_bird_price).toLocaleString()}</p>
+              <span className="discount-badge">Save {earlyBirdSavings}%</span>
+            </div>
+          ) : (
+            <p className="event-price">{formatPrice(event.price)}</p>
+          )}
+          
+          {event.original_price && event.original_price > event.price && !isEarlyBirdActive && (
             <span className="price-discount">
               <s>KES {Number(event.original_price).toLocaleString()}</s>
               <span className="discount-percentage">
@@ -223,7 +283,7 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
                 <div className="organizer-rating">
                   <span className="rating-stars">⭐ {event.organizer_rating.toFixed(1)}</span>
                   {event.organizer_event_count && (
-                    <span className="event-count">· {event.organizer_event_count} events</span>
+                    <span className="event-count"> · {event.organizer_event_count} events</span>
                   )}
                 </div>
               )}

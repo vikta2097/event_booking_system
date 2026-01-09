@@ -20,21 +20,17 @@ const EventDetails = ({ user }) => {
       try {
         setLoading(true);
         
-        // Fetch event details
         const eventRes = await api.get(`/events/${id}`);
         setEvent(eventRes.data);
 
-        // Fetch ticket types
         const ticketsRes = await api.get(`/events/${id}/ticket-types`);
         setTicketTypes(ticketsRes.data.ticket_types || []);
 
-        // Fetch similar events
         if (eventRes.data.category_id) {
           const similarRes = await api.get(`/events?category=${eventRes.data.category_id}&limit=4&exclude=${id}`);
           setSimilarEvents(similarRes.data.events || similarRes.data || []);
         }
 
-        // Check if favorited (if user logged in)
         if (user) {
           try {
             const favRes = await api.get(`/events/${id}/is-favorite`, {
@@ -46,7 +42,6 @@ const EventDetails = ({ user }) => {
           }
         }
 
-        // Track view for analytics
         if (user) {
           api.post(`/events/${id}/track-view`, {}, {
             headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
@@ -63,6 +58,52 @@ const EventDetails = ({ user }) => {
     
     fetchEventDetails();
   }, [id, user]);
+
+  // Add to Calendar
+  const handleAddToCalendar = () => {
+    if (!event) return;
+    
+    const startDate = new Date(`${event.event_date}T${event.start_time}`);
+    const endDate = new Date(`${event.event_date}T${event.end_time || event.start_time}`);
+    
+    const formatDate = (date) => {
+      return date.toISOString().replace(/-|:|\.\d+/g, '');
+    };
+
+    const title = encodeURIComponent(event.title);
+    const location = encodeURIComponent(event.venue || event.location || '');
+    const details = encodeURIComponent(
+      `${event.description || ''}\n\n` +
+      `${event.parking_info ? `Parking: ${event.parking_info}\n` : ''}` +
+      `Organizer: ${event.organizer_name || 'N/A'}`
+    );
+    
+    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${details}&location=${location}`;
+    
+    window.open(googleCalendarUrl, '_blank');
+  };
+
+  // Get Directions
+  const handleGetDirections = () => {
+    if (event?.map_link) {
+      window.open(event.map_link, '_blank');
+    } else if (event?.venue || event?.location) {
+      const query = encodeURIComponent(event.venue || event.location);
+      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+      window.open(googleMapsUrl, '_blank');
+    } else {
+      alert("Location information not available");
+    }
+  };
+
+  // Contact Organizer
+  const handleContactOrganizer = () => {
+    if (event?.organizer_email) {
+      window.location.href = `mailto:${event.organizer_email}?subject=Inquiry about ${event.title}`;
+    } else {
+      alert("Organizer contact information not available");
+    }
+  };
 
   if (loading) {
     return (
@@ -153,11 +194,36 @@ const EventDetails = ({ user }) => {
   const availableSeats = event.capacity - (event.total_seats_booked || 0);
   const isSoldOut = availableSeats <= 0;
 
-  // Handle multiple images (if available)
   const eventImages = event.images || [event.image || "/placeholder.jpg"];
+
+  // Check if early bird is active
+  const isEarlyBirdActive = event.is_early_bird && 
+    event.early_bird_deadline && 
+    new Date(event.early_bird_deadline) >= new Date();
+
+  // Parse tags
+  const eventTags = event.tags_display ? event.tags_display.split(', ').filter(Boolean) : [];
 
   return (
     <div className="event-details-container">
+      {/* Quick Action Bar - Sticky */}
+      <div className="quick-action-bar-sticky">
+        <button onClick={handleAddToCalendar} className="quick-btn" title="Add to Calendar">
+          📅 Add to Calendar
+        </button>
+        <button onClick={handleGetDirections} className="quick-btn" title="Get Directions">
+          📍 Directions
+        </button>
+        {event.organizer_email && (
+          <button onClick={handleContactOrganizer} className="quick-btn" title="Contact Organizer">
+            📧 Contact
+          </button>
+        )}
+        <button onClick={() => setShowShareModal(true)} className="quick-btn" title="Share">
+          📤 Share
+        </button>
+      </div>
+
       {/* Hero Section */}
       <div className="event-hero">
         <div className="event-image-gallery">
@@ -181,7 +247,6 @@ const EventDetails = ({ user }) => {
             </div>
           )}
 
-          {/* Quick actions overlay */}
           <div className="hero-actions">
             <button 
               className={`action-btn ${isFavorite ? 'active' : ''}`}
@@ -190,17 +255,9 @@ const EventDetails = ({ user }) => {
             >
               {isFavorite ? '❤️' : '🤍'}
             </button>
-            <button 
-              className="action-btn"
-              onClick={() => setShowShareModal(true)}
-              title="Share event"
-            >
-              📤
-            </button>
           </div>
         </div>
 
-        {/* Event header info */}
         <div className="event-header-info">
           <div className="event-badges">
             {event.category_name && (
@@ -209,12 +266,26 @@ const EventDetails = ({ user }) => {
             {isSoldOut && (
               <span className="badge badge-sold-out">Sold Out</span>
             )}
-            {event.is_early_bird && (
-              <span className="badge badge-early-bird">Early Bird</span>
+            {isEarlyBirdActive && (
+              <span className="badge badge-early-bird">
+                🎉 Early Bird - Save {Math.round(((event.price - event.early_bird_price) / event.price) * 100)}%
+              </span>
+            )}
+            {event.parking_info && (
+              <span className="badge badge-parking">🅿️ Parking Available</span>
             )}
           </div>
 
           <h1 className="event-title">{event.title}</h1>
+
+          {/* Tags */}
+          {eventTags.length > 0 && (
+            <div className="event-tags">
+              {eventTags.map((tag, idx) => (
+                <span key={idx} className="tag-badge">{tag}</span>
+              ))}
+            </div>
+          )}
           
           <div className="event-meta">
             <div className="meta-item">
@@ -227,7 +298,7 @@ const EventDetails = ({ user }) => {
             </div>
             <div className="meta-item">
               <span className="icon">📍</span>
-              <span>{event.location}</span>
+              <span>{event.venue || event.location}</span>
             </div>
             {!isSoldOut && (
               <div className="meta-item">
@@ -239,6 +310,22 @@ const EventDetails = ({ user }) => {
         </div>
       </div>
 
+      {/* Early Bird Alert */}
+      {isEarlyBirdActive && (
+        <div className="early-bird-alert">
+          <div className="alert-content">
+            <span className="alert-icon">⚡</span>
+            <div className="alert-text">
+              <strong>Early Bird Pricing Active!</strong>
+              <p>
+                Get tickets for <s>KES {event.price.toLocaleString()}</s> <strong className="highlight">KES {event.early_bird_price.toLocaleString()}</strong> 
+                {" "}until {new Date(event.early_bird_deadline).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="event-content">
         {/* Left Column - Details */}
@@ -249,46 +336,37 @@ const EventDetails = ({ user }) => {
             <p className="event-description">{event.description}</p>
           </section>
 
-          {/* Ticket Types */}
-          {ticketTypes.length > 0 && (
-            <section className="content-section">
-              <h2>Available Tickets</h2>
-              <div className="ticket-types-grid">
-                {ticketTypes.map((ticket) => {
-                  const ticketAvailable = ticket.quantity_available - ticket.quantity_sold;
-                  const isTicketSoldOut = ticketAvailable <= 0;
-                  
-                  return (
-                    <div key={ticket.id} className={`ticket-type-card ${isTicketSoldOut ? 'sold-out' : ''}`}>
-                      <div className="ticket-header">
-                        <h3>{ticket.name}</h3>
-                        <p className="ticket-price">{formatPrice(ticket.price)}</p>
-                      </div>
-                      {ticket.description && (
-                        <p className="ticket-description">{ticket.description}</p>
-                      )}
-                      <div className="ticket-footer">
-                        {isTicketSoldOut ? (
-                          <span className="ticket-status sold-out">Sold Out</span>
-                        ) : (
-                          <span className="ticket-status available">
-                            {ticketAvailable} available
-                          </span>
-                        )}
-                      </div>
+          {/* Venue & Parking Information */}
+          {(event.venue || event.location || event.parking_info) && (
+            <section className="content-section venue-section">
+              <h2>📍 Venue & Location</h2>
+              
+              <div className="venue-card">
+                {event.venue && (
+                  <div className="venue-detail">
+                    <strong>Venue:</strong> {event.venue}
+                  </div>
+                )}
+                {event.location && (
+                  <div className="venue-detail">
+                    <strong>Address:</strong> {event.location}
+                  </div>
+                )}
+                
+                {event.parking_info && (
+                  <div className="parking-info-box">
+                    <div className="parking-header">
+                      <span>🅿️</span>
+                      <strong>Parking Information</strong>
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+                    <p>{event.parking_info}</p>
+                  </div>
+                )}
 
-          {/* Venue Details */}
-          {(event.venue || event.parking_info) && (
-            <section className="content-section">
-              <h2>Venue Information</h2>
-              {event.venue && <p><strong>Venue:</strong> {event.venue}</p>}
-              {event.parking_info && <p><strong>Parking:</strong> {event.parking_info}</p>}
+                <button className="btn-directions-primary" onClick={handleGetDirections}>
+                  🗺️ Get Directions
+                </button>
+              </div>
             </section>
           )}
 
@@ -308,14 +386,59 @@ const EventDetails = ({ user }) => {
                   title="Event location map"
                 ></iframe>
               </div>
-              <a 
-                href={event.map_link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="map-link"
-              >
+              <button className="map-link-btn" onClick={handleGetDirections}>
                 📍 Open in Google Maps
-              </a>
+              </button>
+            </section>
+          )}
+
+          {/* Ticket Types */}
+          {ticketTypes.length > 0 && (
+            <section className="content-section">
+              <h2>Available Tickets</h2>
+              <div className="ticket-types-grid">
+                {ticketTypes.map((ticket) => {
+                  const ticketAvailable = ticket.quantity_available - ticket.quantity_sold;
+                  const isTicketSoldOut = ticketAvailable <= 0;
+                  const isEarlyBird = ticket.early_bird_active;
+                  
+                  return (
+                    <div key={ticket.id} className={`ticket-type-card ${isTicketSoldOut ? 'sold-out' : ''} ${isEarlyBird ? 'early-bird-ticket' : ''}`}>
+                      <div className="ticket-header">
+                        <h3>{ticket.name}</h3>
+                        <div className="ticket-price-section">
+                          {isEarlyBird ? (
+                            <div className="early-bird-pricing">
+                              <span className="original-price">KES {ticket.price.toLocaleString()}</span>
+                              <p className="discounted-price">KES {ticket.price.toLocaleString()}</p>
+                              <span className="early-bird-label">⚡ Early Bird</span>
+                            </div>
+                          ) : (
+                            <p className="ticket-price">{formatPrice(ticket.price)}</p>
+                          )}
+                        </div>
+                      </div>
+                      {ticket.description && (
+                        <p className="ticket-description">{ticket.description}</p>
+                      )}
+                      <div className="ticket-footer">
+                        {isTicketSoldOut ? (
+                          <span className="ticket-status sold-out">Sold Out</span>
+                        ) : (
+                          <>
+                            <span className="ticket-status available">
+                              {ticketAvailable} available
+                            </span>
+                            {ticket.is_low_stock && (
+                              <span className="low-stock-warning">⚠️ Low Stock!</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </section>
           )}
 
@@ -347,9 +470,9 @@ const EventDetails = ({ user }) => {
                     </div>
                   )}
                   {event.organizer_email && (
-                    <p className="organizer-contact">
-                      📧 {event.organizer_email}
-                    </p>
+                    <button className="btn-contact-small" onClick={handleContactOrganizer}>
+                      📧 Contact Organizer
+                    </button>
                   )}
                 </div>
               </div>
@@ -362,7 +485,17 @@ const EventDetails = ({ user }) => {
           <div className="booking-card sticky">
             <div className="booking-price">
               <span className="price-label">Starting from</span>
-              <h2 className="price-value">{formatPrice(event.price)}</h2>
+              {isEarlyBirdActive ? (
+                <div className="price-with-discount">
+                  <h2 className="price-value-old">KES {event.price.toLocaleString()}</h2>
+                  <h2 className="price-value">KES {event.early_bird_price.toLocaleString()}</h2>
+                  <span className="savings-badge">
+                    Save {Math.round(((event.price - event.early_bird_price) / event.price) * 100)}%
+                  </span>
+                </div>
+              ) : (
+                <h2 className="price-value">{formatPrice(event.price)}</h2>
+              )}
             </div>
 
             <button 
@@ -377,7 +510,7 @@ const EventDetails = ({ user }) => {
               <div className="feature">✓ Instant confirmation</div>
               <div className="feature">✓ E-ticket via email</div>
               <div className="feature">✓ Mobile entry</div>
-              <div className="feature">✓ Free cancellation</div>
+              {event.parking_info && <div className="feature">✓ Parking available</div>}
             </div>
           </div>
 
