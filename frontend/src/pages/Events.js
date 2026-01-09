@@ -613,104 +613,107 @@ const Events = ({ currentUser }) => {
       )}
 
       {/* Events Table */}
-      {loading ? (
-        <p className="loading">Loading events...</p>
-      ) : error ? (
-        <p className="error">{error}</p>
-      ) : filteredEvents.length === 0 ? (
-        <div className="no-data">
-          <div className="no-data-icon">🎭</div>
-          <h3>No Events Found</h3>
-          <p>{searchQuery ? "Try different search terms" : "Create your first event to get started"}</p>
-          <button className="add-btn" onClick={() => openModal()}>Create Event</button>
-        </div>
-      ) : (
-        <div className="events-table-wrapper">
-          <table className="events-table">
-            <thead>
-              <tr>
-                <th>Poster</th>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Tags</th>
-                <th>Organizer</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Location</th>
-                <th>Capacity</th>
-                <th>Price</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEvents.map((event) => (
-                <tr key={event.id}>
-                  <td>
-                    {event.organizer_image ? (
-                      <img src={event.organizer_image} alt={event.title} className="event-poster" />
-                    ) : (
-                      <div className="no-poster">📷</div>
-                    )}
-                  </td>
-                  <td>
-                    <strong>{event.title}</strong>
-                    {event.venue && <div className="sub-text">{event.venue}</div>}
-                  </td>
-                  <td>{event.category_name}</td>
-                  <td>
-                    {event.tags_display ? (
-                      <div className="tags-cell">{event.tags_display}</div>
-                    ) : (
-                      <span className="no-tags">-</span>
-                    )}
-                  </td>
-                  <td>{event.organizer_name}</td>
-                  <td>{new Date(event.event_date).toLocaleDateString()}</td>
-                  <td>{event.start_time} - {event.end_time}</td>
-                  <td>{event.location}</td>
-                  <td>
-                    {event.capacity}
-                    {event.total_seats_booked && (
-                      <div className="sub-text">{event.total_seats_booked} booked</div>
-                    )}
-                  </td>
-                  <td>KES {event.price.toLocaleString()}</td>
-                  <td>
-                    <span className={`status-badge ${event.status}`}>
-                      {event.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn-sm view" onClick={() => openModal(event)} title="View/Edit">
-                        👁️
+{loading ? (
+  <p className="loading">Loading events...</p>
+) : error ? (
+  <p className="error">{error}</p>
+) : filteredEvents.length === 0 ? (
+  <div className="no-data">
+    <div className="no-data-icon">🎭</div>
+    <h3>No Events Found</h3>
+    <p>{searchQuery ? "Try different search terms" : "Create your first event to get started"}</p>
+    <button className="add-btn" onClick={() => openModal()}>Create Event</button>
+  </div>
+) : (
+  <div className="events-table-wrapper">
+    <div className="events-table-scroll">
+      <table className="events-table">
+        <thead>
+          <tr>
+            <th>Poster</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Tags</th>
+            <th>Organizer</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Location</th>
+            <th>Capacity</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredEvents.map((event) => (
+            <tr key={event.id}>
+              <td>
+                {event.organizer_image ? (
+                  <img src={event.organizer_image} alt={event.title} className="event-poster" />
+                ) : (
+                  <div className="no-poster">📷</div>
+                )}
+              </td>
+              <td>
+                <strong>{event.title}</strong>
+                {event.venue && <div className="sub-text">{event.venue}</div>}
+              </td>
+              <td>{event.category_name}</td>
+              <td>
+                {event.tags_display ? (
+                  <div className="tags-cell">{event.tags_display}</div>
+                ) : (
+                  <span className="no-tags">-</span>
+                )}
+              </td>
+              <td>{event.organizer_name}</td>
+              <td>{new Date(event.event_date).toLocaleDateString()}</td>
+              <td>{event.start_time} - {event.end_time}</td>
+              <td>{event.location}</td>
+              <td>
+                {event.capacity}
+                {event.total_seats_booked && (
+                  <div className="sub-text">{event.total_seats_booked} booked</div>
+                )}
+              </td>
+              <td>KES {event.price.toLocaleString()}</td>
+              <td>
+                <span className={`status-badge ${event.status}`}>
+                  {event.status}
+                </span>
+              </td>
+              <td>
+                <div className="action-buttons">
+                  <button className="btn-sm view" onClick={() => openModal(event)} title="View/Edit">
+                    👁️
+                  </button>
+                  <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)} title="Duplicate">
+                    📋
+                  </button>
+                  {event.status !== "expired" && (
+                    <>
+                      <button className="btn-sm tickets" onClick={() => {
+                        setEditingEvent(event);
+                        setShowTicketModal(true);
+                        fetchTicketTypes(event.id);
+                      }} title="Manage Tickets">
+                        🎫
                       </button>
-                      <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)} title="Duplicate">
-                        📋
+                      <button className="btn-sm delete" onClick={() => handleDelete(event.id)} title="Delete">
+                        🗑️
                       </button>
-                      {event.status !== "expired" && (
-                        <>
-                          <button className="btn-sm tickets" onClick={() => {
-                            setEditingEvent(event);
-                            setShowTicketModal(true);
-                            fetchTicketTypes(event.id);
-                          }} title="Manage Tickets">
-                            🎫
-                          </button>
-                          <button className="btn-sm delete" onClick={() => handleDelete(event.id)} title="Delete">
-                            🗑️
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    </>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
+
 
       {/* Event Modal - Multi-step form */}
       {showModal && (
