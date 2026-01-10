@@ -274,7 +274,21 @@ const ChatbotWidget = ({ user }) => {
             <button onClick={() => handleSend()} disabled={typing || !input.trim()}>➤</button>
           </div>
 
-          <div className="chatbot-footer">EventBot • Powered by Your System</div>
+          <div className="chatbot-footer">EventHank • Powered by{" "}
+            <a href="https://victorlabs.netlify.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              textDecoration: "none"
+            }}
+            >
+              <span style={{
+                fontWeight: "600",
+                color: "#2563eb",
+                cursor: "pointer"
+              }}>victorlabs</span>
+              </a>
+              </div>
         </div>
       )}
     </>
