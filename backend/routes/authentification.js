@@ -150,6 +150,9 @@ router.post("/forgot-password", async (req, res) => {
       expiresIn: "15m",
     });
 
+    console.log("📧 Attempting to send email to:", email);
+    console.log("📧 Using EMAIL_USER:", process.env.EMAIL_USER);
+
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -161,12 +164,12 @@ router.post("/forgot-password", async (req, res) => {
 
     const resetLink = `${
       process.env.FRONTEND_URL || "http://localhost:3000"
-    }/reset-password/${token}`;
+    }/dashboard/reset-password/${token}`;
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
-      subject: "Reset Your Password",
+      subject: "Reset Your Password - EventHyper",
       html: `<p>Hello,</p>
              <p>Click <a href="${resetLink}">here</a> to reset your password. 
              This link will expire in 15 minutes.</p>
@@ -174,11 +177,31 @@ router.post("/forgot-password", async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
+    
+    console.log("✅ Email sent successfully to:", email);
 
     res.json({ message: "Reset link sent to email" });
   } catch (err) {
     console.error("❌ Forgot password error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("❌ Error code:", err.code);
+    console.error("❌ Error message:", err.message);
+    
+    // Specific error handling
+    if (err.code === 'EAUTH') {
+      return res.status(500).json({ 
+        message: "Email authentication failed. Please contact support." 
+      });
+    }
+    
+    if (err.code === 'ETIMEDOUT' || err.code === 'ECONNECTION') {
+      return res.status(500).json({ 
+        message: "Email service temporarily unavailable. Please try again." 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: "Failed to send reset email. Please try again later." 
+    });
   }
 });
 
