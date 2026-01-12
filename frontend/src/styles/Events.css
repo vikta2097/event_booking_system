@@ -969,3 +969,27 @@
     max-width: 95vw;
   }
 }
+
+
+/* Add after the existing .action-buttons rule */
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap; /* Don't wrap */
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* Make sure Actions column has enough width */
+.events-table th:last-child,
+.events-table td:last-child {
+  min-width: 180px;
+  white-space: nowrap;
+}
+
+/* Slightly smaller buttons to fit better */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  min-width: 36px;
+}
