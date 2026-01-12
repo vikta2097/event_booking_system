@@ -9,35 +9,47 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
 
   // Calculate countdown timer
   useEffect(() => {
-    const calculateTimeLeft = () => {
-      const now = new Date();
-      const eventDateTime = new Date(`${event.event_date}T${event.start_time}`);
-      const diff = eventDateTime - now;
+  const calculateTimeLeft = () => {
+    // Validate date and time exist
+    if (!event.event_date || !event.start_time) {
+      setTimeUntilEvent("");
+      return;
+    }
 
-      if (diff <= 0) {
-        setTimeUntilEvent("Started");
-        return;
-      }
+    const now = new Date();
+    const eventDateTime = new Date(`${event.event_date}T${event.start_time}`);
+    
+    // Check if date is valid
+    if (isNaN(eventDateTime.getTime())) {
+      setTimeUntilEvent("");
+      return;
+    }
 
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const diff = eventDateTime - now;
 
-      if (days > 0) {
-        setTimeUntilEvent(`${days}d ${hours}h`);
-      } else if (hours > 0) {
-        setTimeUntilEvent(`${hours}h ${minutes}m`);
-      } else {
-        setTimeUntilEvent(`${minutes}m`);
-      }
-    };
+    if (diff <= 0) {
+      setTimeUntilEvent("Started");
+      return;
+    }
 
-    calculateTimeLeft();
-    const interval = setInterval(calculateTimeLeft, 60000);
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-    return () => clearInterval(interval);
-  }, [event.event_date, event.start_time]);
+    if (days > 0) {
+      setTimeUntilEvent(`${days}d ${hours}h`);
+    } else if (hours > 0) {
+      setTimeUntilEvent(`${hours}h ${minutes}m`);
+    } else {
+      setTimeUntilEvent(`${minutes}m`);
+    }
+  };
 
+  calculateTimeLeft();
+  const interval = setInterval(calculateTimeLeft, 60000);
+
+  return () => clearInterval(interval);
+}, [event.event_date, event.start_time]);
   // Calculate available seats and capacity percentage
   const availableSeats = event.capacity - (event.total_seats_booked || 0);
   const capacityPercentage = event.capacity > 0 
