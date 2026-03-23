@@ -86,11 +86,12 @@ const EventDetails = ({ user }) => {
   // Get Directions
   const handleGetDirections = () => {
     if (event?.map_link) {
-      window.open(event.map_link, '_blank');
+      let url = event.map_link;
+      if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+      window.open(url, '_blank', 'noopener,noreferrer');
     } else if (event?.venue || event?.location) {
       const query = encodeURIComponent(event.venue || event.location);
-      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
-      window.open(googleMapsUrl, '_blank');
+      window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank', 'noopener,noreferrer');
     } else {
       alert("Location information not available");
     }
@@ -371,12 +372,12 @@ const EventDetails = ({ user }) => {
           )}
 
           {/* Map */}
-          {event.map_link && (
+          {(event.map_link || event.venue || event.location) && (
             <section className="content-section">
               <h2>Location Map</h2>
               <div className="map-container">
                 <iframe
-                  src={event.map_link}
+                  src={`https://www.google.com/maps?q=${encodeURIComponent(event.venue || event.location || '')}&output=embed`}
                   width="100%"
                   height="400"
                   style={{ border: 0 }}

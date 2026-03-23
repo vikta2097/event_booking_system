@@ -126,11 +126,12 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
   const handleGetDirections = (e) => {
     e.stopPropagation();
     if (event.map_link) {
-      window.open(event.map_link, '_blank');
+      let url = event.map_link;
+      if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+      window.open(url, '_blank', 'noopener,noreferrer');
     } else if (event.venue || event.location) {
       const query = encodeURIComponent(event.venue || event.location);
-      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
-      window.open(googleMapsUrl, '_blank');
+      window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank', 'noopener,noreferrer');
     }
   };
 
