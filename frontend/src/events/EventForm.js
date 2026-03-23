@@ -191,6 +191,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       const payload = {
         ...formData,
         created_by: currentUser.id,
+        event_date: formData.event_date ? formData.event_date.split('T')[0] : formData.event_date,
         price: Number(formData.price) || 0,
         capacity: Number(formData.capacity) || 0,
         image: formData.organizer_image || null,
