@@ -1,7 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import "../styles/EventDetails.css";
+
+mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
 
 const EventDetails = ({ user }) => {
   const { id } = useParams();
@@ -14,6 +18,8 @@ const EventDetails = ({ user }) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [similarEvents, setSimilarEvents] = useState([]);
   const [showShareModal, setShowShareModal] = useState(false);
+  const mapContainer = useRef(null);
+  const map = useRef(null);
 
   useEffect(() => {
     const fetchEventDetails = async () => {
@@ -58,6 +64,38 @@ const EventDetails = ({ user }) => {
     
     fetchEventDetails();
   }, [id, user]);
+
+  // Initialize Mapbox map when event loads
+  useEffect(() => {
+    if (!event || map.current || !mapContainer.current) return;
+
+    const lng = event.longitude ? parseFloat(event.longitude) : 36.8219;
+    const lat = event.latitude ? parseFloat(event.latitude) : -1.2921;
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: [lng, lat],
+      zoom: event.longitude ? 15 : 10
+    });
+
+    new mapboxgl.Marker({ color: "#E63946" })
+      .setLngLat([lng, lat])
+      .setPopup(
+        new mapboxgl.Popup({ offset: 25 }).setHTML(
+          `<strong>${event.venue || event.location || "Event Venue"}</strong>`
+        )
+      )
+      .addTo(map.current);
+
+    map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    return () => {
+      map.current?.remove();
+      map.current = null;
+    };
+  }, [event]);
+
 
   // Add to Calendar
   const handleAddToCalendar = () => {
@@ -372,21 +410,13 @@ const EventDetails = ({ user }) => {
           )}
 
           {/* Map */}
-          {(event.map_link || event.venue || event.location) && (
+          {(event.venue || event.location) && (
             <section className="content-section">
               <h2>Location Map</h2>
-              <div className="map-container">
-                <iframe
-                  src={`https://www.google.com/maps?q=${encodeURIComponent(event.venue || event.location || '')}&output=embed`}
-                  width="100%"
-                  height="400"
-                  style={{ border: 0 }}
-                  allowFullScreen=""
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Event location map"
-                ></iframe>
-              </div>
+              <div
+                ref={mapContainer}
+                style={{ width: "100%", height: "400px", borderRadius: "8px" }}
+              />
               <button className="map-link-btn" onClick={handleGetDirections}>
                 📍 Open in Google Maps
               </button>

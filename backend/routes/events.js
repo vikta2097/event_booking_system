@@ -466,6 +466,8 @@ router.post("/", verifyToken, async (req, res) => {
       organizer_email,
       parking_info,
       map_link,
+      latitude,
+      longitude,
       tag_ids,
       is_early_bird,
       early_bird_price,
@@ -490,8 +492,8 @@ router.post("/", verifyToken, async (req, res) => {
 
     const result = await client.query(`
       INSERT INTO events
-      (title, description, category_id, location, event_date, start_time, end_time, capacity, price, status, created_by, image, venue, organizer_email, parking_info, map_link, is_early_bird, early_bird_price, early_bird_deadline)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+      (title, description, category_id, location, event_date, start_time, end_time, capacity, price, status, created_by, image, venue, organizer_email, parking_info, map_link, latitude, longitude, is_early_bird, early_bird_price, early_bird_deadline)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
       RETURNING id
     `, [
       title,
@@ -510,6 +512,8 @@ router.post("/", verifyToken, async (req, res) => {
       organizer_email || null,
       parking_info || null,
       map_link || null,
+      latitude ? parseFloat(latitude) : null,
+      longitude ? parseFloat(longitude) : null,
       is_early_bird || false,
       early_bird_price || null,
       early_bird_deadline || null
@@ -623,7 +627,7 @@ router.put("/:id", verifyToken, async (req, res) => {
     const fields = [
       "title","description","category_id","location","event_date","start_time","end_time",
       "capacity","price","status","image","venue","organizer_email","parking_info","map_link",
-      "is_early_bird","early_bird_price","early_bird_deadline"
+      "latitude","longitude","is_early_bird","early_bird_price","early_bird_deadline"
     ];
 
     const updates = [];

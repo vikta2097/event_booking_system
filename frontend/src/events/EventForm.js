@@ -1,5 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import api from "../api";
+import mapboxgl from "mapbox-gl";
+import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
+import "mapbox-gl/dist/mapbox-gl.css";
+import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
+
+mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
 
 const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) => {
   const [formData, setFormData] = useState({
@@ -21,13 +27,17 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     map_link: "",
     is_early_bird: false,
     early_bird_price: "",
-    early_bird_deadline: ""
+    early_bird_deadline: "",
+    latitude: "",
+    longitude: ""
   });
   
   const [selectedTags, setSelectedTags] = useState([]);
   const [formStep, setFormStep] = useState(1);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const geocoderContainer = useRef(null);
+  const geocoderRef = useRef(null);
 
   useEffect(() => {
     if (event) {
@@ -50,11 +60,54 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
         map_link: event.map_link || "",
         is_early_bird: event.is_early_bird || false,
         early_bird_price: event.early_bird_price || "",
-        early_bird_deadline: event.early_bird_deadline || ""
+        early_bird_deadline: event.early_bird_deadline || "",
+        latitude: event.latitude || "",
+        longitude: event.longitude || ""
       });
       setSelectedTags(event.tag_ids ? event.tag_ids.split(',').map(Number) : []);
     }
   }, [event]);
+  // Mapbox Geocoder for location autocomplete
+  useEffect(() => {
+    if (!geocoderContainer.current || geocoderRef.current) return;
+
+    const geocoder = new MapboxGeocoder({
+      accessToken: mapboxgl.accessToken,
+      types: "place,address,poi",
+      countries: "ke",
+      placeholder: "Search venue or address...",
+      marker: false
+    });
+
+    geocoder.addTo(geocoderContainer.current);
+    geocoderRef.current = geocoder;
+
+    geocoder.on("result", (e) => {
+      const { place_name, center } = e.result;
+      setFormData(prev => ({
+        ...prev,
+        location: place_name,
+        longitude: center[0],
+        latitude: center[1]
+      }));
+    });
+
+    geocoder.on("clear", () => {
+      setFormData(prev => ({
+        ...prev,
+        location: "",
+        longitude: "",
+        latitude: ""
+      }));
+    });
+
+    return () => {
+      if (geocoderRef.current) {
+        geocoderRef.current.onRemove();
+        geocoderRef.current = null;
+      }
+    };
+  }, []);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
@@ -289,13 +342,12 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
               <div className="form-row">
                 <div className="form-group">
                   <label>Location *</label>
-                  <input 
-                    type="text" 
-                    name="location" 
-                    value={formData.location} 
-                    onChange={handleChange}
-                    placeholder="e.g., Nairobi, Kenya"
-                  />
+                  <div ref={geocoderContainer} />
+                  {formData.location && (
+                    <p style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
+                      📍 {formData.location}
+                    </p>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Venue</label>
