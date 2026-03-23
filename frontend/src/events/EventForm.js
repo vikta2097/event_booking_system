@@ -112,13 +112,15 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     return true;
   };
 
-  const handleNext = () => {
+  const handleNext = (e) => {
+    e.preventDefault();
     if (validateStep()) {
       setFormStep(formStep + 1);
     }
   };
 
-  const handlePrevious = () => {
+  const handlePrevious = (e) => {
+    e.preventDefault();
     setError("");
     setFormStep(formStep - 1);
   };
@@ -159,6 +161,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     } catch (err) {
       console.error("Failed to save event:", err);
       setError(err.response?.data?.error || "Failed to save event. Please try again.");
+      setIsSubmitting(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -452,7 +455,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
               <button 
                 type="button" 
                 className="btn-secondary" 
-                onClick={handlePrevious}
+                onClick={(e) => handlePrevious(e)}
                 disabled={isSubmitting}
               >
                 ← Previous
@@ -463,7 +466,8 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
               <button 
                 type="button" 
                 className="btn-primary" 
-                onClick={handleNext}
+                onClick={(e) => handleNext(e)}
+                disabled={isSubmitting}
               >
                 Next →
               </button>
