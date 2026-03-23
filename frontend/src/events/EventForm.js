@@ -46,7 +46,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
         description: event.description || "",
         category_id: event.category_id || "",
         location: event.location || "",
-        event_date: event.event_date || "",
+        event_date: event.event_date ? event.event_date.split('T')[0] : "",
         start_time: event.start_time || "",
         end_time: event.end_time || "",
         capacity: event.capacity || "",
