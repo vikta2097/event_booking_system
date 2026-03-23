@@ -612,14 +612,21 @@ router.put("/:id", verifyToken, async (req, res) => {
   const client = await db.getClient();
 
   try {
-    const existingResult = await client.query("SELECT * FROM events WHERE id = $1", [req.params.id]);
+    const existingResult = await client.query(
+      "SELECT * FROM events WHERE id = $1",
+      [req.params.id]
+    );
+
     if (existingResult.rows.length === 0) {
       return res.status(404).json({ error: "Event not found" });
     }
 
     const event = existingResult.rows[0];
+
     if (req.user.id !== event.created_by && req.user.role !== "admin") {
-      return res.status(403).json({ error: "Forbidden: not allowed to update this event" });
+      return res.status(403).json({
+        error: "Forbidden: not allowed to update this event"
+      });
     }
 
     await client.query("BEGIN");
@@ -636,27 +643,62 @@ router.put("/:id", verifyToken, async (req, res) => {
 
     fields.forEach(f => {
       if (req.body[f] !== undefined) {
+        let value = req.body[f];
+
+        // 🔴 Fix numeric fields
+        if (["capacity", "price", "early_bird_price", "category_id"].includes(f)) {
+          value = value === "" ? null : Number(value);
+        }
+
+        // 🔴 Fix float fields
+        if (["latitude", "longitude"].includes(f)) {
+          value = value === "" ? null : parseFloat(value);
+        }
+
+        // 🔴 Fix boolean
+        if (f === "is_early_bird") {
+          value = value === true || value === "true";
+        }
+
+        // 🔴 Fix date fields
+        if (["event_date", "early_bird_deadline"].includes(f)) {
+          value = value ? value.split("T")[0] : null;
+        }
+
+        // 🔴 Convert empty string to null
+        if (value === "") value = null;
+
         updates.push(`${f} = $${i++}`);
-        values.push(req.body[f]);
+        values.push(value);
       }
     });
 
     if (updates.length > 0) {
       values.push(req.params.id);
-      await client.query(`UPDATE events SET ${updates.join(", ")} WHERE id = $${i}`, values);
+
+      await client.query(
+        `UPDATE events SET ${updates.join(", ")} WHERE id = $${i}`,
+        values
+      );
     }
 
-    // Update tags
+    // 🔴 Update tags safely
     if (req.body.tag_ids !== undefined) {
-      await client.query(`DELETE FROM event_tags WHERE event_id = $1`, [req.params.id]);
-      
+      await client.query(
+        `DELETE FROM event_tags WHERE event_id = $1`,
+        [req.params.id]
+      );
+
       if (req.body.tag_ids) {
         const tagArray = req.body.tag_ids.split(',').filter(Boolean);
+
         for (const tagId of tagArray) {
-          await client.query(`
-            INSERT INTO event_tags (event_id, tag_id) VALUES ($1, $2)
-            ON CONFLICT DO NOTHING
-          `, [req.params.id, parseInt(tagId)]);
+          await client.query(
+            `INSERT INTO event_tags (event_id, tag_id)
+             VALUES ($1, $2)
+             ON CONFLICT DO NOTHING`,
+            [req.params.id, parseInt(tagId)]
+          );
         }
       }
     }
@@ -664,10 +706,18 @@ router.put("/:id", verifyToken, async (req, res) => {
     await client.query("COMMIT");
 
     res.json({ message: "Event updated successfully" });
+
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("Error updating event:", err);
-    res.status(500).json({ error: "Failed to update event" });
+
+    console.error("❌ Error updating event:", err);
+
+    // 🔥 Better error message (helps debugging)
+    res.status(500).json({
+      error: "Failed to update event",
+      details: err.message
+    });
+
   } finally {
     client.release();
   }
