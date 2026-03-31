@@ -37,9 +37,13 @@ const DashboardHome = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      // ✅ AsyncStorage instead of localStorage
       const role = await AsyncStorage.getItem("role");
+      const token = await AsyncStorage.getItem("token");
       const endpoint = role === "organizer" ? "/dashboard/organizer" : "/dashboard";
-      const response = await api.get(endpoint);
+      const response = await api.get(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setDashboardData(response.data);
       setError("");
     } catch (err) {
@@ -77,7 +81,9 @@ const DashboardHome = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <Text style={styles.pageTitle}>Dashboard Overview</Text>
-      <Text style={styles.pageSubtitle}>Welcome back! Here's what's happening with your events.</Text>
+      <Text style={styles.pageSubtitle}>
+        Welcome back! Here's what's happening with your events.
+      </Text>
 
       {/* Stats */}
       <View style={styles.statsGrid}>
@@ -167,9 +173,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   loadingText: { marginTop: 12, color: "#666", fontSize: 16 },
   errorText: { color: "#ef4444", fontSize: 16, textAlign: "center", marginBottom: 16 },
-  retryBtn: {
-    backgroundColor: "#667eea", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10,
-  },
+  retryBtn: { backgroundColor: "#667eea", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryBtnText: { color: "#fff", fontWeight: "600" },
   pageTitle: { fontSize: 24, fontWeight: "700", color: "#1a1a1a", marginBottom: 6 },
   pageSubtitle: { fontSize: 14, color: "#666", marginBottom: 24 },
@@ -180,10 +184,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
   },
-  statIcon: {
-    width: 60, height: 60, borderRadius: 12,
-    justifyContent: "center", alignItems: "center",
-  },
+  statIcon: { width: 60, height: 60, borderRadius: 12, justifyContent: "center", alignItems: "center" },
   statIconText: { fontSize: 28 },
   statContent: { flex: 1 },
   statLabel: { fontSize: 12, color: "#666", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
@@ -195,11 +196,7 @@ const styles = StyleSheet.create({
   },
   dashCardTitle: { fontSize: 18, fontWeight: "700", color: "#1a1a1a", marginBottom: 12 },
   divider: { height: 2, backgroundColor: "#f5f5f5", marginBottom: 12 },
-  listItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f5f5f5",
-  },
+  listItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#f5f5f5" },
   listItemTitle: { fontSize: 15, fontWeight: "600", color: "#1a1a1a", marginBottom: 2 },
   listItemSub: { fontSize: 13, color: "#666" },
   paymentItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#f5f5f5" },

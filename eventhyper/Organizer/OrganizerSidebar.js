@@ -1,10 +1,12 @@
 // Organizer/OrganizerSidebar.js (React Native)
 import React from "react";
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView,
+  View, Text, TouchableOpacity, StyleSheet,
+  ScrollView, SafeAreaView,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import TicketScanner from "../pages/TicketScanner";
+
+// ✅ Removed unused TicketScanner import that was in original
 
 const Icon = ({ name }) => {
   const icons = {
@@ -14,13 +16,14 @@ const Icon = ({ name }) => {
   return <Text style={styles.icon}>{icons[name] || "•"}</Text>;
 };
 
+// ✅ Matches web OrganizerSidebar navItems exactly
 const navItems = [
-  { name: "Dashboard",    iconKey: "dashboard", screen: "DashboardHome" },
+  { name: "Dashboard",    iconKey: "dashboard", screen: "OrganizerHome" },
   { name: "My Events",    iconKey: "events",    screen: "OrganizerEvents" },
   { name: "Bookings",     iconKey: "bookings",  screen: "OrganizerBookings" },
-  { name: "Scan Tickets", iconKey: "scan",      screen: "TicketScanner" },
+  { name: "Scan Tickets", iconKey: "scan",      screen: "OrganizerScan" },
   { name: "Reports",      iconKey: "reports",   screen: "OrganizerReports" },
-
+  { name: "Support",      iconKey: "support",   screen: "OrganizerSupport" },
 ];
 
 const OrganizerSidebar = ({ onLogout, onClose }) => {
@@ -34,10 +37,12 @@ const OrganizerSidebar = ({ onLogout, onClose }) => {
 
   return (
     <SafeAreaView style={styles.sidebar}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Organizer Panel</Text>
       </View>
 
+      {/* Nav Items */}
       <ScrollView style={styles.nav} showsVerticalScrollIndicator={false}>
         {navItems.map((item) => {
           const isActive = route.name === item.screen;
@@ -57,6 +62,7 @@ const OrganizerSidebar = ({ onLogout, onClose }) => {
         })}
       </ScrollView>
 
+      {/* Footer / Logout */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
           <Icon name="logout" />

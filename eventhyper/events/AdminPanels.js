@@ -4,7 +4,7 @@ import {
   FlatList, Modal, StyleSheet, Alert, Platform
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DocumentPicker from "react-native-document-picker";
+import * as DocumentPicker from "expo-document-picker";
 import api from "../api";
 
 const AdminPanels = ({ categories, tags, onRefresh }) => {
@@ -30,21 +30,31 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
 
   const pickFile = async () => {
     try {
-      const result = await DocumentPicker.pickSingle({
-        type: [DocumentPicker.types.csv, "application/vnd.ms-excel",
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          "text/csv",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ],
+        copyToCacheDirectory: true,
       });
-      setBulkFile(result);
-      setUploadError("");
+      if (!result.canceled && result.assets?.length > 0) {
+        setBulkFile(result.assets[0]);
+        setUploadError("");
+      }
     } catch (err) {
-      if (!DocumentPicker.isCancel(err)) setUploadError("Failed to pick file");
+      setUploadError("Failed to pick file");
     }
   };
 
   const handleBulkUpload = async () => {
     if (!bulkFile) return;
     const formData = new FormData();
-    formData.append("file", { uri: bulkFile.uri, name: bulkFile.name, type: bulkFile.type });
+    formData.append("file", {
+      uri: bulkFile.uri,
+      name: bulkFile.name,
+      type: bulkFile.mimeType || "text/csv",
+    });
     try {
       setUploadLoading(true);
       setUploadError("");
@@ -57,7 +67,9 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
       setBulkFile(null);
       await onRefresh();
     } catch (err) {
-      setUploadError(err.response?.data?.error || err.response?.data?.message || "Bulk upload failed");
+      setUploadError(
+        err.response?.data?.error || err.response?.data?.message || "Bulk upload failed"
+      );
     } finally {
       setUploadLoading(false);
     }
@@ -154,17 +166,25 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
       </ScrollView>
 
       {/* Bulk Upload Modal */}
-      <Modal visible={showBulkUpload} transparent animationType="fade" onRequestClose={() => setShowBulkUpload(false)}>
+      <Modal
+        visible={showBulkUpload}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBulkUpload(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>📤 Bulk Upload Events</Text>
 
             <TouchableOpacity style={styles.filePickerBtn} onPress={pickFile}>
-              <Text style={styles.filePickerBtnText}>{bulkFile ? `📄 ${bulkFile.name}` : "Choose CSV/Excel File"}</Text>
+              <Text style={styles.filePickerBtnText}>
+                {bulkFile ? `📄 ${bulkFile.name}` : "Choose CSV/Excel File"}
+              </Text>
             </TouchableOpacity>
 
             <Text style={styles.helpText}>
-              Required: title, description, category_id, location, event_date, start_time, end_time, capacity, price
+              Required: title, description, category_id, location, event_date, start_time,
+              end_time, capacity, price
             </Text>
 
             {!!uploadError && <Text style={styles.errorText}>{uploadError}</Text>}
@@ -175,9 +195,18 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
                 onPress={handleBulkUpload}
                 disabled={!bulkFile || uploadLoading}
               >
-                <Text style={styles.primaryBtnText}>{uploadLoading ? "Uploading..." : "Upload"}</Text>
+                <Text style={styles.primaryBtnText}>
+                  {uploadLoading ? "Uploading..." : "Upload"}
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => { setShowBulkUpload(false); setBulkFile(null); setUploadError(""); }}>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={() => {
+                  setShowBulkUpload(false);
+                  setBulkFile(null);
+                  setUploadError("");
+                }}
+              >
                 <Text style={styles.secondaryBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -190,7 +219,13 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
         <View style={styles.panel}>
           <View style={styles.panelHeader}>
             <Text style={styles.panelTitle}>🏷️ Manage Categories</Text>
-            <TouchableOpacity onPress={() => { setShowCategoryCard(false); setCategoryError(""); setEditingCategory(null); }}>
+            <TouchableOpacity
+              onPress={() => {
+                setShowCategoryCard(false);
+                setCategoryError("");
+                setEditingCategory(null);
+              }}
+            >
               <Text style={styles.closeBtn}>×</Text>
             </TouchableOpacity>
           </View>
@@ -221,10 +256,16 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
                         onChangeText={(v) => setEditingCategory({ ...editingCategory, name: v })}
                         autoFocus
                       />
-                      <TouchableOpacity style={styles.iconBtn} onPress={() => handleCategoryUpdate(c.id, editingCategory.name)}>
+                      <TouchableOpacity
+                        style={styles.iconBtn}
+                        onPress={() => handleCategoryUpdate(c.id, editingCategory.name)}
+                      >
                         <Text style={styles.saveIcon}>✓</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.iconBtn} onPress={() => setEditingCategory(null)}>
+                      <TouchableOpacity
+                        style={styles.iconBtn}
+                        onPress={() => setEditingCategory(null)}
+                      >
                         <Text style={styles.cancelIcon}>✕</Text>
                       </TouchableOpacity>
                     </>
@@ -232,10 +273,16 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
                     <>
                       <Text style={styles.itemName}>{c.name}</Text>
                       <View style={styles.itemActions}>
-                        <TouchableOpacity style={styles.iconBtn} onPress={() => setEditingCategory(c)}>
+                        <TouchableOpacity
+                          style={styles.iconBtn}
+                          onPress={() => setEditingCategory(c)}
+                        >
                           <Text>✏️</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.iconBtn} onPress={() => handleCategoryDelete(c.id)}>
+                        <TouchableOpacity
+                          style={styles.iconBtn}
+                          onPress={() => handleCategoryDelete(c.id)}
+                        >
                           <Text>🗑️</Text>
                         </TouchableOpacity>
                       </View>
@@ -255,7 +302,12 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
         <View style={styles.panel}>
           <View style={styles.panelHeader}>
             <Text style={styles.panelTitle}>🔖 Manage Tags</Text>
-            <TouchableOpacity onPress={() => { setShowTagsCard(false); setTagError(""); }}>
+            <TouchableOpacity
+              onPress={() => {
+                setShowTagsCard(false);
+                setTagError("");
+              }}
+            >
               <Text style={styles.closeBtn}>×</Text>
             </TouchableOpacity>
           </View>
@@ -278,14 +330,19 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
             {tags.map((t) => (
               <View key={t.id} style={styles.tagChip}>
                 <Text style={styles.tagChipText}>{t.name}</Text>
-                <TouchableOpacity onPress={() => handleTagDelete(t.id)} style={styles.tagDeleteBtn}>
+                <TouchableOpacity
+                  onPress={() => handleTagDelete(t.id)}
+                  style={styles.tagDeleteBtn}
+                >
                   <Text style={styles.tagDeleteText}>✕</Text>
                 </TouchableOpacity>
               </View>
             ))}
           </View>
 
-          {tags.length === 0 && <Text style={styles.emptyText}>No tags yet. Add one above.</Text>}
+          {tags.length === 0 && (
+            <Text style={styles.emptyText}>No tags yet. Add one above.</Text>
+          )}
         </View>
       )}
     </View>
@@ -294,38 +351,85 @@ const AdminPanels = ({ categories, tags, onRefresh }) => {
 
 const styles = StyleSheet.create({
   actionsRow: { marginBottom: 12 },
-  adminBtn: { backgroundColor: "#fff", borderWidth: 2, borderColor: "#e5e7eb", borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8 },
+  adminBtn: {
+    backgroundColor: "#fff", borderWidth: 2, borderColor: "#e5e7eb",
+    borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8,
+  },
   adminBtnText: { color: "#374151", fontWeight: "700", fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  modal: { backgroundColor: "#fff", borderRadius: 14, padding: 24, width: "90%", maxWidth: 420 },
+
+  // Modal
+  modalOverlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center", alignItems: "center",
+  },
+  modal: {
+    backgroundColor: "#fff", borderRadius: 14, padding: 24,
+    width: "90%", maxWidth: 420,
+  },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 16, color: "#1f2937" },
-  filePickerBtn: { backgroundColor: "#f3f4f6", borderRadius: 8, padding: 14, alignItems: "center", marginBottom: 12, borderWidth: 1, borderColor: "#d1d5db" },
+  filePickerBtn: {
+    backgroundColor: "#f3f4f6", borderRadius: 8, padding: 14,
+    alignItems: "center", marginBottom: 12, borderWidth: 1, borderColor: "#d1d5db",
+  },
   filePickerBtnText: { color: "#374151", fontWeight: "600" },
   helpText: { color: "#6b7280", fontSize: 12, marginBottom: 12, lineHeight: 18 },
   errorText: { color: "#ef4444", fontSize: 13, marginBottom: 8 },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 8 },
-  primaryBtn: { flex: 1, backgroundColor: "#3b82f6", borderRadius: 8, padding: 12, alignItems: "center" },
+  primaryBtn: {
+    flex: 1, backgroundColor: "#3b82f6",
+    borderRadius: 8, padding: 12, alignItems: "center",
+  },
   primaryBtnText: { color: "#fff", fontWeight: "700" },
   disabledBtn: { opacity: 0.5 },
-  secondaryBtn: { flex: 1, backgroundColor: "#f3f4f6", borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 12, alignItems: "center" },
+  secondaryBtn: {
+    flex: 1, backgroundColor: "#f3f4f6", borderWidth: 1,
+    borderColor: "#d1d5db", borderRadius: 8, padding: 12, alignItems: "center",
+  },
   secondaryBtnText: { color: "#374151", fontWeight: "600" },
-  panel: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#e5e7eb" },
-  panelHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+
+  // Panels
+  panel: {
+    backgroundColor: "#fff", borderRadius: 12, padding: 16,
+    marginBottom: 12, borderWidth: 1, borderColor: "#e5e7eb",
+  },
+  panelHeader: {
+    flexDirection: "row", justifyContent: "space-between",
+    alignItems: "center", marginBottom: 14,
+  },
   panelTitle: { fontSize: 16, fontWeight: "700", color: "#1f2937" },
   closeBtn: { fontSize: 24, color: "#6b7280", fontWeight: "700", lineHeight: 28 },
+
+  // Forms
   inlineForm: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  inlineInput: { flex: 1, borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10, fontSize: 14 },
-  addBtn: { backgroundColor: "#3b82f6", borderRadius: 8, paddingHorizontal: 16, justifyContent: "center" },
+  inlineInput: {
+    flex: 1, borderWidth: 1, borderColor: "#d1d5db",
+    borderRadius: 8, padding: 10, fontSize: 14,
+  },
+  addBtn: {
+    backgroundColor: "#3b82f6", borderRadius: 8,
+    paddingHorizontal: 16, justifyContent: "center",
+  },
   addBtnText: { color: "#fff", fontWeight: "700" },
-  listItem: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
+
+  // List items
+  listItem: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#f3f4f6",
+  },
   itemName: { flex: 1, color: "#1f2937", fontSize: 15 },
   itemActions: { flexDirection: "row", gap: 8 },
   iconBtn: { padding: 6 },
   saveIcon: { color: "#10b981", fontWeight: "700", fontSize: 18 },
   cancelIcon: { color: "#ef4444", fontWeight: "700", fontSize: 16 },
   emptyText: { textAlign: "center", color: "#9ca3af", marginVertical: 16 },
+
+  // Tags
   tagsList: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
-  tagChip: { flexDirection: "row", alignItems: "center", backgroundColor: "#f3f4f6", borderRadius: 20, paddingLeft: 12, paddingRight: 6, paddingVertical: 6, borderWidth: 1, borderColor: "#d1d5db" },
+  tagChip: {
+    flexDirection: "row", alignItems: "center", backgroundColor: "#f3f4f6",
+    borderRadius: 20, paddingLeft: 12, paddingRight: 6, paddingVertical: 6,
+    borderWidth: 1, borderColor: "#d1d5db",
+  },
   tagChipText: { color: "#374151", fontSize: 13, fontWeight: "500", marginRight: 4 },
   tagDeleteBtn: { padding: 2 },
   tagDeleteText: { color: "#6b7280", fontWeight: "700", fontSize: 14 },

@@ -13,16 +13,17 @@ import PaymentPage from "./PaymentPage";
 import BookingSuccess from "./BookingSuccess";
 import UserBookings from "./UserBookings";
 import ContactUs from "./ContactUs";
-// import NotificationBell from "./NotificationBell";
+import NotificationBell from "./NotificationBell"; // ✅ Uncommented — matches web version
 
 const Stack = createNativeStackNavigator();
 
-// ─── Top Bar (shared header) ─────────────────────────────────────────────────
+// ─── Top Bar — matches web UserDashboard top bar exactly ─────────────────────
 const TopBar = ({ user, onLogout }) => {
   const navigation = useNavigation();
   return (
     <SafeAreaView style={styles.topBarSafe}>
       <View style={styles.topBar}>
+        {/* Brand title — navigates home like web */}
         <TouchableOpacity onPress={() => navigation.navigate("UserHome")}>
           <Text style={styles.brandTitle}>EventHyper</Text>
         </TouchableOpacity>
@@ -30,13 +31,18 @@ const TopBar = ({ user, onLogout }) => {
         <View style={styles.topBarRight}>
           {user ? (
             <>
+              {/* My Bookings button */}
               <TouchableOpacity
                 style={styles.topBarBtn}
                 onPress={() => navigation.navigate("UserBookings")}
               >
                 <Text style={styles.topBarBtnText}>My Bookings</Text>
               </TouchableOpacity>
-              {/* <NotificationBell user={user} /> */}
+
+              {/* ✅ NotificationBell — now active, matches web */}
+              <NotificationBell user={user} />
+
+              {/* Logout */}
               <TouchableOpacity
                 style={[styles.topBarBtn, styles.logoutBtn]}
                 onPress={onLogout}
@@ -45,12 +51,23 @@ const TopBar = ({ user, onLogout }) => {
               </TouchableOpacity>
             </>
           ) : (
-            <TouchableOpacity
-              style={styles.topBarBtn}
-              onPress={() => navigation.navigate("Login")}
-            >
-              <Text style={styles.topBarBtnText}>Login</Text>
-            </TouchableOpacity>
+            <>
+              {/* Login button (guest) */}
+              <TouchableOpacity
+                style={styles.topBarBtn}
+                onPress={() => navigation.navigate("Login")}
+              >
+                <Text style={styles.topBarBtnText}>Login</Text>
+              </TouchableOpacity>
+
+              {/* Sign Up button (guest) — matches web */}
+              <TouchableOpacity
+                style={[styles.topBarBtn, styles.signupBtn]}
+                onPress={() => navigation.navigate("Login")}
+              >
+                <Text style={styles.topBarBtnText}>Sign Up</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </View>
@@ -67,6 +84,7 @@ const UserDashboard = ({ user, token, onLogout, navigation: rootNav }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
+      {/* Top bar shown on all screens — same as web fixed top bar */}
       <TopBar user={user} onLogout={handleLogout} />
 
       <Stack.Navigator
@@ -86,7 +104,6 @@ const UserDashboard = ({ user, token, onLogout, navigation: rootNav }) => {
             user ? (
               <BookingForm {...props} user={user} />
             ) : (
-              // Redirect to login if not authenticated
               props.navigation.replace("Login")
             )
           }
@@ -146,30 +163,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  brandTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#0077ff",
-  },
-  topBarRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
+  brandTitle: { fontSize: 22, fontWeight: "700", color: "#0077ff" },
+  topBarRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   topBarBtn: {
     backgroundColor: "#0077ff",
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
-  logoutBtn: {
-    backgroundColor: "#d9534f",
-  },
-  topBarBtnText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  logoutBtn: { backgroundColor: "#d9534f" },
+  signupBtn: { backgroundColor: "#10b981" },
+  topBarBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 });
 
 export default UserDashboard;

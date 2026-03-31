@@ -3,9 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 /* ================= BASE URL ================= */
 
-// IMPORTANT:
-// Replace localhost with your PC IP when testing on phone
-// Example: http://192.168.1.10:3300/api
+
 
 const BASE_URL = "https://event-booking-system-u1z3.onrender.com/api";
 // const BASE_URL = "http://192.168.1.10:3300/api";
@@ -93,5 +91,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+//set REACT_NATIVE_PACKAGER_HOSTNAME=172.16.13.179
+//npx expo start --lan
 
 export default api;
