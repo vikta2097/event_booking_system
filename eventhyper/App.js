@@ -1,4 +1,3 @@
-// App.js (React Native)
 import 'react-native-gesture-handler';
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
@@ -96,9 +95,13 @@ export default function App() {
 
   const isAuthenticated = !!token;
 
-  // ─── Determine initial route ──────────────────────────────────────────────
+  // ─── Initial route logic — mirrors web App.js exactly ────────────────────
+  // Web:  /  → if authenticated, go to role dashboard; else → /dashboard (guest ok)
+  // RN:   always start at UserDashboard; role dashboards are navigated to post-login
+  //       Auth-gated sub-screens (BookEvent, Payment, etc.) redirect to Login
+  //       from inside UserDashboard — same as web's per-route <Navigate> guards.
   const getInitialRoute = () => {
-    if (!isAuthenticated) return "Login";
+    if (!isAuthenticated) return "UserDashboard"; // ✅ guests browse freely, like web
     if (user?.role === "admin") return "AdminDashboard";
     if (user?.role === "organizer") return "OrganizerDashboard";
     return "UserDashboard";
@@ -111,14 +114,16 @@ export default function App() {
         initialRouteName={getInitialRoute()}
         screenOptions={{ headerShown: false }}
       >
-        {/* ── Auth ── */}
+        {/* ── Auth ─────────────────────────────────────────────────────────── */}
+        {/* Login is always registered so auth-gated screens can navigate here */}
         <Stack.Screen name="Login">
           {(props) => (
             <LoginForm {...props} onLoginSuccess={handleLogin} />
           )}
         </Stack.Screen>
 
-        {/* ── User Dashboard ── */}
+        {/* ── User Dashboard ───────────────────────────────────────────────── */}
+        {/* Always registered — guests can browse; auth guards live inside     */}
         <Stack.Screen name="UserDashboard">
           {(props) => (
             <UserDashboard
@@ -130,7 +135,8 @@ export default function App() {
           )}
         </Stack.Screen>
 
-        {/* ── Admin Dashboard ── */}
+        {/* ── Admin Dashboard ──────────────────────────────────────────────── */}
+        {/* Mirrors web: only accessible when authenticated as admin           */}
         {isAuthenticated && user?.role === "admin" && (
           <Stack.Screen name="AdminDashboard">
             {(props) => (
@@ -139,7 +145,8 @@ export default function App() {
           </Stack.Screen>
         )}
 
-        {/* ── Organizer Dashboard ── */}
+        {/* ── Organizer Dashboard ──────────────────────────────────────────── */}
+        {/* Mirrors web: only accessible when authenticated as organizer       */}
         {isAuthenticated && user?.role === "organizer" && (
           <Stack.Screen name="OrganizerDashboard">
             {(props) => (

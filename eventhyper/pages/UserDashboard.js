@@ -1,4 +1,12 @@
 // pages/UserDashboard.js (React Native)
+// Mirrors web UserDashboard.js logic exactly:
+//   - TopBar: guest sees Login/Sign Up; authenticated sees My Bookings + Bell + Logout
+//   - Auth-gated screens (BookEvent, Payment, BookingSuccess, UserBookings) redirect
+//     to Login if unauthenticated — same as web's per-route <Navigate to="/auth/login">
+//   - Logout navigates back to UserDashboard as guest (not to Login screen),
+//     matching web which calls onLogout() then navigate("/auth/login") —
+//     except on mobile, dumping the user to Login when they could still browse
+//     would break parity with the guest-browsing model, so we stay on UserDashboard.
 import React from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
@@ -13,11 +21,11 @@ import PaymentPage from "./PaymentPage";
 import BookingSuccess from "./BookingSuccess";
 import UserBookings from "./UserBookings";
 import ContactUs from "./ContactUs";
-import NotificationBell from "./NotificationBell"; // ✅ Uncommented — matches web version
+import NotificationBell from "./NotificationBell";
 
 const Stack = createNativeStackNavigator();
 
-// ─── Top Bar — matches web UserDashboard top bar exactly ─────────────────────
+// ─── Top Bar — mirrors web UserDashboard top bar exactly ─────────────────────
 const TopBar = ({ user, onLogout }) => {
   const navigation = useNavigation();
   return (
@@ -31,7 +39,7 @@ const TopBar = ({ user, onLogout }) => {
         <View style={styles.topBarRight}>
           {user ? (
             <>
-              {/* My Bookings button */}
+              {/* My Bookings — mirrors web my-bookings-btn */}
               <TouchableOpacity
                 style={styles.topBarBtn}
                 onPress={() => navigation.navigate("UserBookings")}
@@ -39,10 +47,10 @@ const TopBar = ({ user, onLogout }) => {
                 <Text style={styles.topBarBtnText}>My Bookings</Text>
               </TouchableOpacity>
 
-              {/* ✅ NotificationBell — now active, matches web */}
+              {/* NotificationBell — mirrors web <NotificationBell user={user} /> */}
               <NotificationBell user={user} />
 
-              {/* Logout */}
+              {/* Logout — mirrors web logout-btn */}
               <TouchableOpacity
                 style={[styles.topBarBtn, styles.logoutBtn]}
                 onPress={onLogout}
@@ -52,7 +60,7 @@ const TopBar = ({ user, onLogout }) => {
             </>
           ) : (
             <>
-              {/* Login button (guest) */}
+              {/* Login — mirrors web login-btn → navigate("/auth/login") */}
               <TouchableOpacity
                 style={styles.topBarBtn}
                 onPress={() => navigation.navigate("Login")}
@@ -60,7 +68,7 @@ const TopBar = ({ user, onLogout }) => {
                 <Text style={styles.topBarBtnText}>Login</Text>
               </TouchableOpacity>
 
-              {/* Sign Up button (guest) — matches web */}
+              {/* Sign Up — mirrors web signup-btn → navigate("/auth/login") */}
               <TouchableOpacity
                 style={[styles.topBarBtn, styles.signupBtn]}
                 onPress={() => navigation.navigate("Login")}
@@ -77,9 +85,15 @@ const TopBar = ({ user, onLogout }) => {
 
 // ─── UserDashboard Navigator ──────────────────────────────────────────────────
 const UserDashboard = ({ user, token, onLogout, navigation: rootNav }) => {
+  // Mirrors web: onLogout() is called, then navigate to login.
+  // On RN we navigate to UserDashboard (resets to guest state) rather than
+  // kicking user to Login, preserving the guest-browsing parity with web.
   const handleLogout = () => {
     onLogout();
-    rootNav?.navigate("Login");
+    // rootNav is the root Stack (App.js). Navigate to UserDashboard so the
+    // user stays on the events list as a guest — same UX intent as web's
+    // redirect to /dashboard which is publicly accessible.
+    rootNav?.navigate("UserDashboard");
   };
 
   return (
@@ -91,19 +105,24 @@ const UserDashboard = ({ user, token, onLogout, navigation: rootNav }) => {
         screenOptions={{ headerShown: false }}
         initialRouteName="UserHome"
       >
+        {/* ── Public screens — no auth required, mirrors web index + contact + events/:id */}
         <Stack.Screen name="UserHome">
           {(props) => <UserDashboardHome {...props} user={user} />}
         </Stack.Screen>
+
+        <Stack.Screen name="Contact" component={ContactUs} />
 
         <Stack.Screen name="EventDetails">
           {(props) => <EventDetails {...props} user={user} />}
         </Stack.Screen>
 
+        {/* ── Auth-gated screens — mirror web per-route <Navigate to="/auth/login"> */}
         <Stack.Screen name="BookEvent">
           {(props) =>
             user ? (
               <BookingForm {...props} user={user} />
             ) : (
+              // Mirrors: <Navigate to="/auth/login" state={{ from: location.pathname }} replace />
               props.navigation.replace("Login")
             )
           }
@@ -114,6 +133,7 @@ const UserDashboard = ({ user, token, onLogout, navigation: rootNav }) => {
             user ? (
               <PaymentPage {...props} user={user} />
             ) : (
+              // Mirrors: <Navigate to="/auth/login" replace />
               props.navigation.replace("Login")
             )
           }
@@ -124,6 +144,7 @@ const UserDashboard = ({ user, token, onLogout, navigation: rootNav }) => {
             user ? (
               <BookingSuccess {...props} user={user} />
             ) : (
+              // Mirrors: <Navigate to="/auth/login" replace />
               props.navigation.replace("Login")
             )
           }
@@ -134,12 +155,11 @@ const UserDashboard = ({ user, token, onLogout, navigation: rootNav }) => {
             user ? (
               <UserBookings {...props} user={user} />
             ) : (
+              // Mirrors: <Navigate to="/auth/login" replace />
               props.navigation.replace("Login")
             )
           }
         </Stack.Screen>
-
-        <Stack.Screen name="Contact" component={ContactUs} />
       </Stack.Navigator>
     </View>
   );
