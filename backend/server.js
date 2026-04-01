@@ -15,9 +15,12 @@ const { Server } = require("socket.io");
 
 const io = new Server(server, {
   cors: {
+    // ✅ Added null origin — React Native sends no Origin header (or null)
+    // Without this, every mobile API call gets blocked by CORS
     origin: [
       "http://localhost:3000",
       "https://eventhyper.netlify.app",
+      null, // React Native / Expo mobile app
     ],
     credentials: true,
   },
@@ -66,7 +69,6 @@ io.on("connection", (socket) => {
     const room = `user_${userId}`;
     socket.join(room);
     connectedUsers.set(userId, socket.id);
-
     console.log(`👤 User ${userId} joined ${room}`);
     socket.emit("joined_room", { userId, room });
   });
@@ -103,8 +105,14 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin))
-        return callback(null, true);
+      // ✅ Allow requests with no Origin header — this is how React Native
+      // (Expo) sends requests. Mobile apps don't have a browser origin.
+      // Previously this was blocked, causing all mobile API calls to fail
+      // with CORS errors even though the requests were legitimate.
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+
       callback(new Error("CORS not allowed for: " + origin));
     },
     credentials: true,
@@ -178,17 +186,13 @@ const ensureDefaultAdmin = async () => {
     const result = await db.query(
       "SELECT * FROM usercredentials WHERE role = 'admin' LIMIT 1"
     );
-
     if (result.rows.length === 0) {
       console.log("⚠️ Creating default admin...");
-
       const hash = await bcrypt.hash("Admin@123", 10);
-
       await db.query(
         "INSERT INTO usercredentials (fullname, email, password_hash, role) VALUES ($1, $2, $3, $4)",
         ["System Admin", "admin@system.com", hash, "admin"]
       );
-
       console.log("✅ Default admin created");
     } else {
       console.log("✅ Admin already exists");
@@ -206,10 +210,9 @@ const startServer = async () => {
     console.log("✅ Database connected.");
 
     const PORT = process.env.PORT || 3300;
-
     server.listen(PORT, async () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 CORS: ${allowedOrigins.join(", ")}`);
+      console.log(`🌐 CORS: ${allowedOrigins.join(", ")} + React Native (no-origin)`);
       console.log(`🔌 Socket.IO ready`);
       await ensureDefaultAdmin();
     });

@@ -1,18 +1,9 @@
 // pages/UserDashboard.js (React Native)
-// Mirrors web UserDashboard.js logic exactly:
-//   - TopBar: guest sees Login/Sign Up; authenticated sees My Bookings + Bell + Logout
-//   - Auth-gated screens (BookEvent, Payment, BookingSuccess, UserBookings) redirect
-//     to Login if unauthenticated — same as web's per-route <Navigate to="/auth/login">
-//   - Logout navigates back to UserDashboard as guest (not to Login screen),
-//     matching web which calls onLogout() then navigate("/auth/login") —
-//     except on mobile, dumping the user to Login when they could still browse
-//     would break parity with the guest-browsing model, so we stay on UserDashboard.
-import React from "react";
-import {
-  View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-} from "react-native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useNavigation } from "@react-navigation/native";
+import React, { useRef } from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { createNativeStackNavigator, useNavigationContainerRef } from "@react-navigation/native-stack";
+import { NavigationContainer } from "@react-navigation/native";
 
 import UserDashboardHome from "./UserDashboardHome";
 import EventDetails from "./EventDetails";
@@ -25,32 +16,30 @@ import NotificationBell from "./NotificationBell";
 
 const Stack = createNativeStackNavigator();
 
-// ─── Top Bar — mirrors web UserDashboard top bar exactly ─────────────────────
-const TopBar = ({ user, onLogout }) => {
-  const navigation = useNavigation();
+// ─── Top Bar ──────────────────────────────────────────────────────────────────
+// ✅ Receives innerNav prop directly from UserDashboard — avoids useNavigation()
+// which would return the ROOT navigator (App.js Stack) and fail to find
+// screens that only exist in the nested Stack (UserHome, UserBookings, etc.)
+const TopBar = ({ user, onLogout, innerNav }) => {
   return (
-    <SafeAreaView style={styles.topBarSafe}>
+    <SafeAreaView style={styles.topBarSafe} edges={["top"]}>
       <View style={styles.topBar}>
-        {/* Brand title — navigates home like web */}
-        <TouchableOpacity onPress={() => navigation.navigate("UserHome")}>
+        <TouchableOpacity onPress={() => innerNav.navigate("UserHome")}>
           <Text style={styles.brandTitle}>EventHyper</Text>
         </TouchableOpacity>
 
         <View style={styles.topBarRight}>
           {user ? (
             <>
-              {/* My Bookings — mirrors web my-bookings-btn */}
               <TouchableOpacity
                 style={styles.topBarBtn}
-                onPress={() => navigation.navigate("UserBookings")}
+                onPress={() => innerNav.navigate("UserBookings")}
               >
                 <Text style={styles.topBarBtnText}>My Bookings</Text>
               </TouchableOpacity>
 
-              {/* NotificationBell — mirrors web <NotificationBell user={user} /> */}
               <NotificationBell user={user} />
 
-              {/* Logout — mirrors web logout-btn */}
               <TouchableOpacity
                 style={[styles.topBarBtn, styles.logoutBtn]}
                 onPress={onLogout}
@@ -60,18 +49,16 @@ const TopBar = ({ user, onLogout }) => {
             </>
           ) : (
             <>
-              {/* Login — mirrors web login-btn → navigate("/auth/login") */}
               <TouchableOpacity
                 style={styles.topBarBtn}
-                onPress={() => navigation.navigate("Login")}
+                onPress={() => innerNav.navigate("Login")}
               >
                 <Text style={styles.topBarBtnText}>Login</Text>
               </TouchableOpacity>
 
-              {/* Sign Up — mirrors web signup-btn → navigate("/auth/login") */}
               <TouchableOpacity
                 style={[styles.topBarBtn, styles.signupBtn]}
-                onPress={() => navigation.navigate("Login")}
+                onPress={() => innerNav.navigate("Login")}
               >
                 <Text style={styles.topBarBtnText}>Sign Up</Text>
               </TouchableOpacity>
@@ -85,80 +72,99 @@ const TopBar = ({ user, onLogout }) => {
 
 // ─── UserDashboard Navigator ──────────────────────────────────────────────────
 const UserDashboard = ({ user, token, onLogout, navigation: rootNav }) => {
-  // Mirrors web: onLogout() is called, then navigate to login.
-  // On RN we navigate to UserDashboard (resets to guest state) rather than
-  // kicking user to Login, preserving the guest-browsing parity with web.
+  // ✅ useRef holds the inner Stack's navigation object once the navigator mounts.
+  // We pass this ref's current value to TopBar so it targets the correct navigator.
+  const innerNavRef = useRef(null);
+
   const handleLogout = () => {
     onLogout();
-    // rootNav is the root Stack (App.js). Navigate to UserDashboard so the
-    // user stays on the events list as a guest — same UX intent as web's
-    // redirect to /dashboard which is publicly accessible.
     rootNav?.navigate("UserDashboard");
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      {/* Top bar shown on all screens — same as web fixed top bar */}
-      <TopBar user={user} onLogout={handleLogout} />
+      {/* TopBar gets innerNavRef so its buttons hit the nested Stack, not root */}
+      <TopBar
+        user={user}
+        onLogout={handleLogout}
+        innerNav={{
+          navigate: (name, params) => innerNavRef.current?.navigate(name, params),
+        }}
+      />
 
       <Stack.Navigator
-        screenOptions={{ headerShown: false }}
         initialRouteName="UserHome"
+        screenOptions={{
+          headerShown: false,
+          gestureEnabled: false, // prevents nested navigator stealing touches on Android
+        }}
       >
-        {/* ── Public screens — no auth required, mirrors web index + contact + events/:id */}
+        {/* ── Public screens ─────────────────────────────────────────────── */}
         <Stack.Screen name="UserHome">
-          {(props) => <UserDashboardHome {...props} user={user} />}
+          {(props) => {
+            // ✅ Capture the inner navigation object as soon as UserHome mounts
+            innerNavRef.current = props.navigation;
+            return <UserDashboardHome {...props} user={user} />;
+          }}
         </Stack.Screen>
 
-        <Stack.Screen name="Contact" component={ContactUs} />
+        <Stack.Screen name="Contact">
+          {(props) => {
+            innerNavRef.current = props.navigation;
+            return <ContactUs {...props} />;
+          }}
+        </Stack.Screen>
 
         <Stack.Screen name="EventDetails">
-          {(props) => <EventDetails {...props} user={user} />}
+          {(props) => {
+            innerNavRef.current = props.navigation;
+            return <EventDetails {...props} user={user} />;
+          }}
         </Stack.Screen>
 
-        {/* ── Auth-gated screens — mirror web per-route <Navigate to="/auth/login"> */}
+        {/* ── Auth-gated screens ─────────────────────────────────────────── */}
         <Stack.Screen name="BookEvent">
-          {(props) =>
-            user ? (
+          {(props) => {
+            innerNavRef.current = props.navigation;
+            return user ? (
               <BookingForm {...props} user={user} />
             ) : (
-              // Mirrors: <Navigate to="/auth/login" state={{ from: location.pathname }} replace />
               props.navigation.replace("Login")
-            )
-          }
+            );
+          }}
         </Stack.Screen>
 
         <Stack.Screen name="Payment">
-          {(props) =>
-            user ? (
+          {(props) => {
+            innerNavRef.current = props.navigation;
+            return user ? (
               <PaymentPage {...props} user={user} />
             ) : (
-              // Mirrors: <Navigate to="/auth/login" replace />
               props.navigation.replace("Login")
-            )
-          }
+            );
+          }}
         </Stack.Screen>
 
         <Stack.Screen name="BookingSuccess">
-          {(props) =>
-            user ? (
+          {(props) => {
+            innerNavRef.current = props.navigation;
+            return user ? (
               <BookingSuccess {...props} user={user} />
             ) : (
-              // Mirrors: <Navigate to="/auth/login" replace />
               props.navigation.replace("Login")
-            )
-          }
+            );
+          }}
         </Stack.Screen>
 
         <Stack.Screen name="UserBookings">
-          {(props) =>
-            user ? (
+          {(props) => {
+            innerNavRef.current = props.navigation;
+            return user ? (
               <UserBookings {...props} user={user} />
             ) : (
-              // Mirrors: <Navigate to="/auth/login" replace />
               props.navigation.replace("Login")
-            )
-          }
+            );
+          }}
         </Stack.Screen>
       </Stack.Navigator>
     </View>

@@ -1,6 +1,8 @@
-import 'react-native-gesture-handler';
+import 'react-native-gesture-handler'; 
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -84,24 +86,25 @@ export default function App() {
   }, []);
 
   // ─── Loading screen ───────────────────────────────────────────────────────
+  // Providers wrap even the loading state so they're never conditionally mounted
   if (!authChecked) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#0d47a1" />
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#0d47a1" />
+            <Text style={styles.loadingText}>Loading...</Text>
+          </View>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     );
   }
 
   const isAuthenticated = !!token;
 
   // ─── Initial route logic — mirrors web App.js exactly ────────────────────
-  // Web:  /  → if authenticated, go to role dashboard; else → /dashboard (guest ok)
-  // RN:   always start at UserDashboard; role dashboards are navigated to post-login
-  //       Auth-gated sub-screens (BookEvent, Payment, etc.) redirect to Login
-  //       from inside UserDashboard — same as web's per-route <Navigate> guards.
   const getInitialRoute = () => {
-    if (!isAuthenticated) return "UserDashboard"; // ✅ guests browse freely, like web
+    if (!isAuthenticated) return "UserDashboard"; // guests browse freely, like web
     if (user?.role === "admin") return "AdminDashboard";
     if (user?.role === "organizer") return "OrganizerDashboard";
     return "UserDashboard";
@@ -109,58 +112,56 @@ export default function App() {
 
   // ─── Navigation ───────────────────────────────────────────────────────────
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName={getInitialRoute()}
-        screenOptions={{ headerShown: false }}
-      >
-        {/* ── Auth ─────────────────────────────────────────────────────────── */}
-        {/* Login is always registered so auth-gated screens can navigate here */}
-        <Stack.Screen name="Login">
-          {(props) => (
-            <LoginForm {...props} onLoginSuccess={handleLogin} />
-          )}
-        </Stack.Screen>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName={getInitialRoute()}
+            screenOptions={{ headerShown: false }}
+          >
+            {/* ── Auth ───────────────────────────────────────────────────── */}
+            <Stack.Screen name="Login">
+              {(props) => <LoginForm {...props} onLoginSuccess={handleLogin} />}
+            </Stack.Screen>
 
-        {/* ── User Dashboard ───────────────────────────────────────────────── */}
-        {/* Always registered — guests can browse; auth guards live inside     */}
-        <Stack.Screen name="UserDashboard">
-          {(props) => (
-            <UserDashboard
-              {...props}
-              user={user}
-              token={token}
-              onLogout={handleLogout}
-            />
-          )}
-        </Stack.Screen>
+            {/* ── User Dashboard — always registered, guests browse freely ─ */}
+            <Stack.Screen name="UserDashboard">
+              {(props) => (
+                <UserDashboard
+                  {...props}
+                  user={user}
+                  token={token}
+                  onLogout={handleLogout}
+                />
+              )}
+            </Stack.Screen>
 
-        {/* ── Admin Dashboard ──────────────────────────────────────────────── */}
-        {/* Mirrors web: only accessible when authenticated as admin           */}
-        {isAuthenticated && user?.role === "admin" && (
-          <Stack.Screen name="AdminDashboard">
-            {(props) => (
-              <AdminDashboard {...props} token={token} onLogout={handleLogout} />
+            {/* ── Admin Dashboard — authenticated admin only ──────────────── */}
+            {isAuthenticated && user?.role === "admin" && (
+              <Stack.Screen name="AdminDashboard">
+                {(props) => (
+                  <AdminDashboard {...props} token={token} onLogout={handleLogout} />
+                )}
+              </Stack.Screen>
             )}
-          </Stack.Screen>
-        )}
 
-        {/* ── Organizer Dashboard ──────────────────────────────────────────── */}
-        {/* Mirrors web: only accessible when authenticated as organizer       */}
-        {isAuthenticated && user?.role === "organizer" && (
-          <Stack.Screen name="OrganizerDashboard">
-            {(props) => (
-              <OrganizerDashboard
-                {...props}
-                token={token}
-                user={user}
-                onLogout={handleLogout}
-              />
+            {/* ── Organizer Dashboard — authenticated organizer only ──────── */}
+            {isAuthenticated && user?.role === "organizer" && (
+              <Stack.Screen name="OrganizerDashboard">
+                {(props) => (
+                  <OrganizerDashboard
+                    {...props}
+                    token={token}
+                    user={user}
+                    onLogout={handleLogout}
+                  />
+                )}
+              </Stack.Screen>
             )}
-          </Stack.Screen>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
