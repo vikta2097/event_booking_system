@@ -53,21 +53,26 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
 
   const handleShare = async () => {
     try {
-      await Share.share({
-        title: event.title,
-        message: `Check out this event: ${event.title}`,
-      });
+      await Share.share({ title: event.title, message: `Check out this event: ${event.title}` });
     } catch {}
   };
 
+  // ── UPDATED: uses lat/lng first (matches web version) ──
   const handleDirections = () => {
-    if (event.map_link) {
+    if (event.latitude && event.longitude) {
+      // Precise coordinates from DB — opens Google Maps directions
+      Linking.openURL(
+        `https://www.google.com/maps/dir/?api=1&destination=${event.latitude},${event.longitude}`
+      );
+    } else if (event.map_link) {
       let url = event.map_link;
       if (!/^https?:\/\//i.test(url)) url = "https://" + url;
       Linking.openURL(url);
     } else if (event.venue || event.location) {
       const query = encodeURIComponent(event.venue || event.location);
       Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+    } else {
+      Alert.alert("Location not available", "This event has no location information.");
     }
   };
 
@@ -80,7 +85,7 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
   };
 
   const getStatusBadge = () => {
-    if (isSoldOut) return { text: "Sold Out", color: "#ef4444", bg: "rgba(239,68,68,0.92)" };
+    if (isSoldOut) return { text: "Sold Out", bg: "rgba(239,68,68,0.92)" };
     if (isEarlyBirdActive) return { text: `🎉 Save ${earlyBirdSavings}%`, bg: "rgba(245,158,11,0.92)" };
     if (event.is_trending) return { text: "🔥 Trending", bg: "rgba(239,68,68,0.92)" };
     if (isAlmostFull) return { text: "Almost Full", bg: "rgba(245,158,11,0.92)" };
@@ -143,7 +148,10 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
           </View>
         )}
 
-        <Text style={styles.venue} numberOfLines={1}>📍 {event.venue || event.location}</Text>
+        <Text style={styles.venue} numberOfLines={1}>
+          📍 {event.venue || event.location}
+          {event.parking_info ? "  🅿️" : ""}
+        </Text>
         <Text style={styles.date}>📅 {formatDate(event.event_date)}</Text>
 
         {!isSoldOut && (
@@ -159,21 +167,34 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
             <View>
               <Text style={styles.priceOriginal}>KES {Number(event.price).toLocaleString()}</Text>
               <Text style={styles.price}>KES {Number(event.early_bird_price).toLocaleString()}</Text>
-              <View style={styles.discountBadge}><Text style={styles.discountBadgeText}>Save {earlyBirdSavings}%</Text></View>
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountBadgeText}>Save {earlyBirdSavings}%</Text>
+              </View>
             </View>
           ) : (
             <Text style={styles.price}>{formatPrice(event.price)}</Text>
+          )}
+          {event.original_price && event.original_price > event.price && !isEarlyBirdActive && (
+            <Text style={styles.originalPrice}>
+              KES {Number(event.original_price).toLocaleString()}
+              {"  "}
+              <Text style={styles.discountPercent}>
+                {Math.round(((event.original_price - event.price) / event.original_price) * 100)}% OFF
+              </Text>
+            </Text>
           )}
         </View>
 
         {/* Organizer */}
         {event.organizer_name && (
           <View style={styles.organizer}>
-            <Text style={styles.organizerName}>👤 {event.organizer_name}
+            <Text style={styles.organizerName}>
+              👤 {event.organizer_name}
               {event.is_verified_organizer ? <Text style={styles.verifiedBadge}> ✓</Text> : null}
             </Text>
             {event.organizer_rating && (
-              <Text style={styles.rating}>⭐ {event.organizer_rating.toFixed(1)}
+              <Text style={styles.rating}>
+                ⭐ {event.organizer_rating.toFixed(1)}
                 {event.organizer_event_count ? ` · ${event.organizer_event_count} events` : ""}
               </Text>
             )}
@@ -221,6 +242,8 @@ const styles = StyleSheet.create({
   pricingRow: { borderTopWidth: 1, borderTopColor: "#e5e7eb", paddingTop: 8 },
   price: { color: "#10b981", fontSize: 20, fontWeight: "800" },
   priceOriginal: { color: "#9ca3af", fontSize: 14, textDecorationLine: "line-through" },
+  originalPrice: { color: "#9ca3af", fontSize: 13, textDecorationLine: "line-through", marginTop: 2 },
+  discountPercent: { color: "#ef4444", fontWeight: "700", textDecorationLine: "none" },
   discountBadge: { backgroundColor: "#10b981", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 3, alignSelf: "flex-start", marginTop: 4 },
   discountBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   organizer: { backgroundColor: "#f9fafb", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#e5e7eb" },

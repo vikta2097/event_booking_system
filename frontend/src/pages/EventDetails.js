@@ -25,7 +25,6 @@ const EventDetails = ({ user }) => {
     const fetchEventDetails = async () => {
       try {
         setLoading(true);
-        
         const eventRes = await api.get(`/events/${id}`);
         setEvent(eventRes.data);
 
@@ -43,17 +42,14 @@ const EventDetails = ({ user }) => {
               headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
             });
             setIsFavorite(favRes.data.is_favorite);
-          } catch (err) {
-            console.log("Not checking favorite status");
-          }
+          } catch {}
         }
 
         if (user) {
           api.post(`/events/${id}/track-view`, {}, {
             headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-          }).catch(err => console.log("View tracking failed"));
+          }).catch(() => {});
         }
-
       } catch (err) {
         console.error(err);
         setError("Failed to load event details.");
@@ -61,11 +57,10 @@ const EventDetails = ({ user }) => {
         setLoading(false);
       }
     };
-    
     fetchEventDetails();
   }, [id, user]);
 
-  // Initialize Mapbox map when event loads
+  // ── Mapbox map initialisation ──
   useEffect(() => {
     if (!event || map.current || !mapContainer.current) return;
 
@@ -76,7 +71,7 @@ const EventDetails = ({ user }) => {
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/streets-v12",
       center: [lng, lat],
-      zoom: event.longitude ? 15 : 10
+      zoom: event.longitude ? 15 : 10,
     });
 
     new mapboxgl.Marker({ color: "#E63946" })
@@ -96,18 +91,11 @@ const EventDetails = ({ user }) => {
     };
   }, [event]);
 
-
-  // Add to Calendar
   const handleAddToCalendar = () => {
     if (!event) return;
-    
     const startDate = new Date(`${event.event_date}T${event.start_time}`);
     const endDate = new Date(`${event.event_date}T${event.end_time || event.start_time}`);
-    
-    const formatDate = (date) => {
-      return date.toISOString().replace(/-|:|\.\d+/g, '');
-    };
-
+    const formatDate = (date) => date.toISOString().replace(/-|:|\.\d+/g, '');
     const title = encodeURIComponent(event.title);
     const location = encodeURIComponent(event.venue || event.location || '');
     const details = encodeURIComponent(
@@ -115,15 +103,20 @@ const EventDetails = ({ user }) => {
       `${event.parking_info ? `Parking: ${event.parking_info}\n` : ''}` +
       `Organizer: ${event.organizer_name || 'N/A'}`
     );
-    
-    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${details}&location=${location}`;
-    
-    window.open(googleCalendarUrl, '_blank');
+    window.open(
+      `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${details}&location=${location}`,
+      '_blank'
+    );
   };
 
-  // Get Directions
+  // ── UPDATED: uses lat/lng first, falls back to map_link then text search ──
   const handleGetDirections = () => {
-    if (event?.map_link) {
+    if (event?.latitude && event?.longitude) {
+      window.open(
+        `https://www.google.com/maps/dir/?api=1&destination=${event.latitude},${event.longitude}`,
+        '_blank', 'noopener,noreferrer'
+      );
+    } else if (event?.map_link) {
       let url = event.map_link;
       if (!/^https?:\/\//i.test(url)) url = "https://" + url;
       window.open(url, '_blank', 'noopener,noreferrer');
@@ -135,7 +128,6 @@ const EventDetails = ({ user }) => {
     }
   };
 
-  // Contact Organizer
   const handleContactOrganizer = () => {
     if (event?.organizer_email) {
       window.location.href = `mailto:${event.organizer_email}?subject=Inquiry about ${event.title}`;
@@ -144,35 +136,16 @@ const EventDetails = ({ user }) => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="event-details-loading">
-        <div className="spinner-large"></div>
-        <p>Loading event details...</p>
-      </div>
-    );
-  }
-
-  if (error) return <p className="error-text">{error}</p>;
-  if (!event) return <p className="no-event">Event not found.</p>;
-
   const handleBookNow = () => {
     if (!user) {
-      navigate("/dashboard/login", {
-        state: { from: `/dashboard/book/${event.id}` },
-        replace: true,
-      });
+      navigate("/dashboard/login", { state: { from: `/dashboard/book/${event.id}` }, replace: true });
     } else {
       navigate(`/dashboard/book/${event.id}`);
     }
   };
 
   const handleFavoriteToggle = async () => {
-    if (!user) {
-      alert("Please login to save favorites");
-      return;
-    }
-
+    if (!user) { alert("Please login to save favorites"); return; }
     try {
       if (isFavorite) {
         await api.delete(`/events/${id}/favorite`, {
@@ -184,8 +157,7 @@ const EventDetails = ({ user }) => {
         });
       }
       setIsFavorite(!isFavorite);
-    } catch (err) {
-      console.error("Error toggling favorite:", err);
+    } catch {
       alert("Failed to update favorite");
     }
   };
@@ -193,215 +165,137 @@ const EventDetails = ({ user }) => {
   const handleShare = async (platform) => {
     const eventUrl = window.location.href;
     const text = `Check out ${event.title} on ${formatDate(event.event_date)}!`;
-    
     const shareUrls = {
       whatsapp: `https://wa.me/?text=${encodeURIComponent(text + " " + eventUrl)}`,
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(eventUrl)}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(eventUrl)}`,
       linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(eventUrl)}`,
-      copy: eventUrl
     };
-
     if (platform === "copy") {
       try {
         await navigator.clipboard.writeText(eventUrl);
         alert("Link copied to clipboard!");
-      } catch (err) {
-        console.error("Failed to copy:", err);
+      } catch {
+        alert("Failed to copy link");
       }
     } else {
-      window.open(shareUrls[platform], "_blank", "width=600,height=400");
+      window.open(shareUrls[platform], '_blank', 'noopener,noreferrer');
     }
-    
     setShowShareModal(false);
   };
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString("en-GB", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  const formatDate = (dateStr) =>
+    new Date(dateStr).toLocaleDateString("en-GB", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 
   const formatPrice = (price) => {
     if (!price || isNaN(price)) return "Free";
     return `KES ${Number(price).toLocaleString()}`;
   };
 
+  if (loading) return (
+    <div className="event-details-loading">
+      <div className="spinner-large"></div>
+      <p>Loading event details...</p>
+    </div>
+  );
+  if (error) return <p className="error-text">{error}</p>;
+  if (!event) return <p className="no-event">Event not found.</p>;
+
   const availableSeats = event.capacity - (event.total_seats_booked || 0);
   const isSoldOut = availableSeats <= 0;
-
-  const eventImages = event.images || [event.image || "/placeholder.jpg"];
-
-  // Check if early bird is active
-  const isEarlyBirdActive = event.is_early_bird && 
-    event.early_bird_deadline && 
-    new Date(event.early_bird_deadline) >= new Date();
-
-  // Parse tags
-  const eventTags = event.tags_display ? event.tags_display.split(', ').filter(Boolean) : [];
+  const isEarlyBirdActive = event.is_early_bird && event.early_bird_deadline && new Date(event.early_bird_deadline) >= new Date();
 
   return (
     <div className="event-details-container">
-      {/* Quick Action Bar - Sticky */}
-      <div className="quick-action-bar-sticky">
-        <button onClick={handleAddToCalendar} className="quick-btn" title="Add to Calendar">
-          📅 Add to Calendar
-        </button>
-        <button onClick={handleGetDirections} className="quick-btn" title="Get Directions">
-          📍 Directions
-        </button>
-        {event.organizer_email && (
-          <button onClick={handleContactOrganizer} className="quick-btn" title="Contact Organizer">
-            📧 Contact
-          </button>
-        )}
-        <button onClick={() => setShowShareModal(true)} className="quick-btn" title="Share">
-          📤 Share
-        </button>
-      </div>
+      {/* Back */}
+      <button className="back-btn" onClick={() => navigate(-1)}>← Back</button>
 
-      {/* Hero Section */}
-      <div className="event-hero">
-        <div className="event-image-gallery">
-          <img 
-            src={eventImages[activeImageIndex]} 
-            alt={event.title} 
-            className="main-image"
-          />
-          
-          {eventImages.length > 1 && (
-            <div className="image-thumbnails">
-              {eventImages.map((img, idx) => (
-                <img
-                  key={idx}
-                  src={img}
-                  alt={`View ${idx + 1}`}
-                  className={`thumbnail ${idx === activeImageIndex ? 'active' : ''}`}
-                  onClick={() => setActiveImageIndex(idx)}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="hero-actions">
-            <button 
-              className={`action-btn ${isFavorite ? 'active' : ''}`}
-              onClick={handleFavoriteToggle}
-              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
-            >
-              {isFavorite ? '❤️' : '🤍'}
-            </button>
-          </div>
-        </div>
-
-        <div className="event-header-info">
-          <div className="event-badges">
-            {event.category_name && (
-              <span className="badge badge-category">{event.category_name}</span>
-            )}
-            {isSoldOut && (
-              <span className="badge badge-sold-out">Sold Out</span>
-            )}
-            {isEarlyBirdActive && (
-              <span className="badge badge-early-bird">
-                🎉 Early Bird - Save {Math.round(((event.price - event.early_bird_price) / event.price) * 100)}%
-              </span>
-            )}
-            {event.parking_info && (
-              <span className="badge badge-parking">🅿️ Parking Available</span>
-            )}
-          </div>
-
-          <h1 className="event-title">{event.title}</h1>
-
-          {/* Tags */}
-          {eventTags.length > 0 && (
-            <div className="event-tags">
-              {eventTags.map((tag, idx) => (
-                <span key={idx} className="tag-badge">{tag}</span>
-              ))}
-            </div>
-          )}
-          
-          <div className="event-meta">
-            <div className="meta-item">
-              <span className="icon">📅</span>
-              <span>{formatDate(event.event_date)}</span>
-            </div>
-            <div className="meta-item">
-              <span className="icon">⏰</span>
-              <span>{event.start_time} - {event.end_time}</span>
-            </div>
-            <div className="meta-item">
-              <span className="icon">📍</span>
-              <span>{event.venue || event.location}</span>
-            </div>
-            {!isSoldOut && (
-              <div className="meta-item">
-                <span className="icon">🎫</span>
-                <span>{availableSeats} seats available</span>
+      <div className="event-details-layout">
+        {/* Left Column */}
+        <div className="event-main-content">
+          {/* Hero Image */}
+          <section className="event-hero">
+            <img
+              src={event.images?.[activeImageIndex] || event.image || "/placeholder.jpg"}
+              alt={event.title}
+              className="event-hero-image"
+            />
+            {event.images?.length > 1 && (
+              <div className="image-thumbnails">
+                {event.images.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img}
+                    alt={`View ${idx + 1}`}
+                    className={`thumbnail ${activeImageIndex === idx ? 'active' : ''}`}
+                    onClick={() => setActiveImageIndex(idx)}
+                  />
+                ))}
               </div>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Early Bird Alert */}
-      {isEarlyBirdActive && (
-        <div className="early-bird-alert">
-          <div className="alert-content">
-            <span className="alert-icon">⚡</span>
-            <div className="alert-text">
-              <strong>Early Bird Pricing Active!</strong>
-              <p>
-                Get tickets for <s>KES {event.price.toLocaleString()}</s> <strong className="highlight">KES {event.early_bird_price.toLocaleString()}</strong> 
-                {" "}until {new Date(event.early_bird_deadline).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className="event-content">
-        {/* Left Column - Details */}
-        <div className="event-main">
-          {/* Description */}
-          <section className="content-section">
-            <h2>About This Event</h2>
-            <p className="event-description">{event.description}</p>
           </section>
 
-          {/* Venue & Parking Information */}
-          {(event.venue || event.location || event.parking_info) && (
-            <section className="content-section venue-section">
-              <h2>📍 Venue & Location</h2>
-              
-              <div className="venue-card">
-                {event.venue && (
-                  <div className="venue-detail">
-                    <strong>Venue:</strong> {event.venue}
-                  </div>
-                )}
-                {event.location && (
-                  <div className="venue-detail">
-                    <strong>Address:</strong> {event.location}
-                  </div>
-                )}
-                
+          {/* Title & Actions */}
+          <section className="content-section">
+            <div className="event-title-row">
+              <h1 className="event-detail-title">{event.title}</h1>
+              <div className="title-actions">
+                <button className={`btn-icon ${isFavorite ? 'active' : ''}`} onClick={handleFavoriteToggle} title="Save to favorites">
+                  {isFavorite ? '❤️' : '🤍'}
+                </button>
+                <button className="btn-icon" onClick={() => setShowShareModal(true)} title="Share event">📤</button>
+                <button className="btn-icon" onClick={handleAddToCalendar} title="Add to calendar">📅</button>
+              </div>
+            </div>
+
+            <div className="event-meta-row">
+              {event.category_name && <span className="meta-badge">{event.category_name}</span>}
+              {event.is_trending && <span className="meta-badge trending">🔥 Trending</span>}
+              {isEarlyBirdActive && <span className="meta-badge early-bird">⚡ Early Bird</span>}
+            </div>
+          </section>
+
+          {/* Date & Time */}
+          <section className="content-section">
+            <h2>Date & Time</h2>
+            <div className="info-grid">
+              <div className="info-item">
+                <span className="info-icon">📅</span>
+                <div>
+                  <p className="info-label">Date</p>
+                  <p className="info-value">{formatDate(event.event_date)}</p>
+                </div>
+              </div>
+              <div className="info-item">
+                <span className="info-icon">🕒</span>
+                <div>
+                  <p className="info-label">Time</p>
+                  <p className="info-value">{event.start_time} {event.end_time ? `– ${event.end_time}` : ''}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Description */}
+          {event.description && (
+            <section className="content-section">
+              <h2>About This Event</h2>
+              <p className="event-description">{event.description}</p>
+            </section>
+          )}
+
+          {/* Venue */}
+          {(event.venue || event.location) && (
+            <section className="content-section">
+              <h2>Venue</h2>
+              <div className="venue-info">
+                <p className="venue-name">📍 {event.venue || event.location}</p>
                 {event.parking_info && (
-                  <div className="parking-info-box">
-                    <div className="parking-header">
-                      <span>🅿️</span>
-                      <strong>Parking Information</strong>
-                    </div>
+                  <div className="parking-info">
+                    <div className="parking-header"><span>🅿️</span><strong>Parking Information</strong></div>
                     <p>{event.parking_info}</p>
                   </div>
                 )}
-
                 <button className="btn-directions-primary" onClick={handleGetDirections}>
                   🗺️ Get Directions
                 </button>
@@ -409,16 +303,14 @@ const EventDetails = ({ user }) => {
             </section>
           )}
 
-          {/* Map */}
+          {/* ── Mapbox Map ── */}
           {(event.venue || event.location) && (
             <section className="content-section">
               <h2>Location Map</h2>
-              <div
-                ref={mapContainer}
-                style={{ width: "100%", height: "400px", borderRadius: "8px" }}
-              />
+              <div ref={mapContainer} style={{ width: "100%", height: "400px", borderRadius: "8px" }} />
+              {/* UPDATED label — Mapbox renders the map, directions open in Google Maps */}
               <button className="map-link-btn" onClick={handleGetDirections}>
-                📍 Open in Google Maps
+                🗺️ Get Directions
               </button>
             </section>
           )}
@@ -432,7 +324,6 @@ const EventDetails = ({ user }) => {
                   const ticketAvailable = ticket.quantity_available - ticket.quantity_sold;
                   const isTicketSoldOut = ticketAvailable <= 0;
                   const isEarlyBird = ticket.early_bird_active;
-                  
                   return (
                     <div key={ticket.id} className={`ticket-type-card ${isTicketSoldOut ? 'sold-out' : ''} ${isEarlyBird ? 'early-bird-ticket' : ''}`}>
                       <div className="ticket-header">
@@ -441,7 +332,7 @@ const EventDetails = ({ user }) => {
                           {isEarlyBird ? (
                             <div className="early-bird-pricing">
                               <span className="original-price">KES {ticket.price.toLocaleString()}</span>
-                              <p className="discounted-price">KES {ticket.price.toLocaleString()}</p>
+                              <p className="discounted-price">KES {ticket.early_bird_price?.toLocaleString() || ticket.price.toLocaleString()}</p>
                               <span className="early-bird-label">⚡ Early Bird</span>
                             </div>
                           ) : (
@@ -449,20 +340,14 @@ const EventDetails = ({ user }) => {
                           )}
                         </div>
                       </div>
-                      {ticket.description && (
-                        <p className="ticket-description">{ticket.description}</p>
-                      )}
+                      {ticket.description && <p className="ticket-description">{ticket.description}</p>}
                       <div className="ticket-footer">
                         {isTicketSoldOut ? (
                           <span className="ticket-status sold-out">Sold Out</span>
                         ) : (
                           <>
-                            <span className="ticket-status available">
-                              {ticketAvailable} available
-                            </span>
-                            {ticket.is_low_stock && (
-                              <span className="low-stock-warning">⚠️ Low Stock!</span>
-                            )}
+                            <span className="ticket-status available">{ticketAvailable} available</span>
+                            {ticket.is_low_stock && <span className="low-stock-warning">⚠️ Low Stock!</span>}
                           </>
                         )}
                       </div>
@@ -473,37 +358,27 @@ const EventDetails = ({ user }) => {
             </section>
           )}
 
-          {/* Organizer Info */}
+          {/* Organizer */}
           {event.organizer_name && (
             <section className="content-section organizer-section">
               <h2>Organized By</h2>
               <div className="organizer-card">
                 {event.organizer_profile && (
-                  <img 
-                    src={event.organizer_profile} 
-                    alt={event.organizer_name}
-                    className="organizer-avatar"
-                  />
+                  <img src={event.organizer_profile} alt={event.organizer_name} className="organizer-avatar" />
                 )}
                 <div className="organizer-details">
                   <h3>
                     {event.organizer_name}
-                    {event.is_verified_organizer && (
-                      <span className="verified-badge" title="Verified">✓</span>
-                    )}
+                    {event.is_verified_organizer && <span className="verified-badge" title="Verified">✓</span>}
                   </h3>
                   {event.organizer_rating && (
                     <div className="organizer-rating">
-                      ⭐ {event.organizer_rating.toFixed(1)} 
-                      {event.organizer_event_count && (
-                        <span> · {event.organizer_event_count} events hosted</span>
-                      )}
+                      ⭐ {event.organizer_rating.toFixed(1)}
+                      {event.organizer_event_count && <span> · {event.organizer_event_count} events hosted</span>}
                     </div>
                   )}
                   {event.organizer_email && (
-                    <button className="btn-contact-small" onClick={handleContactOrganizer}>
-                      📧 Contact Organizer
-                    </button>
+                    <button className="btn-contact-small" onClick={handleContactOrganizer}>📧 Contact Organizer</button>
                   )}
                 </div>
               </div>
@@ -511,12 +386,12 @@ const EventDetails = ({ user }) => {
           )}
         </div>
 
-        {/* Right Column - Booking Card */}
+        {/* Right Column — Booking Card */}
         <aside className="event-sidebar">
           <div className="booking-card sticky">
             <div className="booking-price">
               <span className="price-label">Starting from</span>
-              {isEarlyBirdActive ? (
+              {isEarlyBirdActive && event.early_bird_price ? (
                 <div className="price-with-discount">
                   <h2 className="price-value-old">KES {event.price.toLocaleString()}</h2>
                   <h2 className="price-value">KES {event.early_bird_price.toLocaleString()}</h2>
@@ -529,7 +404,7 @@ const EventDetails = ({ user }) => {
               )}
             </div>
 
-            <button 
+            <button
               className={`book-btn-large ${isSoldOut ? 'sold-out' : ''}`}
               onClick={handleBookNow}
               disabled={isSoldOut}
@@ -551,11 +426,7 @@ const EventDetails = ({ user }) => {
               <h3>Similar Events</h3>
               <div className="similar-events-list">
                 {similarEvents.map(simEvent => (
-                  <div 
-                    key={simEvent.id} 
-                    className="similar-event-item"
-                    onClick={() => navigate(`/dashboard/events/${simEvent.id}`)}
-                  >
+                  <div key={simEvent.id} className="similar-event-item" onClick={() => navigate(`/dashboard/events/${simEvent.id}`)}>
                     <img src={simEvent.image || "/placeholder.jpg"} alt={simEvent.title} />
                     <div className="similar-event-info">
                       <h4>{simEvent.title}</h4>
@@ -576,25 +447,13 @@ const EventDetails = ({ user }) => {
           <div className="share-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Share this event</h3>
             <div className="share-buttons">
-              <button onClick={() => handleShare("whatsapp")} className="share-btn whatsapp">
-                WhatsApp
-              </button>
-              <button onClick={() => handleShare("twitter")} className="share-btn twitter">
-                Twitter
-              </button>
-              <button onClick={() => handleShare("facebook")} className="share-btn facebook">
-                Facebook
-              </button>
-              <button onClick={() => handleShare("linkedin")} className="share-btn linkedin">
-                LinkedIn
-              </button>
-              <button onClick={() => handleShare("copy")} className="share-btn copy">
-                Copy Link
-              </button>
+              <button onClick={() => handleShare("whatsapp")} className="share-btn whatsapp">WhatsApp</button>
+              <button onClick={() => handleShare("twitter")} className="share-btn twitter">Twitter</button>
+              <button onClick={() => handleShare("facebook")} className="share-btn facebook">Facebook</button>
+              <button onClick={() => handleShare("linkedin")} className="share-btn linkedin">LinkedIn</button>
+              <button onClick={() => handleShare("copy")} className="share-btn copy">Copy Link</button>
             </div>
-            <button className="close-modal" onClick={() => setShowShareModal(false)}>
-              Close
-            </button>
+            <button className="close-modal" onClick={() => setShowShareModal(false)}>Close</button>
           </div>
         </div>
       )}
