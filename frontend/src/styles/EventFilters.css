@@ -1,46 +1,30 @@
-/* ===================================================
-   EventFilters — search-box style (matches RN version)
-=================================================== */
+/* =========================================
+   EventFilters — search-box UI
+   All rules scoped to .ef-* to avoid
+   collisions with other components
+========================================= */
 
-/* ── Outer wrapper ─────────────────────────────── */
-.ef-container {
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  margin-bottom: 20px;
-}
-
-/* ── Loading state ─────────────────────────────── */
-.ef-loading {
+/* ── Outer wrapper ────────────────────── */
+.ef-wrap {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 0;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.ef-loading-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #3b82f6;
-  animation: ef-pulse 1.2s infinite ease-in-out;
-}
-.ef-loading-dot:nth-child(2) { animation-delay: 0.2s; }
-.ef-loading-dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes ef-pulse {
-  0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
-  40%           { opacity: 1;    transform: scale(1); }
+/* ── Skeleton shimmer ─────────────────── */
+.ef-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: ef-shimmer 1.4s infinite;
+  border-radius: 8px;
 }
 
-.ef-loading-label {
-  font-size: 13px;
-  color: #6b7280;
-  margin-left: 4px;
+@keyframes ef-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-/* ── Error banner ──────────────────────────────── */
+/* ── Error message ─────────────────────── */
 .ef-error {
   font-size: 13px;
   color: #b91c1c;
@@ -48,15 +32,14 @@
   border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 8px 12px;
-  margin-bottom: 10px;
+  margin: 0;
 }
 
-/* ── Search bar row ────────────────────────────── */
+/* ── Row 1: search bar ─────────────────── */
 .ef-search-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
 }
 
 .ef-search-box {
@@ -64,12 +47,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  height: 44px;
+  padding: 0 14px;
   background: #f3f4f6;
   border: 2px solid transparent;
   border-radius: 10px;
-  padding: 0 12px;
-  height: 42px;
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
 }
 
 .ef-search-box:focus-within {
@@ -80,8 +63,6 @@
 
 .ef-search-icon {
   color: #9ca3af;
-  display: flex;
-  align-items: center;
   flex-shrink: 0;
 }
 
@@ -92,88 +73,82 @@
   font-size: 14px;
   color: #111827;
   outline: none;
+  min-width: 0;
 }
 
-.ef-search-input::placeholder {
-  color: #9ca3af;
-}
+.ef-search-input::placeholder { color: #9ca3af; }
 
-.ef-search-clear {
+.ef-clear-btn {
   background: none;
   border: none;
   cursor: pointer;
   color: #9ca3af;
-  font-size: 13px;
+  font-size: 12px;
   padding: 2px 4px;
   border-radius: 4px;
   line-height: 1;
   transition: color 0.15s;
+  flex-shrink: 0;
 }
 
-.ef-search-clear:hover {
-  color: #6b7280;
-}
+.ef-clear-btn:hover { color: #6b7280; }
 
 /* Filter toggle button */
-.ef-filter-btn {
+.ef-toggle-btn {
   position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  flex-shrink: 0;
   background: #f3f4f6;
   border: 2px solid transparent;
   border-radius: 10px;
   cursor: pointer;
   color: #6b7280;
-  transition: all 0.2s;
+  transition: all 0.18s;
 }
 
-.ef-filter-btn:hover {
+.ef-toggle-btn:hover {
   background: #e5e7eb;
   color: #374151;
 }
 
-.ef-filter-btn--active {
+.ef-toggle-btn--on {
   background: #eff6ff;
   border-color: #3b82f6;
   color: #2563eb;
 }
 
-/* Active filter count badge on the toggle button */
 .ef-badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: -6px;
+  right: -6px;
   min-width: 18px;
   height: 18px;
+  padding: 0 4px;
   background: #3b82f6;
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
   line-height: 1;
 }
 
-/* ── Quick filter chips (horizontal scroll) ────── */
-.ef-chips-scroll {
+/* ── Row 2: quick-filter chips ────────── */
+.ef-chips-row {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 6px;
-  margin-bottom: 6px;
   scrollbar-width: none;
+  padding-bottom: 2px;
 }
 
-.ef-chips-scroll::-webkit-scrollbar {
-  display: none;
-}
+.ef-chips-row::-webkit-scrollbar { display: none; }
 
 .ef-chip {
   flex-shrink: 0;
@@ -186,7 +161,7 @@
   color: #6b7280;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s;
+  transition: all 0.18s;
 }
 
 .ef-chip:hover {
@@ -195,26 +170,24 @@
   background: #eff6ff;
 }
 
-/* ── Active filter tags row ────────────────────── */
-.ef-active-tags {
+/* ── Row 3: active filter pills ────────── */
+.ef-active-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #f3f4f6;
 }
 
 .ef-active-label {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: #9ca3af;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
 }
 
-.ef-active-tag {
+.ef-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -227,11 +200,11 @@
   color: #1d4ed8;
 }
 
-.ef-active-tag button {
+.ef-pill button {
   background: none;
   border: none;
-  color: #60a5fa;
-  font-size: 13px;
+  color: #93c5fd;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   padding: 0;
@@ -239,76 +212,69 @@
   transition: color 0.15s;
 }
 
-.ef-active-tag button:hover {
-  color: #1d4ed8;
-}
+.ef-pill button:hover { color: #1d4ed8; }
 
-.ef-reset-inline {
+.ef-reset-link {
   background: none;
   border: none;
   font-size: 12px;
   font-weight: 600;
   color: #ef4444;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 4px 6px;
   border-radius: 6px;
   transition: background 0.15s;
-  margin-left: 4px;
 }
 
-.ef-reset-inline:hover {
-  background: #fef2f2;
-}
+.ef-reset-link:hover { background: #fef2f2; }
 
-/* ── Expandable filter panel ───────────────────── */
+/* ── Expandable panel ─────────────────── */
 .ef-panel {
-  margin-top: 12px;
-  padding-top: 14px;
   border-top: 1px solid #e5e7eb;
-  animation: ef-slide-down 0.22s ease;
+  padding-top: 14px;
+  animation: ef-slide 0.2s ease;
 }
 
-@keyframes ef-slide-down {
-  from { opacity: 0; transform: translateY(-6px); }
+@keyframes ef-slide {
+  from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.ef-panel-grid {
+.ef-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
   gap: 12px;
   margin-bottom: 14px;
 }
 
-/* Field wrapper */
+/* Field */
 .ef-field {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
 
-.ef-field-label {
+.ef-label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
-/* Shared input / select styling */
 .ef-input,
 .ef-select {
   height: 38px;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 1.5px solid #e5e7eb;
   border-radius: 8px;
   font-size: 13px;
   color: #111827;
   background: #fff;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
   width: 100%;
   box-sizing: border-box;
+  transition: border-color 0.18s, box-shadow 0.18s;
 }
 
 .ef-input:focus,
@@ -317,29 +283,24 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
-.ef-input::placeholder {
-  color: #9ca3af;
-}
+.ef-input::placeholder { color: #9ca3af; }
 
-/* ── Tags section ──────────────────────────────── */
+/* Tags */
 .ef-tags-section {
-  margin-bottom: 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 14px;
 }
 
 .ef-tags-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
 }
 
-.ef-tag-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
+.ef-tag {
+  padding: 5px 13px;
   background: #fff;
   border: 1.5px solid #e5e7eb;
   border-radius: 20px;
@@ -347,77 +308,40 @@
   font-weight: 500;
   color: #6b7280;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s;
 }
 
-.ef-tag-btn:hover {
+.ef-tag:hover {
   border-color: #3b82f6;
   color: #2563eb;
 }
 
-.ef-tag-btn--active {
+.ef-tag--on {
   background: #3b82f6;
   border-color: #3b82f6;
   color: #fff;
 }
 
-.ef-tag-close {
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-/* ── Panel action bar ──────────────────────────── */
-.ef-panel-actions {
+/* Panel footer */
+.ef-panel-footer {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.ef-apply-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 20px;
-  background: #3b82f6;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.15s;
-}
-
-.ef-apply-btn:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
-}
-
-.ef-apply-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: #fff;
-  color: #2563eb;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
 }
 
 .ef-reset-btn {
-  padding: 9px 16px;
+  padding: 8px 18px;
   background: #fff;
   color: #6b7280;
   border: 1.5px solid #e5e7eb;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s;
 }
 
 .ef-reset-btn:hover {
@@ -440,7 +364,7 @@
   font-weight: 500;
   color: #6b7280;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s;
 }
 
 .ef-preset-btn:hover {
@@ -449,36 +373,27 @@
   background: #eff6ff;
 }
 
-/* ── Responsive ────────────────────────────────── */
+/* ── Responsive ───────────────────────── */
 @media (max-width: 600px) {
-  .ef-panel-grid {
+  .ef-grid {
     grid-template-columns: 1fr 1fr;
   }
 
-  .ef-panel-actions {
+  .ef-panel-footer {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .ef-apply-btn,
-  .ef-reset-btn {
-    width: 100%;
-    justify-content: center;
-  }
+  .ef-reset-btn { width: 100%; text-align: center; }
 
   .ef-presets {
     margin-left: 0;
     width: 100%;
   }
 
-  .ef-preset-btn {
-    flex: 1;
-    text-align: center;
-  }
+  .ef-preset-btn { flex: 1; text-align: center; }
 }
 
-@media (max-width: 400px) {
-  .ef-panel-grid {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 380px) {
+  .ef-grid { grid-template-columns: 1fr; }
 }

@@ -91,7 +91,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-//set REACT_NATIVE_PACKAGER_HOSTNAME=172.16.13.179
+//set REACT_NATIVE_PACKAGER_HOSTNAME=172.16.3.215
 //npx expo start --lan
 
 export default api;

@@ -1,134 +1,103 @@
-import React, { useEffect, useState } from "react";
-import "../styles/UserDashboard.css";
+// pages/UserDashboardHome.js
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../api";
+import ChatbotWidget from "./ChatbotWidget";
 import EventCard from "./EventCard";
 import EventFilters from "./EventFilters";
-import api from "../api";
-import { useNavigate } from "react-router-dom";
-import ChatbotWidget from "./ChatbotWidget";
+import "../styles/UserDashboard.css";
 
 const UserDashboardHome = ({ user }) => {
-  const [events, setEvents] = useState([]);
-  const [filteredEvents, setFilteredEvents] = useState([]);
+  const [events,  setEvents]  = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error,   setError]   = useState("");
 
-  const navigate = useNavigate();
+  const navigate    = useNavigate();
+  // Keep latest params in a ref so the fetch function is always fresh
+  const paramsRef   = useRef({});
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const res = await api.get("/events");
-        setEvents(res.data);
-        setFilteredEvents(res.data);
-      } catch (err) {
-        console.error(err);
-        setError("Unable to load events. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvents();
+  // ── Fetch events from the server with whatever params EventFilters emits ──
+  const fetchEvents = useCallback(async (params = {}) => {
+    setLoading(true);
+    setError("");
+    try {
+      // Strip undefined values so axios doesn't send empty query params
+      const cleanParams = Object.fromEntries(
+        Object.entries(params).filter(([, v]) => v !== undefined)
+      );
+      const res = await api.get("/events", { params: cleanParams });
+      setEvents(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Failed to load events:", err);
+      setError("Unable to load events. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleFilter = (filters) => {
-    let filtered = [...events];
+  // Initial load — no filters
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
-    if (filters.category) {
-      filtered = filtered.filter((e) =>
-        (e.category_name || "")
-          .toLowerCase()
-          .includes(filters.category.toLowerCase())
-      );
-    }
-
-    if (filters.venue) {
-      filtered = filtered.filter((e) =>
-        (e.location || "").toLowerCase().includes(filters.venue.toLowerCase())
-      );
-    }
-
-    if (filters.minPrice !== undefined) {
-      filtered = filtered.filter(
-        (e) => e.price >= parseFloat(filters.minPrice)
-      );
-    }
-
-    if (filters.maxPrice !== undefined) {
-      filtered = filtered.filter(
-        (e) => e.price <= parseFloat(filters.maxPrice)
-      );
-    }
-
-    if (filters.startDate) {
-      filtered = filtered.filter(
-        (e) => new Date(e.event_date) >= new Date(filters.startDate)
-      );
-    }
-
-    if (filters.endDate) {
-      filtered = filtered.filter(
-        (e) => new Date(e.event_date) <= new Date(filters.endDate)
-      );
-    }
-
-    setFilteredEvents(filtered);
-  };
+  // Called by EventFilters every time any filter changes
+  const handleFilter = useCallback(
+    (params) => {
+      paramsRef.current = params;
+      fetchEvents(params);
+    },
+    [fetchEvents]
+  );
 
   return (
-    <div className="user-dashboard-home-container">
-      {/* FILTERS */}
+    <div className="dashboard-home">
+      {/* ── Filters ──────────────────────────────────────────────────── */}
       <div className="filters-wrapper">
         <EventFilters onFilter={handleFilter} />
       </div>
 
-      {/* STATES */}
-      {loading && <p className="loading-text">Loading events...</p>}
-      {error && <p className="error-text">{error}</p>}
-      {!loading && filteredEvents.length === 0 && !error && (
+      {/* ── Loading ───────────────────────────────────────────────────── */}
+      {loading && (
+        <p className="loading-text">Loading events…</p>
+      )}
+
+      {/* ── Error ─────────────────────────────────────────────────────── */}
+      {!loading && error && (
+        <p className="error-text">{error}</p>
+      )}
+
+      {/* ── Empty ─────────────────────────────────────────────────────── */}
+      {!loading && !error && events.length === 0 && (
         <p className="no-events">No events found matching your criteria.</p>
       )}
 
-      {/* EVENTS */}
-      <div className="event-grid">
-        {filteredEvents.map((event) => (
-          <EventCard
-            key={event.id}
-            event={event}
-            user={user}
-            onBook={() =>
-              user
-                ? navigate(`book/${event.id}`) // relative OK (within /dashboard)
-                : navigate("/dashboard/login", {
-                    // ✅ Fixed: added /dashboard prefix
-                    state: { from: `/dashboard/book/${event.id}` }, // ✅ Fixed: full path
-                    replace: true,
-                  })
-            }
-          />
-        ))}
-      </div>
+      {/* ── Event grid ────────────────────────────────────────────────── */}
+      {!loading && !error && events.length > 0 && (
+        <div className="event-grid">
+          {events.map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              user={user}
+              onBook={() =>
+                user
+                  ? navigate(`/dashboard/book/${event.id}`)
+                  : navigate("/auth/login", { state: { from: `/dashboard/book/${event.id}` } })
+              }
+            />
+          ))}
+        </div>
+      )}
 
-      {/* FOOTER */}
+      {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="dashboard-footer">
         <div className="footer-links">
-          <span onClick={() => navigate("/")} className="footer-link">
-            Home
-          </span>
-
-          <span onClick={() => navigate("contact")} className="footer-link">
-            Contact Us
-          </span>
+          <span className="footer-link" onClick={() => navigate("/dashboard")}>Home</span>
+          <span className="footer-link" onClick={() => navigate("/dashboard/contact")}>Contact Us</span>
         </div>
-
-        <p className="footer-copy">
-          © {new Date().getFullYear()} EventHyper
-        </p>
+        <p>© {new Date().getFullYear()} EventHyper</p>
       </footer>
 
-      {/* CHATBOT */}
       <ChatbotWidget user={user} />
     </div>
   );
