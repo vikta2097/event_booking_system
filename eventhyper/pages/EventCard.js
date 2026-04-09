@@ -4,6 +4,14 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
+// ── Distance formatter ──
+const formatDistance = (km) => {
+  if (km == null) return null;
+  if (km < 1) return `${Math.round(km * 1000)} m away`;
+  if (km < 10) return `${km.toFixed(1)} km away`;
+  return `${Math.round(km)} km away`;
+};
+
 const EventCard = ({ event, user, onSaveToFavorites }) => {
   const navigation = useNavigation();
   const [timeUntilEvent, setTimeUntilEvent] = useState("");
@@ -38,6 +46,9 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
     ? Math.round(((event.price - event.early_bird_price) / event.price) * 100) : 0;
   const eventTags = event.tags_display ? event.tags_display.split(", ").filter(Boolean).slice(0, 3) : [];
 
+  // ── Distance from GPS ranking ──
+  const distanceLabel = formatDistance(event._distanceKm);
+
   const handleBookNow = () => {
     if (isSoldOut) return;
     if (!user) navigation.navigate("Login");
@@ -57,10 +68,8 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
     } catch {}
   };
 
-  // ── UPDATED: uses lat/lng first (matches web version) ──
   const handleDirections = () => {
     if (event.latitude && event.longitude) {
-      // Precise coordinates from DB — opens Google Maps directions
       Linking.openURL(
         `https://www.google.com/maps/dir/?api=1&destination=${event.latitude},${event.longitude}`
       );
@@ -103,7 +112,7 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
           style={styles.image}
           resizeMode="cover"
         />
-        {/* Badges */}
+        {/* Status + category badges */}
         <View style={styles.badgesTop}>
           {statusBadge && (
             <View style={[styles.badge, { backgroundColor: statusBadge.bg }]}>
@@ -116,6 +125,14 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
             </View>
           )}
         </View>
+
+        {/* ── Distance badge — bottom-left of image ── */}
+        {distanceLabel && (
+          <View style={styles.distanceBadge}>
+            <Text style={styles.distanceBadgeText}>📏 {distanceLabel}</Text>
+          </View>
+        )}
+
         {/* Action Buttons */}
         <View style={styles.actionBtns}>
           <TouchableOpacity style={[styles.actionBtn, isFavorite && styles.actionBtnFav]} onPress={handleFavorite}>
@@ -220,14 +237,29 @@ const styles = StyleSheet.create({
   card: { backgroundColor: "#fff", borderRadius: 16, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, marginBottom: 16 },
   imageWrapper: { width: "100%", height: 220, position: "relative", backgroundColor: "#667eea" },
   image: { width: "100%", height: "100%" },
+
   badgesTop: { position: "absolute", top: 12, left: 12, right: 60, flexDirection: "row", flexWrap: "wrap", gap: 6 },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginRight: 6, marginBottom: 4 },
   badgeCategory: { backgroundColor: "rgba(59,130,246,0.95)" },
   badgeText: { color: "#fff", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+
+  // ── Distance badge — bottom-left corner of the card image ──
+  distanceBadge: {
+    position: "absolute",
+    bottom: 10,
+    left: 12,
+    backgroundColor: "rgba(16,185,129,0.92)",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  distanceBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+
   actionBtns: { position: "absolute", top: 10, right: 10, gap: 8 },
   actionBtn: { width: 38, height: 38, backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 19, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 4, elevation: 3, marginBottom: 6 },
   actionBtnFav: { backgroundColor: "#fef2f2", borderWidth: 2, borderColor: "#ef4444" },
   actionBtnIcon: { fontSize: 16 },
+
   details: { padding: 16, gap: 8 },
   title: { fontSize: 17, fontWeight: "700", color: "#1f2937", lineHeight: 24 },
   tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },

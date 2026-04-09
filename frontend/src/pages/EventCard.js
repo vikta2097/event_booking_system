@@ -2,6 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/EventCard.css";
 
+// ── Distance formatter (mirrors EventList helper) ──
+const formatDistance = (km) => {
+  if (km == null) return null;
+  if (km < 1) return `${Math.round(km * 1000)} m away`;
+  if (km < 10) return `${km.toFixed(1)} km away`;
+  return `${Math.round(km)} km away`;
+};
+
 const EventCard = ({ event, user, onSaveToFavorites }) => {
   const navigate = useNavigate();
   const [timeUntilEvent, setTimeUntilEvent] = useState("");
@@ -35,6 +43,9 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
   const earlyBirdSavings = isEarlyBirdActive && event.early_bird_price
     ? Math.round(((event.price - event.early_bird_price) / event.price) * 100) : 0;
   const eventTags = event.tags_display ? event.tags_display.split(', ').filter(Boolean).slice(0, 3) : [];
+
+  // ── Distance label from GPS ranking ──
+  const distanceLabel = formatDistance(event._distanceKm);
 
   const handleBookNow = (e) => {
     e.preventDefault();
@@ -70,11 +81,9 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
     }
   };
 
-  // ── UPDATED: uses lat/lng coordinates first (Mapbox-compatible) ──
   const handleGetDirections = (e) => {
     e.stopPropagation();
     if (event.latitude && event.longitude) {
-      // Opens Google Maps directions using precise coordinates stored in DB
       window.open(
         `https://www.google.com/maps/dir/?api=1&destination=${event.latitude},${event.longitude}`,
         '_blank', 'noopener,noreferrer'
@@ -115,6 +124,14 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
           {statusBadge && <span className={`badge badge-${statusBadge.class}`}>{statusBadge.text}</span>}
           {event.category_name && <span className="badge badge-category">{event.category_name}</span>}
         </div>
+
+        {/* ── Distance badge — shown when GPS ranking is active ── */}
+        {distanceLabel && (
+          <div className="event-distance-badge">
+            📏 {distanceLabel}
+          </div>
+        )}
+
         <div className="event-actions">
           <button className={`action-btn favorite-btn ${isFavorite ? 'active' : ''}`} onClick={handleFavoriteClick} aria-label="Add to favorites" title="Add to favorites">
             {isFavorite ? '❤️' : '🤍'}

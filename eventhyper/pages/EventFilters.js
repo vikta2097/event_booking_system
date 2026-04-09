@@ -6,12 +6,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Platform,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import api from "../api";
 
-const EventFilters = ({ onFilter }) => {
+const EventFilters = ({ onFilter, nearMeActive = false, onNearMe }) => {
   const [categories, setCategories] = useState([]);
   const [filters, setFilters] = useState({
     category: "",
@@ -25,7 +24,6 @@ const EventFilters = ({ onFilter }) => {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
-  // ✅ Fetch categories dynamically
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -69,23 +67,26 @@ const EventFilters = ({ onFilter }) => {
     <View style={styles.container}>
       <Text style={styles.title}>Filter Events</Text>
 
-      {/* 🔥 Category Chips */}
+      {/* Chips row: Near Me + categories */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {/* 📍 Near Me chip */}
+        <TouchableOpacity
+          style={[styles.chip, styles.nearMeChip, nearMeActive && styles.nearMeChipActive]}
+          onPress={onNearMe}
+        >
+          <Text style={[styles.chipText, nearMeActive && styles.activeChipText]}>
+            📍 Near Me
+          </Text>
+        </TouchableOpacity>
+
+        {/* Category chips */}
         {categories.map((cat) => (
           <TouchableOpacity
             key={cat.id}
-            style={[
-              styles.chip,
-              filters.category === cat.name && styles.activeChip,
-            ]}
+            style={[styles.chip, filters.category === cat.name && styles.activeChip]}
             onPress={() => toggleCategory(cat.name)}
           >
-            <Text
-              style={[
-                styles.chipText,
-                filters.category === cat.name && styles.activeChipText,
-              ]}
-            >
+            <Text style={[styles.chipText, filters.category === cat.name && styles.activeChipText]}>
               {cat.name}
             </Text>
           </TouchableOpacity>
@@ -108,7 +109,6 @@ const EventFilters = ({ onFilter }) => {
         value={filters.minPrice}
         onChangeText={(text) => handleChange("minPrice", text)}
       />
-
       <TextInput
         placeholder="Max Price"
         keyboardType="numeric"
@@ -121,7 +121,6 @@ const EventFilters = ({ onFilter }) => {
       <TouchableOpacity style={styles.input} onPress={() => setShowStartPicker(true)}>
         <Text>{filters.startDate ? `Start: ${formatDate(filters.startDate)}` : "Start Date"}</Text>
       </TouchableOpacity>
-
       {showStartPicker && (
         <DateTimePicker
           value={filters.startDate || new Date()}
@@ -136,7 +135,6 @@ const EventFilters = ({ onFilter }) => {
       <TouchableOpacity style={styles.input} onPress={() => setShowEndPicker(true)}>
         <Text>{filters.endDate ? `End: ${formatDate(filters.endDate)}` : "End Date"}</Text>
       </TouchableOpacity>
-
       {showEndPicker && (
         <DateTimePicker
           value={filters.endDate || new Date()}
@@ -167,10 +165,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#e5e7eb",
     marginRight: 8,
   },
-  activeChip: {
-    backgroundColor: "#0077ff",
+  activeChip: { backgroundColor: "#0077ff" },
+
+  // Near Me chip — distinct teal colour so it stands out
+  nearMeChip: {
+    backgroundColor: "#d1fae5",
+    borderWidth: 1.5,
+    borderColor: "#10b981",
   },
-  chipText: { color: "#333" },
+  nearMeChipActive: {
+    backgroundColor: "#10b981",
+    borderColor: "#10b981",
+  },
+
+  chipText: { color: "#333", fontWeight: "600" },
   activeChipText: { color: "#fff" },
 
   input: {
@@ -179,7 +187,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 10,
   },
-
   clearBtn: {
     marginTop: 12,
     backgroundColor: "#e74c3c",

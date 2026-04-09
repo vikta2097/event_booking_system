@@ -178,3 +178,103 @@ button {
 .hidden {
   display: none;
 }
+
+/* =========================================================
+   GPS DISCOVERY ADDITIONS — append to your existing CSS files
+   ========================================================= */
+
+/* ── Near Me chip (EventFilters.css) ── */
+.chip.chip--near-me {
+  background: #d1fae5;
+  border: 1.5px solid #10b981;
+  color: #065f46;
+  font-weight: 700;
+}
+.chip.chip--near-me.active {
+  background: #10b981;
+  border-color: #10b981;
+  color: #fff;
+}
+
+/* ── Distance badge overlaid on card image (EventCard.css) ── */
+.event-distance-badge {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  background: rgba(16, 185, 129, 0.92);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 14px;
+  padding: 4px 10px;
+  backdrop-filter: blur(4px);
+  letter-spacing: 0.3px;
+  pointer-events: none;
+}
+
+/* ── Location status banners (EventList.css / UserDashboard.css) ── */
+.location-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.location-banner--acquiring {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+}
+
+.location-banner--granted {
+  background: #d1fae5;
+  border: 1px solid #10b981;
+  color: #065f46;
+}
+
+.location-banner--fallback {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+}
+
+/* Spinner inside acquiring banner */
+.location-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #f59e0b;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── GPS Active badge in results header ── */
+.gps-badge {
+  background: #667eea;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 3px 10px;
+  letter-spacing: 0.3px;
+}
+
+/* ── Results header row ── */
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+}

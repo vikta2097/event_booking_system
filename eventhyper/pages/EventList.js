@@ -4,6 +4,7 @@ import {
   StyleSheet, ActivityIndicator, ScrollView, Dimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import MapboxGL from "@rnmapbox/maps";
 import api from "../api";
 import EventCard from "./EventCard";
@@ -13,6 +14,21 @@ MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN || "");
 
 const ITEMS_PER_PAGE = 12;
 const { height } = Dimensions.get("window");
+
+// ── Nairobi fallback ──
+const FALLBACK_COORDS = { lat: -1.2921, lng: 36.8219 };
+
+// ── Haversine distance in km ──
+const haversineDistance = (lat1, lng1, lat2, lng2) => {
+  const R = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 const EventList = ({ user }) => {
   const [events, setEvents] = useState([]);
@@ -26,7 +42,79 @@ const EventList = ({ user }) => {
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const [currentFilters, setCurrentFilters] = useState({});
-  const [viewMode, setViewMode] = useState("list"); // "list" | "map"
+  const [viewMode, setViewMode] = useState("list");
+
+  // ── GPS state ──
+  const [userLocation, setUserLocation] = useState(null); // { lat, lng }
+  const [locationStatus, setLocationStatus] = useState("idle");
+  const [nearMeActive, setNearMeActive] = useState(false);
+
+  // ── Attach distances ──
+  const attachDistances = useCallback((evts, loc) => {
+    if (!loc) return evts.map((e) => ({ ...e, _distanceKm: null }));
+    return evts.map((e) => {
+      if (e.latitude && e.longitude) {
+        return {
+          ...e,
+          _distanceKm: haversineDistance(
+            loc.lat, loc.lng,
+            parseFloat(e.latitude), parseFloat(e.longitude)
+          ),
+        };
+      }
+      return { ...e, _distanceKm: null };
+    });
+  }, []);
+
+  // ── Sort nearest-first ──
+  const sortByDistance = useCallback((evts) =>
+    [...evts].sort((a, b) => {
+      if (a._distanceKm == null && b._distanceKm == null) return 0;
+      if (a._distanceKm == null) return 1;
+      if (b._distanceKm == null) return -1;
+      return a._distanceKm - b._distanceKm;
+    }), []);
+
+  // ── Request GPS via expo-location ──
+  const requestGPS = useCallback(async () => {
+    setLocationStatus("acquiring");
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setLocationStatus("fallback");
+        setUserLocation(FALLBACK_COORDS);
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 8000,
+      });
+      const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setUserLocation(loc);
+      setLocationStatus("granted");
+    } catch {
+      setLocationStatus("fallback");
+      setUserLocation(FALLBACK_COORDS);
+    }
+  }, []);
+
+  // ── Toggle Near Me ──
+  const handleNearMe = () => {
+    if (!nearMeActive) {
+      setNearMeActive(true);
+      if (!userLocation) requestGPS();
+    } else {
+      setNearMeActive(false);
+    }
+  };
+
+  // Re-sort when nearMe or location changes
+  useEffect(() => {
+    setFilteredEvents((prev) => {
+      const withDist = attachDistances(prev, userLocation);
+      return nearMeActive ? sortByDistance(withDist) : withDist;
+    });
+  }, [nearMeActive, userLocation, attachDistances, sortByDistance]);
 
   const fetchEvents = useCallback(async (filters = {}, pageNum = 1, append = false) => {
     if (pageNum === 1) setLoading(true); else setLoadingMore(true);
@@ -39,12 +127,19 @@ const EventList = ({ user }) => {
       params.append("limit", ITEMS_PER_PAGE);
       const res = await api.get(`/events?${params.toString()}`);
       const newEvents = res.data.events || res.data;
+
+      const withDist = attachDistances(newEvents, userLocation);
+      const sorted = nearMeActive ? sortByDistance(withDist) : withDist;
+
       if (append) {
-        setEvents(prev => [...prev, ...newEvents]);
-        setFilteredEvents(prev => [...prev, ...newEvents]);
+        setEvents((prev) => [...prev, ...newEvents]);
+        setFilteredEvents((prev) => {
+          const combined = [...prev, ...sorted];
+          return nearMeActive ? sortByDistance(combined) : combined;
+        });
       } else {
         setEvents(newEvents);
-        setFilteredEvents(newEvents);
+        setFilteredEvents(sorted);
       }
       setHasMore(newEvents.length === ITEMS_PER_PAGE);
     } catch (err) {
@@ -53,14 +148,14 @@ const EventList = ({ user }) => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [attachDistances, sortByDistance, userLocation, nearMeActive]);
 
   const fetchRecommendations = useCallback(async () => {
     if (!user) return;
     try {
       const token = await AsyncStorage.getItem("token");
       const res = await api.get("/events/recommendations", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setRecommendations(res.data.recommendations || []);
     } catch {}
@@ -71,7 +166,7 @@ const EventList = ({ user }) => {
     try {
       const token = await AsyncStorage.getItem("token");
       const res = await api.get("/events/favorites", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setFavorites(res.data.favorites || []);
     } catch {}
@@ -85,15 +180,18 @@ const EventList = ({ user }) => {
   const handleSearch = (query) => {
     setSearchQuery(query);
     if (query.trim() === "") {
-      setFilteredEvents(events);
+      const withDist = attachDistances(events, userLocation);
+      setFilteredEvents(nearMeActive ? sortByDistance(withDist) : withDist);
     } else {
       const lower = query.toLowerCase();
-      setFilteredEvents(events.filter(e =>
+      const filtered = events.filter((e) =>
         e.title?.toLowerCase().includes(lower) ||
         e.location?.toLowerCase().includes(lower) ||
         e.organizer_name?.toLowerCase().includes(lower) ||
         e.category_name?.toLowerCase().includes(lower)
-      ));
+      );
+      const withDist = attachDistances(filtered, userLocation);
+      setFilteredEvents(nearMeActive ? sortByDistance(withDist) : withDist);
     }
   };
 
@@ -111,10 +209,10 @@ const EventList = ({ user }) => {
       const headers = { Authorization: `Bearer ${token}` };
       if (isFavorite) {
         await api.post(`/events/${eventId}/favorite`, {}, { headers });
-        setFavorites(prev => [...prev, eventId]);
+        setFavorites((prev) => [...prev, eventId]);
       } else {
         await api.delete(`/events/${eventId}/favorite`, { headers });
-        setFavorites(prev => prev.filter(id => id !== eventId));
+        setFavorites((prev) => prev.filter((id) => id !== eventId));
       }
     } catch { alert("Failed to update favorites"); }
   };
@@ -127,12 +225,12 @@ const EventList = ({ user }) => {
     }
   };
 
-  const eventsWithFavorites = filteredEvents.map(e => ({
-    ...e, is_favorited: favorites.includes(e.id),
+  const eventsWithFavorites = filteredEvents.map((e) => ({
+    ...e,
+    is_favorited: favorites.includes(e.id),
   }));
 
-  // Events that have coordinates for the map
-  const eventsWithCoords = eventsWithFavorites.filter(e => e.latitude && e.longitude);
+  const eventsWithCoords = eventsWithFavorites.filter((e) => e.latitude && e.longitude);
 
   const renderEvent = ({ item }) => (
     <EventCard event={item} user={user} onSaveToFavorites={handleSaveToFavorites} />
@@ -157,6 +255,34 @@ const EventList = ({ user }) => {
     </View>
   );
 
+  // ── Location status banner ──
+  const renderLocationBanner = () => {
+    if (!nearMeActive || locationStatus === "idle") return null;
+    if (locationStatus === "acquiring") {
+      return (
+        <View style={[styles.locationBanner, styles.bannerAcquiring]}>
+          <ActivityIndicator size="small" color="#92400e" style={{ marginRight: 6 }} />
+          <Text style={styles.bannerAcquiringText}>Acquiring your location…</Text>
+        </View>
+      );
+    }
+    if (locationStatus === "granted") {
+      return (
+        <View style={[styles.locationBanner, styles.bannerGranted]}>
+          <Text style={styles.bannerGrantedText}>✅ Showing events nearest to you</Text>
+        </View>
+      );
+    }
+    if (locationStatus === "fallback") {
+      return (
+        <View style={[styles.locationBanner, styles.bannerFallback]}>
+          <Text style={styles.bannerFallbackText}>⚠️ GPS unavailable — showing events near Nairobi</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
   return (
     <View style={styles.container}>
       {/* Search Bar */}
@@ -175,10 +301,17 @@ const EventList = ({ user }) => {
         )}
       </View>
 
-      {/* Filters */}
-      <EventFilters onFilter={handleFilter} />
+      {/* Filters — pass Near Me props */}
+      <EventFilters
+        onFilter={handleFilter}
+        nearMeActive={nearMeActive}
+        onNearMe={handleNearMe}
+      />
 
-      {/* ── View Mode Toggle (matches web) ── */}
+      {/* Location banner */}
+      {renderLocationBanner()}
+
+      {/* View Mode Toggle */}
       <View style={styles.viewToggle}>
         <TouchableOpacity
           style={[styles.viewToggleBtn, viewMode === "list" && styles.viewToggleBtnActive]}
@@ -209,7 +342,7 @@ const EventList = ({ user }) => {
           </View>
           {showRecommendations && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {recommendations.slice(0, 4).map(event => (
+              {recommendations.slice(0, 4).map((event) => (
                 <View key={`rec-${event.id}`} style={styles.recCard}>
                   <EventCard event={event} user={user} onSaveToFavorites={handleSaveToFavorites} />
                 </View>
@@ -220,29 +353,40 @@ const EventList = ({ user }) => {
       )}
 
       {/* Results Header */}
-      <Text style={styles.resultsHeader}>
-        {searchQuery
-          ? `Search Results (${eventsWithFavorites.length})`
-          : `All Events (${eventsWithFavorites.length})`}
-      </Text>
+      <View style={styles.resultsHeaderRow}>
+        <Text style={styles.resultsHeader}>
+          {nearMeActive ? "📍 Nearest Events" : ""}
+          {searchQuery
+            ? `Search Results (${eventsWithFavorites.length})`
+            : nearMeActive
+            ? ` (${eventsWithFavorites.length})`
+            : `All Events (${eventsWithFavorites.length})`}
+        </Text>
+        {nearMeActive && locationStatus === "granted" && (
+          <View style={styles.gpsBadge}>
+            <Text style={styles.gpsBadgeText}>🛰️ GPS Active</Text>
+          </View>
+        )}
+      </View>
 
-      {/* ── Map View ── */}
+      {/* Map View */}
       {viewMode === "map" && (
         <View style={styles.mapContainer}>
           <MapboxGL.MapView style={styles.map} styleURL="mapbox://styles/mapbox/streets-v12">
-            {/* Default center: Nairobi */}
             <MapboxGL.Camera
               zoomLevel={eventsWithCoords.length > 0 ? 10 : 8}
               centerCoordinate={
-                eventsWithCoords.length > 0
+                userLocation
+                  ? [userLocation.lng, userLocation.lat]
+                  : eventsWithCoords.length > 0
                   ? [parseFloat(eventsWithCoords[0].longitude), parseFloat(eventsWithCoords[0].latitude)]
-                  : [36.8219, -1.2921]
+                  : [FALLBACK_COORDS.lng, FALLBACK_COORDS.lat]
               }
             />
             <MapboxGL.UserLocation visible />
 
             {/* Event markers */}
-            {eventsWithCoords.map(event => (
+            {eventsWithCoords.map((event) => (
               <MapboxGL.PointAnnotation
                 key={`marker-${event.id}`}
                 id={`marker-${event.id}`}
@@ -269,14 +413,14 @@ const EventList = ({ user }) => {
         </View>
       )}
 
-      {/* ── List View ── */}
-      {viewMode === "list" && (
-        loading ? (
+      {/* List View */}
+      {viewMode === "list" &&
+        (loading ? (
           <ActivityIndicator size="large" color="#667eea" style={{ marginTop: 40 }} />
         ) : (
           <FlatList
             data={eventsWithFavorites}
-            keyExtractor={item => String(item.id)}
+            keyExtractor={(item) => String(item.id)}
             renderItem={renderEvent}
             ListEmptyComponent={renderEmpty}
             ListFooterComponent={renderFooter}
@@ -284,8 +428,7 @@ const EventList = ({ user }) => {
             onEndReachedThreshold={0.3}
             contentContainerStyle={{ paddingBottom: 40 }}
           />
-        )
-      )}
+        ))}
     </View>
   );
 };
@@ -298,7 +441,15 @@ const styles = StyleSheet.create({
   clearSearch: { padding: 6 },
   clearSearchText: { color: "#9ca3af", fontSize: 16, fontWeight: "700" },
 
-  // ── View Toggle (matches web) ──
+  // Location banners
+  locationBanner: { borderRadius: 8, padding: 10, marginBottom: 10, flexDirection: "row", alignItems: "center" },
+  bannerAcquiring: { backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#f59e0b" },
+  bannerAcquiringText: { color: "#92400e", fontWeight: "600", fontSize: 13 },
+  bannerGranted: { backgroundColor: "#d1fae5", borderWidth: 1, borderColor: "#10b981" },
+  bannerGrantedText: { color: "#065f46", fontWeight: "600", fontSize: 13 },
+  bannerFallback: { backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#f59e0b" },
+  bannerFallbackText: { color: "#92400e", fontWeight: "600", fontSize: 13 },
+
   viewToggle: { flexDirection: "row", backgroundColor: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 12, borderWidth: 1, borderColor: "#e5e7eb" },
   viewToggleBtn: { flex: 1, paddingVertical: 8, alignItems: "center", borderRadius: 8 },
   viewToggleBtnActive: { backgroundColor: "#667eea" },
@@ -311,9 +462,12 @@ const styles = StyleSheet.create({
   toggleBtn: { color: "#667eea", fontWeight: "600", fontSize: 14 },
   recCard: { width: 280, marginRight: 12 },
 
-  resultsHeader: { fontSize: 16, fontWeight: "700", color: "#1f2937", marginBottom: 12 },
+  resultsHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  resultsHeader: { fontSize: 16, fontWeight: "700", color: "#1f2937" },
+  gpsBadge: { backgroundColor: "#667eea", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  gpsBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
 
-  // ── Map ──
+  // Map
   mapContainer: { flex: 1, borderRadius: 12, overflow: "hidden", minHeight: height * 0.55, borderWidth: 1, borderColor: "#e5e7eb" },
   map: { flex: 1 },
   markerWrapper: { alignItems: "center" },
