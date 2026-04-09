@@ -1,411 +1,484 @@
-/* ===========================
-   EVENT FILTERS - CLEAN VERSION
-=========================== */
+/* ===================================================
+   EventFilters — search-box style (matches RN version)
+=================================================== */
 
-/* ===========================
-   MAIN CONTAINER
-=========================== */
-.event-filters-container {
-  background: white;
-  padding: 24px;
+/* ── Outer wrapper ─────────────────────────────── */
+.ef-container {
+  background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  margin-bottom: 24px;
-}
-
-/* Legacy Container Support */
-.event-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   margin-bottom: 20px;
-  background-color: #f7f9fc;
-  padding: 15px;
-  border-radius: 10px;
 }
 
-/* ===========================
-   QUICK FILTERS
-=========================== */
-.quick-filters {
+/* ── Loading state ─────────────────────────────── */
+.ef-loading {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e5e7eb;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
 }
 
-.quick-filter-btn {
-  padding: 8px 18px;
-  background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.quick-filter-btn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
+.ef-loading-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: rgba(59, 130, 246, 0.1);
-  transform: translate(-50%, -50%);
-  transition: width 0.4s, height 0.4s;
-  z-index: 0;
-}
-
-.quick-filter-btn:hover::before {
-  width: 200px;
-  height: 200px;
-}
-
-.quick-filter-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
-  transform: translateY(-2px);
-}
-
-.quick-filter-btn.active {
   background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
+  animation: ef-pulse 1.2s infinite ease-in-out;
+}
+.ef-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+.ef-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes ef-pulse {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+  40%           { opacity: 1;    transform: scale(1); }
 }
 
-/* ===========================
-   MAIN FILTERS ROW
-=========================== */
-.filters-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+.ef-loading-label {
+  font-size: 13px;
+  color: #6b7280;
+  margin-left: 4px;
 }
 
-.filter-input {
-  flex: 1 1 150px;
-  min-width: 150px;
-  padding: 10px 14px;
-  border: 2px solid #e5e7eb;
+/* ── Error banner ──────────────────────────────── */
+.ef-error {
+  font-size: 13px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
   border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  background: white;
-  color: #1f2937;
+  padding: 8px 12px;
+  margin-bottom: 10px;
 }
 
-.filter-input:focus {
-  outline: none;
+/* ── Search bar row ────────────────────────────── */
+.ef-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ef-search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f3f4f6;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 0 12px;
+  height: 42px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.ef-search-box:focus-within {
+  background: #fff;
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
-.filter-input::placeholder {
+.ef-search-icon {
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ef-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+}
+
+.ef-search-input::placeholder {
   color: #9ca3af;
 }
 
-/* ===========================
-   TAGS FILTER
-=========================== */
-.tags-filter {
-  margin: 16px 0;
-}
-
-.tags-label {
+.ef-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
   font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 10px;
-  display: block;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s;
 }
 
-.tags-container {
+.ef-search-clear:hover {
+  color: #6b7280;
+}
+
+/* Filter toggle button */
+.ef-filter-btn {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  background: #f3f4f6;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.2s;
 }
 
-.tag-btn {
-  padding: 8px 16px;
-  background: white;
-  border: 2px solid #e5e7eb;
+.ef-filter-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.ef-filter-btn--active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+/* Active filter count badge on the toggle button */
+.ef-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* ── Quick filter chips (horizontal scroll) ────── */
+.ef-chips-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  scrollbar-width: none;
+}
+
+.ef-chips-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.ef-chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
   border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
   color: #6b7280;
   cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s;
 }
 
-.tag-btn:hover {
+.ef-chip:hover {
   border-color: #3b82f6;
-  color: #3b82f6;
-  transform: translateY(-1px);
+  color: #2563eb;
+  background: #eff6ff;
 }
 
-.tag-btn.active {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-color: #3b82f6;
-  color: white;
-}
-
-.tag-close {
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-/* ===========================
-   ADVANCED TOGGLE
-=========================== */
-.advanced-toggle {
-  margin: 20px 0;
-  text-align: center;
-}
-
-.toggle-advanced-btn {
-  padding: 10px 24px;
-  background: transparent;
-  border: 2px dashed #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.toggle-advanced-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.05);
-}
-
-/* ===========================
-   ADVANCED FILTERS
-=========================== */
-.advanced-filters {
-  margin-top: 20px;
-  padding: 20px;
-  background: #f9fafb;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  animation: slideDown 0.3s ease;
-}
-
-/* ===========================
-   FILTER BUTTONS
-=========================== */
-.filter-buttons {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 20px;
-}
-
-.apply-btn {
-  padding: 10px 24px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.apply-btn:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-  transform: translateY(-2px);
-}
-
-.filter-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: white;
-  color: #3b82f6;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.reset-btn {
-  padding: 10px 24px;
-  background: white;
-  color: #6b7280;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.reset-btn:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
-  transform: translateY(-2px);
-}
-
-/* ===========================
-   ACTIVE FILTERS DISPLAY
-=========================== */
-.active-filters {
+/* ── Active filter tags row ────────────────────── */
+.ef-active-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
   align-items: center;
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
 }
 
-.active-filters-label {
-  font-size: 13px;
+.ef-active-label {
+  font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
-  margin-right: 8px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.active-filter-tag {
-  display: flex;
+.ef-active-tag {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  gap: 5px;
+  padding: 4px 10px;
   background: #eff6ff;
   border: 1px solid #bfdbfe;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
-  color: #1e40af;
-  animation: fadeIn 0.3s ease;
+  color: #1d4ed8;
 }
 
-.active-filter-tag button {
+.ef-active-tag button {
   background: none;
   border: none;
-  color: #1e40af;
-  font-size: 16px;
+  color: #60a5fa;
+  font-size: 13px;
   font-weight: 700;
-  line-height: 1;
   cursor: pointer;
   padding: 0;
-  transition: transform 0.2s ease;
+  line-height: 1;
+  transition: color 0.15s;
 }
 
-.active-filter-tag button:hover {
-  transform: scale(1.2);
+.ef-active-tag button:hover {
+  color: #1d4ed8;
 }
 
-/* ===========================
-   FILTER PRESETS
-=========================== */
-.filter-presets {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 20px;
+.ef-reset-inline {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  margin-left: 4px;
+}
+
+.ef-reset-inline:hover {
+  background: #fef2f2;
+}
+
+/* ── Expandable filter panel ───────────────────── */
+.ef-panel {
+  margin-top: 12px;
+  padding-top: 14px;
   border-top: 1px solid #e5e7eb;
+  animation: ef-slide-down 0.22s ease;
 }
 
-.preset-btn {
-  flex: 1;
-  padding: 10px 16px;
-  background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 13px;
+@keyframes ef-slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ef-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* Field wrapper */
+.ef-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ef-field-label {
+  font-size: 11px;
   font-weight: 600;
   color: #6b7280;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Shared input / select styling */
+.ef-input,
+.ef-select {
+  height: 38px;
+  padding: 0 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ef-input:focus,
+.ef-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.ef-input::placeholder {
+  color: #9ca3af;
+}
+
+/* ── Tags section ──────────────────────────────── */
+.ef-tags-section {
+  margin-bottom: 14px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   gap: 8px;
 }
 
-.preset-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.05);
+.ef-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.preset-btn.active {
+.ef-tag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ef-tag-btn:hover {
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+.ef-tag-btn--active {
   background: #3b82f6;
   border-color: #3b82f6;
-  color: white;
+  color: #fff;
 }
 
-/* ===========================
-   ANIMATIONS
-=========================== */
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    max-height: 500px;
-  }
+.ef-tag-close {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+/* ── Panel action bar ──────────────────────────── */
+.ef-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-/* ===========================
-   RESPONSIVE
-=========================== */
-@media (max-width: 768px) {
-  .filters-row {
-    grid-template-columns: 1fr;
+.ef-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.ef-apply-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.ef-apply-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  color: #2563eb;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ef-reset-btn {
+  padding: 9px 16px;
+  background: #fff;
+  color: #6b7280;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ef-reset-btn:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.ef-presets {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ef-preset-btn {
+  padding: 8px 14px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ef-preset-btn:hover {
+  border-color: #3b82f6;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+/* ── Responsive ────────────────────────────────── */
+@media (max-width: 600px) {
+  .ef-panel-grid {
+    grid-template-columns: 1fr 1fr;
   }
-  
-  .filter-buttons {
+
+  .ef-panel-actions {
     flex-direction: column;
+    align-items: stretch;
   }
-  
-  .apply-btn,
-  .reset-btn {
+
+  .ef-apply-btn,
+  .ef-reset-btn {
     width: 100%;
     justify-content: center;
   }
-  
-  .filter-presets {
-    flex-direction: column;
-  }
-  
-  .preset-btn {
+
+  .ef-presets {
+    margin-left: 0;
     width: 100%;
+  }
+
+  .ef-preset-btn {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+@media (max-width: 400px) {
+  .ef-panel-grid {
+    grid-template-columns: 1fr;
   }
 }
