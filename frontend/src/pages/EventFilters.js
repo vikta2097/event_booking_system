@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import api from "../api";
-import "../stlyes/EventFilters.css";
+import "../styles/EventFilters.css";
 
 const EventFilters = ({ onFilter, nearMeActive = false, onNearMe }) => {
   const [categories, setCategories] = useState([]);
