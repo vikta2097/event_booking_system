@@ -24,6 +24,7 @@ const haversineDistance = (lat1, lng1, lat2, lng2) => {
 
 // ── Format distance for display ──
 const formatDistance = (km) => {
+  if (km == null) return null;
   if (km < 1) return `${Math.round(km * 1000)} m away`;
   if (km < 10) return `${km.toFixed(1)} km away`;
   return `${Math.round(km)} km away`;

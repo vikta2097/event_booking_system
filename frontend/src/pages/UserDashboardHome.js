@@ -6,6 +6,7 @@ import ChatbotWidget from "./ChatbotWidget";
 import EventCard from "./EventCard";
 import EventFilters from "./EventFilters";
 import "../styles/UserDashboard.css";
+import "../styles/UserDashboardHome.css";
 
 // ── Haversine distance in km ──
 const haversineDistance = (lat1, lng1, lat2, lng2) => {
@@ -183,11 +184,10 @@ const UserDashboardHome = ({ user }) => {
               key={event.id}
               event={event}
               user={user}
-              onBook={() =>
-                user
-                  ? navigate(`/dashboard/book/${event.id}`)
-                  : navigate("/auth/login", { state: { from: `/dashboard/book/${event.id}` } })
-              }
+              onSaveToFavorites={(eventId, isFav) => {
+                // Favorites persistence is handled inside EventCard via API if needed
+                console.log("favorite toggled", eventId, isFav);
+              }}
             />
           ))}
         </div>

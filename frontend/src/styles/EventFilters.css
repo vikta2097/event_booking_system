@@ -397,3 +397,35 @@
 @media (max-width: 380px) {
   .ef-grid { grid-template-columns: 1fr; }
 }
+/* =========================================================
+   GPS DISCOVERY ADDITIONS
+   ========================================================= */
+
+/* ── Near Me chip ── */
+.chip.chip--near-me {
+  background: #d1fae5;
+  border: 1.5px solid #10b981;
+  color: #065f46;
+  font-weight: 700;
+}
+
+.chip.chip--near-me.active {
+  background: #10b981;
+  border-color: #10b981;
+  color: #fff;
+}
+
+/* ── ef-* Near Me chip variant (used in newer EventFilters) ── */
+.ef-chip--near-me {
+  background: #d1fae5;
+  border: 1.5px solid #10b981;
+  color: #065f46;
+  font-weight: 700;
+}
+
+.ef-chip--near-me.ef-chip--on,
+.ef-chip--near-me.active {
+  background: #10b981;
+  border-color: #10b981;
+  color: #fff;
+}
