@@ -28,7 +28,10 @@ router.get("/", async (req, res) => {
       search,
       page = 1,
       limit = 12,
-      exclude
+      exclude,
+      lat,
+      lng,
+      radius = 10
     } = req.query;
 
     let query = `
@@ -41,6 +44,27 @@ router.get("/", async (req, res) => {
         STRING_AGG(DISTINCT t.name, ', ') AS tags_display,
         COALESCE(SUM(b.seats), 0) AS total_seats_booked,
         COUNT(DISTINCT v.user_id) AS view_count
+    `;
+
+    const params = [];
+    let paramIndex = 1;
+
+    // ── Add distance only if GPS provided ──
+    if (lat && lng) {
+      query += `,
+        (6371 * acos(
+          cos(radians($${paramIndex})) *
+          cos(radians(e.latitude)) *
+          cos(radians(e.longitude) - radians($${paramIndex + 1})) +
+          sin(radians($${paramIndex})) *
+          sin(radians(e.latitude))
+        )) AS distance_km
+      `;
+      params.push(lat, lng);
+      paramIndex += 2;
+    }
+
+    query += `
       FROM events e
       LEFT JOIN event_categories c ON e.category_id = c.id
       LEFT JOIN usercredentials u ON e.created_by = u.id
@@ -51,70 +75,45 @@ router.get("/", async (req, res) => {
       WHERE 1=1
     `;
 
-    const params = [];
-    let paramIndex = 1;
-
-    // Filter by category
+    // ── Filters ──
     if (category) {
-      query += ` AND e.category_id = $${paramIndex}`;
+      query += ` AND e.category_id = $${paramIndex++}`;
       params.push(category);
-      paramIndex++;
     }
 
-    // Filter by tags (comma-separated)
-    if (tags) {
-      const tagArray = tags.split(',');
-      query += ` AND EXISTS (
-        SELECT 1 FROM event_tags et2 
-        JOIN tags t2 ON et2.tag_id = t2.id 
-        WHERE et2.event_id = e.id 
-        AND t2.name = ANY($${paramIndex})
-      )`;
-      params.push(tagArray);
-      paramIndex++;
-    }
-
-    // Filter by venue/location
     if (venue) {
       query += ` AND (e.location ILIKE $${paramIndex} OR e.venue ILIKE $${paramIndex})`;
       params.push(`%${venue}%`);
       paramIndex++;
     }
 
-    // Filter by price range
     if (minPrice) {
-      query += ` AND e.price >= $${paramIndex}`;
-      params.push(parseFloat(minPrice));
-      paramIndex++;
+      query += ` AND e.price >= $${paramIndex++}`;
+      params.push(minPrice);
     }
+
     if (maxPrice) {
-      query += ` AND e.price <= $${paramIndex}`;
-      params.push(parseFloat(maxPrice));
-      paramIndex++;
+      query += ` AND e.price <= $${paramIndex++}`;
+      params.push(maxPrice);
     }
 
-    // Filter by date range
     if (startDate) {
-      query += ` AND e.event_date >= $${paramIndex}`;
+      query += ` AND e.event_date >= $${paramIndex++}`;
       params.push(startDate);
-      paramIndex++;
-    }
-    if (endDate) {
-      query += ` AND e.event_date <= $${paramIndex}`;
-      params.push(endDate);
-      paramIndex++;
     }
 
-    // Filter by status
+    if (endDate) {
+      query += ` AND e.event_date <= $${paramIndex++}`;
+      params.push(endDate);
+    }
+
     if (status) {
-      query += ` AND e.status = $${paramIndex}`;
+      query += ` AND e.status = $${paramIndex++}`;
       params.push(status);
-      paramIndex++;
     } else {
       query += ` AND e.status = 'upcoming' AND e.event_date >= CURRENT_DATE`;
     }
 
-    // Search functionality
     if (search) {
       query += ` AND (
         e.title ILIKE $${paramIndex} OR 
@@ -126,52 +125,70 @@ router.get("/", async (req, res) => {
       paramIndex++;
     }
 
-    // Exclude specific event
     if (exclude) {
-      query += ` AND e.id != $${paramIndex}`;
+      query += ` AND e.id != $${paramIndex++}`;
       params.push(exclude);
-      paramIndex++;
     }
 
-    // Group by
-    query += ` GROUP BY e.id, c.name, u.fullname, u.profile_image, u.email`;
+    // ── GROUP BY ──
+    query += `
+      GROUP BY e.id, c.name, u.fullname, u.profile_image, u.email
+    `;
 
-    // Sort by
-    switch (sortBy) {
-      case "date_desc":
-        query += ` ORDER BY e.event_date DESC, e.start_time DESC`;
-        break;
-      case "price_asc":
-        query += ` ORDER BY e.price ASC`;
-        break;
-      case "price_desc":
-        query += ` ORDER BY e.price DESC`;
-        break;
-      case "popular":
-        query += ` ORDER BY view_count DESC, total_seats_booked DESC`;
-        break;
-      case "name_asc":
-        query += ` ORDER BY e.title ASC`;
-        break;
-      default: // date_asc
-        query += ` ORDER BY e.event_date ASC, e.start_time ASC`;
+    // ── GPS FILTER (IMPORTANT) ──
+    if (lat && lng) {
+      query += `
+        HAVING (
+          6371 * acos(
+            cos(radians($1)) *
+            cos(radians(e.latitude)) *
+            cos(radians(e.longitude) - radians($2)) +
+            sin(radians($1)) *
+            sin(radians(e.latitude))
+          )
+        ) <= $3
+      `;
+      // note: HAVING uses first params (lat,lng,radius)
     }
 
-    // Pagination
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    // ── Sorting ──
+    if (lat && lng) {
+      query += ` ORDER BY distance_km ASC NULLS LAST`;
+    } else {
+      switch (sortBy) {
+        case "date_desc":
+          query += ` ORDER BY e.event_date DESC`;
+          break;
+        case "price_asc":
+          query += ` ORDER BY e.price ASC`;
+          break;
+        case "price_desc":
+          query += ` ORDER BY e.price DESC`;
+          break;
+        case "popular":
+          query += ` ORDER BY view_count DESC`;
+          break;
+        default:
+          query += ` ORDER BY e.event_date ASC`;
+      }
+    }
+
+    // ── Pagination ──
+    const offset = (page - 1) * limit;
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), offset);
 
     const result = await db.query(query, params);
 
-    // Add popularity flag and early bird status
-    const enhancedEvents = result.rows.map(event => ({
-      ...event,
-      is_trending: event.view_count > 100,
-      is_early_bird: event.early_bird_deadline && new Date(event.early_bird_deadline) > new Date()
+    const enhanced = result.rows.map(e => ({
+      ...e,
+      is_trending: e.view_count > 100,
+      is_early_bird:
+        e.early_bird_deadline &&
+        new Date(e.early_bird_deadline) > new Date()
     }));
 
-    res.json(enhancedEvents);
+    res.json(enhanced);
   } catch (err) {
     console.error("Error fetching events:", err);
     res.status(500).json({ error: "Failed to fetch events" });
