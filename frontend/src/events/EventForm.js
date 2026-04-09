@@ -38,6 +38,8 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
   const [isSubmitting, setIsSubmitting] = useState(false);
   const geocoderContainer = useRef(null);
   const geocoderRef = useRef(null);
+  const [geocoderReady, setGeocoderReady] = useState(false);
+  const [locationInputMode, setLocationInputMode] = useState("search"); // "search" | "manual"
 
   useEffect(() => {
     if (event) {
@@ -67,46 +69,64 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       setSelectedTags(event.tag_ids ? event.tag_ids.split(',').map(Number) : []);
     }
   }, [event]);
-  // Mapbox Geocoder for location autocomplete
+  // Mapbox Geocoder — initialised once, pre-filled when editing
   useEffect(() => {
     if (!geocoderContainer.current || geocoderRef.current) return;
+    if (!mapboxgl.accessToken) {
+      // No token — fall back to manual mode immediately
+      setLocationInputMode("manual");
+      return;
+    }
 
-    const geocoder = new MapboxGeocoder({
-      accessToken: mapboxgl.accessToken,
-      types: "place,address,poi",
-      countries: "ke",
-      placeholder: "Search venue or address...",
-      marker: false
-    });
+    try {
+      const geocoder = new MapboxGeocoder({
+        accessToken: mapboxgl.accessToken,
+        types: "place,address,poi",
+        countries: "ke",
+        placeholder: "Search venue or address in Kenya…",
+        marker: false
+      });
 
-    geocoder.addTo(geocoderContainer.current);
-    geocoderRef.current = geocoder;
+      geocoder.addTo(geocoderContainer.current);
+      geocoderRef.current = geocoder;
+      setGeocoderReady(true);
 
-    geocoder.on("result", (e) => {
-      const { place_name, center } = e.result;
-      setFormData(prev => ({
-        ...prev,
-        location: place_name,
-        longitude: center[0],
-        latitude: center[1]
-      }));
-    });
+      // Pre-fill the geocoder input when editing an existing event
+      if (event?.location) {
+        // MapboxGeocoder exposes setInput to set the text in the search box
+        geocoder.setInput(event.location);
+      }
 
-    geocoder.on("clear", () => {
-      setFormData(prev => ({
-        ...prev,
-        location: "",
-        longitude: "",
-        latitude: ""
-      }));
-    });
+      geocoder.on("result", (e) => {
+        const { place_name, center } = e.result;
+        setFormData(prev => ({
+          ...prev,
+          location: place_name,
+          longitude: center[0],
+          latitude: center[1]
+        }));
+      });
+
+      geocoder.on("clear", () => {
+        setFormData(prev => ({
+          ...prev,
+          location: "",
+          longitude: "",
+          latitude: ""
+        }));
+      });
+    } catch (err) {
+      console.error("Mapbox Geocoder failed to initialise:", err);
+      setLocationInputMode("manual");
+    }
 
     return () => {
       if (geocoderRef.current) {
-        geocoderRef.current.onRemove();
+        try { geocoderRef.current.onRemove(); } catch {}
         geocoderRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getAuthHeaders = () => {
@@ -341,23 +361,97 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
               </div>
 
               <div className="form-row">
-                <div className="form-group">
-                  <label>Location *</label>
-                  <div ref={geocoderContainer} />
-                  {formData.location && (
-                    <p style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
-                      📍 {formData.location}
-                    </p>
+                <div className="form-group" style={{ flex: "1 1 100%" }}>
+                  <label>
+                    Location *
+                    <button
+                      type="button"
+                      className="location-mode-toggle"
+                      onClick={() =>
+                        setLocationInputMode((m) =>
+                          m === "search" ? "manual" : "search"
+                        )
+                      }
+                      title={
+                        locationInputMode === "search"
+                          ? "Switch to manual entry"
+                          : "Switch to map search"
+                      }
+                    >
+                      {locationInputMode === "search"
+                        ? "✏️ Type manually"
+                        : "🔍 Use map search"}
+                    </button>
+                  </label>
+
+                  {/* ── Mapbox geocoder (search mode) ── */}
+                  <div
+                    ref={geocoderContainer}
+                    style={{
+                      display: locationInputMode === "search" ? "block" : "none"
+                    }}
+                  />
+
+                  {/* ── Manual text input (manual mode OR geocoder not ready) ── */}
+                  {locationInputMode === "manual" && (
+                    <input
+                      type="text"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleChange}
+                      placeholder="e.g., KICC, Nairobi, Kenya"
+                      required
+                    />
                   )}
+
+                  {/* ── Selected location confirmation ── */}
+                  {formData.location && (
+                    <div className="location-confirmed">
+                      <span className="location-confirmed__pin">📍</span>
+                      <span className="location-confirmed__text">
+                        {formData.location}
+                      </span>
+                      {formData.latitude && formData.longitude && (
+                        <span className="location-confirmed__coords">
+                          ({parseFloat(formData.latitude).toFixed(5)},{" "}
+                          {parseFloat(formData.longitude).toFixed(5)})
+                        </span>
+                      )}
+                      {/* Allow clearing the picked location */}
+                      <button
+                        type="button"
+                        className="location-confirmed__clear"
+                        onClick={() => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            location: "",
+                            latitude: "",
+                            longitude: ""
+                          }));
+                          if (geocoderRef.current) {
+                            try { geocoderRef.current.clear(); } catch {}
+                          }
+                        }}
+                        title="Clear location"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Hidden lat/lng inputs so values travel with the form */}
+                  <input type="hidden" name="latitude" value={formData.latitude} />
+                  <input type="hidden" name="longitude" value={formData.longitude} />
                 </div>
+
                 <div className="form-group">
-                  <label>Venue</label>
-                  <input 
-                    type="text" 
-                    name="venue" 
-                    value={formData.venue} 
+                  <label>Venue / Hall Name</label>
+                  <input
+                    type="text"
+                    name="venue"
+                    value={formData.venue}
                     onChange={handleChange}
-                    placeholder="e.g., KICC Hall"
+                    placeholder="e.g., KICC Hall A"
                   />
                 </div>
               </div>

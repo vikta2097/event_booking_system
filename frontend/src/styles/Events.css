@@ -993,3 +993,100 @@
   font-size: 12px;
   min-width: 36px;
 }
+/* =========================================================
+   LOCATION PICKER — EventForm additions
+   ========================================================= */
+
+/* Toggle between geocoder / manual */
+.location-mode-toggle {
+  margin-left: 0.6rem;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.18s;
+  vertical-align: middle;
+}
+
+.location-mode-toggle:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+/* Geocoder container — stretch to full form width */
+.mapboxgl-ctrl-geocoder {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 8px !important;
+  border: 1.5px solid #e5e7eb !important;
+  box-shadow: none !important;
+  font-size: 0.95rem !important;
+}
+
+.mapboxgl-ctrl-geocoder--input {
+  height: 40px !important;
+  padding: 0 40px 0 36px !important;
+  font-size: 0.95rem !important;
+  color: #111827 !important;
+}
+
+.mapboxgl-ctrl-geocoder--input:focus {
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12) !important;
+}
+
+/* Confirmed location pill below the geocoder */
+.location-confirmed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.location-confirmed__pin {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.location-confirmed__text {
+  color: #166534;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.location-confirmed__coords {
+  color: #6b7280;
+  font-size: 0.78rem;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+.location-confirmed__clear {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 2px;
+  margin-left: auto;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.location-confirmed__clear:hover {
+  color: #ef4444;
+}
