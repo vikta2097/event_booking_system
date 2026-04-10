@@ -31,7 +31,7 @@ router.get("/", async (req, res) => {
       exclude,
       lat,
       lng,
-      radius = 10
+      radius = 200          // ✅ raised default: 10 km was too tight for Kenya
     } = req.query;
 
     let query = `
@@ -145,23 +145,26 @@ router.get("/", async (req, res) => {
     `;
 
     // ─────────────────────────────────────────────
-    // GPS FILTER (FIXED)
+    // GPS FILTER — radius uses correct paramIndex
     // ─────────────────────────────────────────────
     if (hasGPS) {
+      // push radius FIRST so we capture its index before incrementing
+      params.push(Number(radius));
+      const radiusParamIndex = paramIndex++;
+
       query += `
         HAVING (
           6371 * acos(
-            cos(radians($1)) *
-            cos(radians(e.latitude)) *
-            cos(radians(e.longitude) - radians($2)) +
-            sin(radians($1)) *
-            sin(radians(e.latitude))
+            LEAST(1.0,
+              cos(radians($1)) *
+              cos(radians(e.latitude)) *
+              cos(radians(e.longitude) - radians($2)) +
+              sin(radians($1)) *
+              sin(radians(e.latitude))
+            )
           )
-        ) <= $3
+        ) <= $${radiusParamIndex}
       `;
-
-      params.push(radius);
-      paramIndex++;
     }
 
     // ─────────────────────────────────────────────
@@ -199,6 +202,7 @@ router.get("/", async (req, res) => {
 
     const enhanced = result.rows.map(e => ({
       ...e,
+      _distanceKm: e.distance_km ?? null,   // ✅ EventCard reads _distanceKm
       is_trending: e.view_count > 100,
       is_early_bird:
         e.early_bird_deadline &&

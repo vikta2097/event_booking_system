@@ -4,7 +4,15 @@ import React, { useEffect, useState } from "react";
 import api from "../api";
 import "../styles/EventFilters.css";
 
-const EventFilters = ({ onFilter, nearMeActive = false, onNearMe }) => {
+const RADIUS_OPTIONS = [
+  { label: "25 km", value: 25 },
+  { label: "50 km", value: 50 },
+  { label: "100 km", value: 100 },
+  { label: "200 km", value: 200 },
+  { label: "500 km", value: 500 },
+];
+
+const EventFilters = ({ onFilter, nearMeActive = false, onNearMe, radius = 200, onRadiusChange }) => {
   const [categories, setCategories] = useState([]);
   const [catLoading, setCatLoading] = useState(true);
   const [catError, setCatError] = useState(false);
@@ -92,6 +100,24 @@ const EventFilters = ({ onFilter, nearMeActive = false, onNearMe }) => {
             </button>
           ))}
       </div>
+
+      {/* ── Row 1b: Radius selector — only when Near Me is active ── */}
+      {nearMeActive && (
+        <div className="ef-radius-row">
+          <span className="ef-radius-label">📏 Within</span>
+          <div className="ef-radius-options">
+            {RADIUS_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`ef-radius-btn${radius === opt.value ? " ef-radius-btn--on" : ""}`}
+                onClick={() => onRadiusChange && onRadiusChange(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Row 2: venue search + advanced-filter toggle ── */}
       <div className="ef-search-row">

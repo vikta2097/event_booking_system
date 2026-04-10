@@ -19,6 +19,7 @@ const UserDashboardHome = ({ user }) => {
   const [userLocation, setUserLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState("idle");
   const [nearMeActive, setNearMeActive] = useState(false);
+  const [radius, setRadius] = useState(200);
 
   const navigate = useNavigate();
   const paramsRef = useRef({});
@@ -27,7 +28,7 @@ const UserDashboardHome = ({ user }) => {
   // FETCH EVENTS (UPDATED)
   // =========================
   const fetchEvents = useCallback(
-    async (params = {}, loc, useNearMe) => {
+    async (params = {}, loc, useNearMe, nearRadius = 200) => {
       setLoading(true);
       setError("");
 
@@ -36,12 +37,12 @@ const UserDashboardHome = ({ user }) => {
           Object.entries(params).filter(([, v]) => v !== undefined)
         );
 
-        // 🆕 attach GPS if available
+        // attach GPS if available
         if (loc) {
           cleanParams.lat = loc.lat;
           cleanParams.lng = loc.lng;
+          cleanParams.radius = nearRadius;
 
-          // backend handles nearest sorting
           if (useNearMe) {
             cleanParams.sortBy = "near_me";
           }
@@ -65,10 +66,10 @@ const UserDashboardHome = ({ user }) => {
     fetchEvents({}, null, false);
   }, [fetchEvents]);
 
-  // re-fetch when toggling near me OR location changes
+  // re-fetch when toggling near me OR location OR radius changes
   useEffect(() => {
-    fetchEvents(paramsRef.current, userLocation, nearMeActive);
-  }, [userLocation, nearMeActive, fetchEvents]);
+    fetchEvents(paramsRef.current, userLocation, nearMeActive, radius);
+  }, [userLocation, nearMeActive, radius, fetchEvents]);
 
   // =========================
   // FILTER HANDLER
@@ -76,10 +77,17 @@ const UserDashboardHome = ({ user }) => {
   const handleFilter = useCallback(
     (params) => {
       paramsRef.current = params;
-      fetchEvents(params, userLocation, nearMeActive);
+      fetchEvents(params, userLocation, nearMeActive, radius);
     },
-    [fetchEvents, userLocation, nearMeActive]
+    [fetchEvents, userLocation, nearMeActive, radius]
   );
+
+  // =========================
+  // RADIUS CHANGE
+  // =========================
+  const handleRadiusChange = (newRadius) => {
+    setRadius(newRadius);
+  };
 
   // =========================
   // GPS REQUEST
@@ -148,7 +156,7 @@ const UserDashboardHome = ({ user }) => {
     if (locationStatus === "granted") {
       return (
         <div className="location-banner location-banner--granted">
-          ✅ Showing nearest events to you
+          ✅ Showing nearest events within {radius} km of you
         </div>
       );
     }
@@ -156,7 +164,7 @@ const UserDashboardHome = ({ user }) => {
     if (locationStatus === "fallback") {
       return (
         <div className="location-banner location-banner--fallback">
-          ⚠️ GPS unavailable — showing events near Nairobi
+          ⚠️ GPS unavailable — showing events within {radius} km of Nairobi
         </div>
       );
     }
@@ -176,6 +184,8 @@ const UserDashboardHome = ({ user }) => {
           onFilter={handleFilter}
           nearMeActive={nearMeActive}
           onNearMe={handleNearMe}
+          radius={radius}
+          onRadiusChange={handleRadiusChange}
         />
       </div>
 
