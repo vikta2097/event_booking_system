@@ -49,8 +49,12 @@ router.get("/", async (req, res) => {
     const params = [];
     let paramIndex = 1;
 
-    // ── Add distance only if GPS provided ──
-    if (lat && lng) {
+    // ─────────────────────────────────────────────
+    // GPS DISTANCE CALCULATION (optional)
+    // ─────────────────────────────────────────────
+    let hasGPS = lat && lng;
+
+    if (hasGPS) {
       query += `,
         (6371 * acos(
           cos(radians($${paramIndex})) *
@@ -60,6 +64,7 @@ router.get("/", async (req, res) => {
           sin(radians(e.latitude))
         )) AS distance_km
       `;
+
       params.push(lat, lng);
       paramIndex += 2;
     }
@@ -75,7 +80,9 @@ router.get("/", async (req, res) => {
       WHERE 1=1
     `;
 
-    // ── Filters ──
+    // ─────────────────────────────────────────────
+    // FILTERS
+    // ─────────────────────────────────────────────
     if (category) {
       query += ` AND e.category_id = $${paramIndex++}`;
       params.push(category);
@@ -89,12 +96,12 @@ router.get("/", async (req, res) => {
 
     if (minPrice) {
       query += ` AND e.price >= $${paramIndex++}`;
-      params.push(minPrice);
+      params.push(Number(minPrice));
     }
 
     if (maxPrice) {
       query += ` AND e.price <= $${paramIndex++}`;
-      params.push(maxPrice);
+      params.push(Number(maxPrice));
     }
 
     if (startDate) {
@@ -130,13 +137,17 @@ router.get("/", async (req, res) => {
       params.push(exclude);
     }
 
-    // ── GROUP BY ──
+    // ─────────────────────────────────────────────
+    // GROUP BY
+    // ─────────────────────────────────────────────
     query += `
       GROUP BY e.id, c.name, u.fullname, u.profile_image, u.email
     `;
 
-    // ── GPS FILTER (IMPORTANT) ──
-    if (lat && lng) {
+    // ─────────────────────────────────────────────
+    // GPS FILTER (FIXED)
+    // ─────────────────────────────────────────────
+    if (hasGPS) {
       query += `
         HAVING (
           6371 * acos(
@@ -148,11 +159,15 @@ router.get("/", async (req, res) => {
           )
         ) <= $3
       `;
-      // note: HAVING uses first params (lat,lng,radius)
+
+      params.push(radius);
+      paramIndex++;
     }
 
-    // ── Sorting ──
-    if (lat && lng) {
+    // ─────────────────────────────────────────────
+    // SORTING
+    // ─────────────────────────────────────────────
+    if (hasGPS) {
       query += ` ORDER BY distance_km ASC NULLS LAST`;
     } else {
       switch (sortBy) {
@@ -173,7 +188,9 @@ router.get("/", async (req, res) => {
       }
     }
 
-    // ── Pagination ──
+    // ─────────────────────────────────────────────
+    // PAGINATION
+    // ─────────────────────────────────────────────
     const offset = (page - 1) * limit;
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), offset);
@@ -189,6 +206,7 @@ router.get("/", async (req, res) => {
     }));
 
     res.json(enhanced);
+
   } catch (err) {
     console.error("Error fetching events:", err);
     res.status(500).json({ error: "Failed to fetch events" });
