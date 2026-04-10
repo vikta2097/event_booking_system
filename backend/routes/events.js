@@ -56,13 +56,19 @@ router.get("/", async (req, res) => {
 
     if (hasGPS) {
       query += `,
-        (6371 * acos(
-          cos(radians($${paramIndex})) *
-          cos(radians(e.latitude)) *
-          cos(radians(e.longitude) - radians($${paramIndex + 1})) +
-          sin(radians($${paramIndex})) *
-          sin(radians(e.latitude))
-        )) AS distance_km
+        CASE
+          WHEN e.latitude IS NOT NULL AND e.longitude IS NOT NULL THEN
+            (6371 * acos(
+              LEAST(1.0,
+                cos(radians($${paramIndex})) *
+                cos(radians(e.latitude)) *
+                cos(radians(e.longitude) - radians($${paramIndex + 1})) +
+                sin(radians($${paramIndex})) *
+                sin(radians(e.latitude))
+              )
+            ))
+          ELSE NULL
+        END AS distance_km
       `;
 
       params.push(lat, lng);
@@ -84,7 +90,7 @@ router.get("/", async (req, res) => {
     // FILTERS
     // ─────────────────────────────────────────────
     if (category) {
-      query += ` AND e.category_id = $${paramIndex++}`;
+      query += ` AND c.name ILIKE $${paramIndex++}`;
       params.push(category);
     }
 
@@ -148,13 +154,13 @@ router.get("/", async (req, res) => {
     // GPS FILTER — radius uses correct paramIndex
     // ─────────────────────────────────────────────
     if (hasGPS) {
-      // push radius FIRST so we capture its index before incrementing
       params.push(Number(radius));
       const radiusParamIndex = paramIndex++;
 
       query += `
         HAVING (
-          6371 * acos(
+          e.latitude IS NOT NULL AND e.longitude IS NOT NULL AND
+          (6371 * acos(
             LEAST(1.0,
               cos(radians($1)) *
               cos(radians(e.latitude)) *
@@ -162,8 +168,8 @@ router.get("/", async (req, res) => {
               sin(radians($1)) *
               sin(radians(e.latitude))
             )
-          )
-        ) <= $${radiusParamIndex}
+          )) <= $${radiusParamIndex}
+        )
       `;
     }
 
