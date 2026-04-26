@@ -11,7 +11,7 @@ import Events from "../pages/Events";
 import OrganizerBookings from "./OrganizerBookings";
 import OrganizerReports from "./OrganizerReports";
 import TicketScanner from "../pages/TicketScanner";
-import ChatbotWidget from "./ChatbotWidget";
+import ChatbotWidget from "../pages/ChatbotWidget";
 import NotificationBell from "../pages/NotificationBell";
 
 const Drawer = createDrawerNavigator();

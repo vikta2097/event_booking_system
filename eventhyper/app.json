@@ -1,36 +1,44 @@
 {
   "expo": {
-    "name": "EventHyper",
-    "slug": "EventHyper",
+    "name": "eventhyper",
+    "slug": "eventhyper",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/splash-icon.jpg",
-    "scheme": "EventHyper",
+    "icon": "./assets/images/splash-icon.png",
+    "scheme": "eventhyper",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
     "ios": {
       "supportsTablet": true
     },
+
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/splash-icon.jpg",
-        "backgroundImage": "./assets/images/splash-icon.jpg",
-        "monochromeImage": "./assets/images/splash-icon.jpg",
+        "foregroundImage": "./assets/images/splash-icon.png",
+        "backgroundImage": "./assets/images/splash-icon.png",
+        "monochromeImage": "./assets/images/splash-icon.png",
         "backgroundColor": "#E6F4FE"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
+      "package": "com.anonymous.eventhyper"
     },
+
     "web": {
       "output": "static",
-      "favicon": "./assets/images/splash-icon.jpg"
+      "favicon": "./assets/images/splash-icon.png"
     },
+
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.jpg",
+          "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -39,8 +47,14 @@
           }
         }
       ],
-      "expo-barcode-scanner"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow EventHyper to access your camera"
+        }
+      ]
     ],
+
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
