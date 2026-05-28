@@ -1,41 +1,51 @@
-// components/Sidebar.js (React Native - Admin)
+// components/Sidebar.js
 import React from "react";
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  SafeAreaView, Animated,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
 } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useRoute } from "@react-navigation/native";
 
-// Icon substitutes (install react-native-vector-icons or use emoji fallback)
 const Icon = ({ name }) => {
   const icons = {
-    dashboard: "🏠", events: "📅", users: "👥", bookings: "📋",
-    payments: "💳", scan: "🔍", reports: "📊", settings: "⚙️",
-    support: "💬", security: "🛡️", logout: "🚪",
+    dashboard: "🏠",
+    events: "📅",
+    users: "👥",
+    bookings: "📋",
+    payments: "💳",
+    scan: "🔍",
+    reports: "📊",
+    settings: "⚙️",
+    support: "💬",
+    logout: "🚪",
   };
+
   return <Text style={styles.icon}>{icons[name] || "•"}</Text>;
 };
 
 const navItems = [
-  { name: "Dashboard",    iconKey: "dashboard", screen: "AdminHome" },
-  { name: "Events",       iconKey: "events",    screen: "AdminEvents" },
-  { name: "Users",        iconKey: "users",     screen: "AdminUsers" },
-  { name: "Bookings",     iconKey: "bookings",  screen: "AdminBookings" },
-  { name: "Payments",     iconKey: "payments",  screen: "AdminPayments" },
-  { name: "Scan Tickets", iconKey: "scan",      screen: "AdminScan" },
-  { name: "Reports",      iconKey: "reports",   screen: "AdminReports" },
-  { name: "Settings",     iconKey: "settings",  screen: "AdminSettings" },
-  { name: "Support",      iconKey: "support",   screen: "AdminSupport" },
-  { name: "Security",     iconKey: "security",  screen: "AdminSecurity" },
+  { name: "Dashboard", iconKey: "dashboard", screen: "AdminHome" },
+  { name: "Events", iconKey: "events", screen: "Events" },
+  { name: "Users", iconKey: "users", screen: "Users" },
+  { name: "Bookings", iconKey: "bookings", screen: "Bookings" },
+  { name: "Payments", iconKey: "payments", screen: "Payments" },
+  { name: "Scan Tickets", iconKey: "scan", screen: "AdminScan" },
+  { name: "Reports", iconKey: "reports", screen: "Reports" },
+  { name: "Settings", iconKey: "settings", screen: "AdminSettings" },
+  { name: "Support", iconKey: "support", screen: "Support" },
 ];
 
-const Sidebar = ({ onLogout, onClose }) => {
-  const navigation = useNavigation();
+const Sidebar = ({ navigation, onLogout, onClose }) => {
   const route = useRoute();
 
   const handleNav = (screen) => {
+    // ✅ IMPORTANT: direct Drawer navigation (NOT Stack)
     navigation.navigate(screen);
-    onClose?.(); // close drawer on mobile
+    onClose?.();
   };
 
   return (
@@ -45,10 +55,11 @@ const Sidebar = ({ onLogout, onClose }) => {
         <Text style={styles.title}>Admin Panel</Text>
       </View>
 
-      {/* Nav */}
+      {/* Navigation */}
       <ScrollView style={styles.nav} showsVerticalScrollIndicator={false}>
         {navItems.map((item) => {
           const isActive = route.name === item.screen;
+
           return (
             <TouchableOpacity
               key={item.screen}

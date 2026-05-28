@@ -78,7 +78,7 @@ const AdminDashboard = ({ onLogout }) => {
         </Drawer.Screen>
 
         {/* Events */}
-        <Drawer.Screen name="AdminEvents" options={{ title: "Events" }}>
+        <Drawer.Screen name="Events" options={{ title: "Events" }}>
           {() => (
             <ScreenWithHeader title="Events" currentUser={currentUser}>
               <Events currentUser={currentUser} />
@@ -87,7 +87,7 @@ const AdminDashboard = ({ onLogout }) => {
         </Drawer.Screen>
 
         {/* Bookings */}
-        <Drawer.Screen name="AdminBookings" options={{ title: "Bookings" }}>
+        <Drawer.Screen name="Bookings" options={{ title: "Bookings" }}>
           {() => (
             <ScreenWithHeader title="Bookings" currentUser={currentUser}>
               <Bookings />
@@ -96,7 +96,7 @@ const AdminDashboard = ({ onLogout }) => {
         </Drawer.Screen>
 
         {/* Users */}
-        <Drawer.Screen name="AdminUsers" options={{ title: "Users" }}>
+        <Drawer.Screen name="Users" options={{ title: "Users" }}>
           {() => (
             <ScreenWithHeader title="Users" currentUser={currentUser}>
               <Users />
@@ -105,7 +105,7 @@ const AdminDashboard = ({ onLogout }) => {
         </Drawer.Screen>
 
         {/* Payments */}
-        <Drawer.Screen name="AdminPayments" options={{ title: "Payments" }}>
+        <Drawer.Screen name="Payments" options={{ title: "Payments" }}>
           {() => (
             <ScreenWithHeader title="Payments" currentUser={currentUser}>
               <Payments />
@@ -114,7 +114,7 @@ const AdminDashboard = ({ onLogout }) => {
         </Drawer.Screen>
 
         {/* Reports */}
-        <Drawer.Screen name="AdminReports" options={{ title: "Reports" }}>
+        <Drawer.Screen name="Reports" options={{ title: "Reports" }}>
           {() => (
             <ScreenWithHeader title="Reports" currentUser={currentUser}>
               <Reports />
@@ -132,7 +132,7 @@ const AdminDashboard = ({ onLogout }) => {
         </Drawer.Screen>
 
         {/* Support */}
-        <Drawer.Screen name="AdminSupport" options={{ title: "Support" }}>
+        <Drawer.Screen name="Support" options={{ title: "Support" }}>
           {() => (
             <ScreenWithHeader title="Support" currentUser={currentUser}>
               <Support currentUser={currentUser} />

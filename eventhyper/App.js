@@ -1,9 +1,9 @@
-import 'react-native-gesture-handler'; 
+import 'react-native-gesture-handler';
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -18,6 +18,17 @@ import UserDashboard from "./pages/UserDashboard";
 const Stack = createNativeStackNavigator();
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 
+// ✅ Ref lives outside the component so handleLogin / handleLogout
+//    can call it without needing it in their closure.
+const navigationRef = createNavigationContainerRef();
+
+// Helper — navigate safely; no-ops if navigator isn't ready yet
+const navigateTo = (name) => {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate(name);
+  }
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
@@ -30,6 +41,8 @@ export default function App() {
     await AsyncStorage.multiRemove(["token", "role", "user", "loginTime", "userId"]);
     setUser(null);
     setToken(null);
+    // Return guests to UserDashboard (public browse view)
+    navigateTo("UserDashboard");
   };
 
   // ─── Login ────────────────────────────────────────────────────────────────
@@ -44,6 +57,16 @@ export default function App() {
 
     setToken(token);
     setUser({ ...user, role });
+
+    // ✅ Redirect to the correct dashboard immediately after login.
+    //    All three screens are always registered (see Stack below), so
+    //    there is no race between screen registration and this navigate call.
+    const target =
+      role === "admin"      ? "AdminDashboard"      :
+      role === "organizer"  ? "OrganizerDashboard"  :
+                              "UserDashboard";
+
+    navigateTo(target);
 
     logoutTimerRef.current = setTimeout(() => {
       handleLogout();
@@ -100,11 +123,9 @@ export default function App() {
     );
   }
 
-  const isAuthenticated = !!token;
-
   // ─── Initial route logic — mirrors web App.js exactly ────────────────────
   const getInitialRoute = () => {
-    if (!isAuthenticated) return "UserDashboard"; // guests browse freely, like web
+    if (!token) return "UserDashboard";
     if (user?.role === "admin") return "AdminDashboard";
     if (user?.role === "organizer") return "OrganizerDashboard";
     return "UserDashboard";
@@ -114,17 +135,18 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <NavigationContainer>
+        {/* ✅ ref attached so navigateTo() works from handleLogin / handleLogout */}
+        <NavigationContainer ref={navigationRef}>
           <Stack.Navigator
             initialRouteName={getInitialRoute()}
             screenOptions={{ headerShown: false }}
           >
-            {/* ── Auth ───────────────────────────────────────────────────── */}
+            {/* ── Auth ─────────────────────────────────────────────────────── */}
             <Stack.Screen name="Login">
               {(props) => <LoginForm {...props} onLoginSuccess={handleLogin} />}
             </Stack.Screen>
 
-            {/* ── User Dashboard — always registered, guests browse freely ─ */}
+            {/* ── User Dashboard — always registered, guests browse freely ─── */}
             <Stack.Screen name="UserDashboard">
               {(props) => (
                 <UserDashboard
@@ -136,28 +158,36 @@ export default function App() {
               )}
             </Stack.Screen>
 
-            {/* ── Admin Dashboard — authenticated admin only ──────────────── */}
-            {isAuthenticated && user?.role === "admin" && (
-              <Stack.Screen name="AdminDashboard">
-                {(props) => (
+            {/* ✅ Admin + Organizer screens are ALWAYS registered.
+                Previously they were conditionally rendered, which meant they
+                didn't exist in the navigator at the moment handleLogin tried
+                to navigate to them — causing a silent no-op or "no route"
+                crash. Access control is enforced inside each dashboard. */}
+            <Stack.Screen name="AdminDashboard">
+              {(props) =>
+                token && user?.role === "admin" ? (
                   <AdminDashboard {...props} token={token} onLogout={handleLogout} />
-                )}
-              </Stack.Screen>
-            )}
+                ) : (
+                  // Not authorised — silently return to UserDashboard
+                  <>{navigateTo("UserDashboard")}</>
+                )
+              }
+            </Stack.Screen>
 
-            {/* ── Organizer Dashboard — authenticated organizer only ──────── */}
-            {isAuthenticated && user?.role === "organizer" && (
-              <Stack.Screen name="OrganizerDashboard">
-                {(props) => (
+            <Stack.Screen name="OrganizerDashboard">
+              {(props) =>
+                token && user?.role === "organizer" ? (
                   <OrganizerDashboard
                     {...props}
                     token={token}
                     user={user}
                     onLogout={handleLogout}
                   />
-                )}
-              </Stack.Screen>
-            )}
+                ) : (
+                  <>{navigateTo("UserDashboard")}</>
+                )
+              }
+            </Stack.Screen>
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
