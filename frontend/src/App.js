@@ -100,11 +100,17 @@ function App() {
         <Route
           path="/dashboard/*"
           element={
-            <UserDashboard
-              user={user}
-              token={token}
-              onLogout={handleLogout}
-            />
+            isAuthenticated && user?.role === "admin" ? (
+              <Navigate to="/admin/dashboard" replace />
+            ) : isAuthenticated && user?.role === "organizer" ? (
+              <Navigate to="/organizer/dashboard" replace />
+            ) : (
+              <UserDashboard
+                user={user}
+                token={token}
+                onLogout={handleLogout}
+              />
+            )
           }
         />
 
