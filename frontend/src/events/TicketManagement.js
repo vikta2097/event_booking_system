@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import api from "../api";
 
 const TicketManagement = ({ event, isOpen, onClose }) => {
@@ -23,7 +23,7 @@ const TicketManagement = ({ event, isOpen, onClose }) => {
     return { Authorization: `Bearer ${token}` };
   };
 
-  const fetchTicketTypes = async () => {
+  const fetchTicketTypes = useCallback(async () => {
     if (!event?.id) return;
     try {
       setTicketLoading(true);
@@ -41,13 +41,13 @@ const TicketManagement = ({ event, isOpen, onClose }) => {
     } finally {
       setTicketLoading(false);
     }
-  };
+  }, [event]);
 
   useEffect(() => {
     if (isOpen && event) {
       fetchTicketTypes();
     }
-  }, [isOpen, event]);
+  }, [isOpen, event, fetchTicketTypes]);
 
   const handleTicketChange = (e) => {
     const { name, value, type, checked } = e.target;

@@ -116,12 +116,6 @@ const UserBookings = ({ user }) => {
     }
   };
 
-  // Contact Organizer
-  const handleContactOrganizer = (booking) => {
-    // This would need organizer email from event data
-    alert("Contact organizer feature - email functionality would go here");
-  };
-
   // Format date
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString("en-GB", {

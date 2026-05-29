@@ -179,6 +179,9 @@ const EventForm = ({
     );
   };
 
+  // Guard: never submit to /events/undefined
+  const eventId = event?.id ?? null;
+
   // -------------------------
   // Submit (ROBUST)
   // -------------------------
@@ -207,8 +210,8 @@ const EventForm = ({
         tag_ids: selectedTags.join(",") || null
       };
 
-      if (event) {
-        await api.put(`/events/${event.id}`, payload, {
+      if (eventId) {
+        await api.put(`/events/${eventId}`, payload, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`
           }
@@ -255,6 +258,25 @@ const EventForm = ({
                 onChange={handleChange}
                 placeholder="Description"
               />
+
+              {/* Tags */}
+              {tags && tags.length > 0 && (
+                <div className="form-group">
+                  <label>Tags</label>
+                  <div className="tags-selector">
+                    {tags.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={`tag-toggle${selectedTags.includes(t.id) ? " selected" : ""}`}
+                        onClick={() => toggleTag(t.id)}
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
