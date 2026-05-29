@@ -214,6 +214,48 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     setStep((s) => s - 1);
   };
 
+  // Allow clicking a step label to jump directly to it.
+  // Going forward: validate every step up to (but not including) the target.
+  // Going backward: always allowed.
+  const handleStepClick = (targetStep) => {
+    if (targetStep === step) return;
+
+    if (targetStep < step) {
+      // Going back — no validation needed
+      setStepError("");
+      setStep(targetStep);
+      return;
+    }
+
+    // Going forward — validate each intermediate step
+    for (let s = step; s < targetStep; s++) {
+      // Temporarily evaluate validation for step s
+      const err = (() => {
+        if (s === 1) {
+          if (!formData.title.trim()) return "Event title is required.";
+          if (!formData.description.trim()) return "Description is required.";
+          if (!formData.category_id) return "Please select a category.";
+          if (formData.price === "" || formData.price === null) return "Price is required (use 0 for free).";
+          if (!formData.capacity) return "Capacity is required.";
+        }
+        if (s === 3) {
+          if (!formData.event_date) return "Event date is required.";
+          if (!formData.start_time) return "Start time is required.";
+        }
+        return null;
+      })();
+
+      if (err) {
+        setStepError(err);
+        setStep(s); // Jump to the failing step so the user sees the error
+        return;
+      }
+    }
+
+    setStepError("");
+    setStep(targetStep);
+  };
+
   // Guard: never PUT to /events/undefined
   const eventId = event?.id ?? null;
 
@@ -280,9 +322,16 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
           <h3>{eventId ? "✏️ Edit Event" : "➕ Create Event"}</h3>
           <div className="form-steps">
             {STEPS.map((label, i) => (
-              <span key={label} className={step === i + 1 ? "active" : ""}>
-                {i + 1}. {label}
-              </span>
+              <button
+                key={label}
+                type="button"
+                className={`step-btn${step === i + 1 ? " active" : ""}${i + 1 < step ? " completed" : ""}`}
+                onClick={() => handleStepClick(i + 1)}
+                title={`Go to ${label}`}
+              >
+                <span className="step-number">{i + 1 < step ? "✓" : i + 1}</span>
+                {label}
+              </button>
             ))}
           </div>
         </div>
