@@ -1,94 +1,137 @@
-.reports-container {
+/* ============================= */
+/*   REPORTS PAGE (SIDEBAR SAFE) */
+/* ============================= */
+
+.container {
+  margin-left: 250px; /* 👈 CRITICAL: matches sidebar width */
   padding: 20px;
   background: #f5f5f5;
   min-height: 100vh;
+  font-family: Arial, sans-serif;
+  transition: margin-left 0.3s ease;
 }
 
-.reports-header {
+/* When sidebar is collapsed */
+.sidebar.collapsed ~ .container {
+  margin-left: 70px;
+}
+
+/* ============================= */
+/*           HEADER              */
+/* ============================= */
+
+.header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-}
-
-.header-actions button {
-  margin-left: 8px;
-  padding: 6px 10px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-}
-
-.date-filters button {
-  margin: 5px;
-  padding: 6px 10px;
-  border: none;
-  background: #ddd;
-  border-radius: 6px;
-}
-
-.date-filters .active {
-  background: #3b82f6;
-  color: white;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  align-items: flex-start;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-top: 20px;
 }
 
-.stat-card {
-  background: white;
-  padding: 12px;
-  border-radius: 8px;
+.heading {
+  font-size: 22px;
+  font-weight: bold;
+  color: #1e3a5f;
 }
 
-.up { color: green; }
-.down { color: red; }
-
-.tabs {
-  margin-top: 20px;
+.subHeadingLight {
+  font-size: 13px;
+  color: #6b7280;
 }
 
-.tabs button {
-  margin-right: 10px;
-  padding: 6px 12px;
-  border: none;
-  background: #ddd;
+.headerActions {
+  display: flex;
+  gap: 10px;
+}
+
+/* ============================= */
+/*        BUTTONS               */
+/* ============================= */
+
+.btnPrimary {
+  background: #3b82f6;
+  color: white;
+  padding: 8px 14px;
   border-radius: 6px;
+  border: none;
+  cursor: pointer;
 }
 
-.tabs .active {
+.btnSecondary {
+  background: #e5e7eb;
+  color: #374151;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+/* ============================= */
+/*        DATE RANGE            */
+/* ============================= */
+
+.rangeRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.rangeBtn {
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #e5e7eb;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.rangeBtnActive {
   background: #3b82f6;
   color: white;
 }
 
-.charts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  margin-top: 20px;
-}
+/* ============================= */
+/*         CARDS                */
+/* ============================= */
 
-.chart-box {
-  background: white;
-  padding: 10px;
-  border-radius: 10px;
-}
-
-.full {
-  grid-column: span 2;
-}
-
-.table {
+.card {
   background: white;
   padding: 15px;
-  margin-top: 20px;
   border-radius: 10px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
-.compare {
-  margin-top: 15px;
+/* ============================= */
+/*       RESPONSIVE             */
+/* ============================= */
+
+@media (max-width: 1024px) {
+  .container {
+    margin-left: 220px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    margin-left: 0; /* sidebar becomes overlay */
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 12px;
+  }
+
+  .heading {
+    font-size: 18px;
+  }
+
+  .btnPrimary,
+  .btnSecondary {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
 }
