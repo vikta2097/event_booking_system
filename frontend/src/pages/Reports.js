@@ -21,12 +21,11 @@ import "../styles/Reports.css";
 
 const socket = io(process.env.REACT_APP_SOCKET_URL);
 
-// ---------------- FETCH ----------------
+// ================= FETCH =================
 const fetchReports = async ({ queryKey }) => {
   const [, { role, page, filters }] = queryKey;
 
-  const endpoint =
-    role === "organizer" ? "/reports/organizer" : "/reports";
+  const endpoint = role === "organizer" ? "/reports/organizer" : "/reports";
 
   const res = await api.get(endpoint, {
     params: { ...filters, page, limit: 20 },
@@ -35,13 +34,13 @@ const fetchReports = async ({ queryKey }) => {
   return res.data;
 };
 
-// ---------------- FRAUD SCORE ----------------
+// ================= FRAUD SCORE =================
 const calculateFraudScore = (r, avg) => {
   let score = 0;
 
   const amount = Number(r.payment_amount || 0);
 
-  if (r.payment_status?.toLowerCase() === "failed") score += 40;
+  if ((r.payment_status || "").toLowerCase() === "failed") score += 40;
   if (amount > avg * 3) score += 35;
   if (!r.user_name) score += 15;
   if (!r.booking_id) score += 10;
@@ -57,31 +56,33 @@ export default function Reports({ user }) {
 
   const [page, setPage] = useState(1);
 
-  const [filters] = useState({
-    startDate: "",
-    endDate: "",
-    eventId: "",
-    paymentStatus: "",
-  });
+  const filters = useMemo(
+    () => ({
+      startDate: "",
+      endDate: "",
+      eventId: "",
+      paymentStatus: "",
+    }),
+    []
+  );
 
-  // ---------------- DATA ----------------
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["reports", { role, page, filters }],
+  // ================= QUERY =================
+  const { data } = useQuery({
+    queryKey: ["reports", role, page, filters],
     queryFn: fetchReports,
     enabled: !!role,
     keepPreviousData: true,
   });
 
-  const reports = data?.reports || [];
-  const stats = data?.stats || {
+  const reports = data?.reports ?? [];
+  const stats = data?.stats ?? {
     totalRevenue: 0,
     totalBookings: 0,
     totalEvents: 0,
   };
+  const analytics = data?.analytics ?? {};
 
-  const analytics = data?.analytics || {};
-
-  // ---------------- SOCKET ----------------
+  // ================= SOCKET =================
   useEffect(() => {
     if (!role) return;
 
@@ -98,26 +99,30 @@ export default function Reports({ user }) {
     };
   }, [role, queryClient]);
 
-  // ---------------- FRAUD BASELINE ----------------
+  // ================= AVG =================
   const avgBooking =
     stats.totalBookings > 0
       ? stats.totalRevenue / stats.totalBookings
       : 0;
 
+  // ================= FRAUD DATA =================
   const fraudData = useMemo(() => {
-    return (analytics.suspiciousBookings || reports)
+    const source = analytics.suspiciousBookings?.length
+      ? analytics.suspiciousBookings
+      : reports;
+
+    return source
       .map((r) => ({
         ...r,
         fraudScore: calculateFraudScore(r, avgBooking),
       }))
       .sort((a, b) => b.fraudScore - a.fraudScore)
       .slice(0, 10);
-  }, [reports, analytics, avgBooking]);
+  }, [reports, analytics.suspiciousBookings, avgBooking]);
 
-  // ---------------- COLORS ----------------
   const COLORS = ["#00C49F", "#FF8042", "#FFBB28", "#8884d8"];
 
-  // ---------------- EXPORT CSV ----------------
+  // ================= EXPORT CSV =================
   const exportCSV = () => {
     const rows = reports.map((r) => [
       r.booking_id,
@@ -142,7 +147,7 @@ export default function Reports({ user }) {
     a.click();
   };
 
-  // ---------------- PDF ----------------
+  // ================= EXPORT PDF =================
   const exportPDF = async () => {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
@@ -189,7 +194,7 @@ export default function Reports({ user }) {
         </div>
       </div>
 
-      {/* KPI CARDS (ROLE BASED) */}
+      {/* KPI */}
       <div className="stats-grid">
         <div className="stat-card">
           <h4>Revenue</h4>
@@ -208,18 +213,16 @@ export default function Reports({ user }) {
 
         {role === "admin" && (
           <div className="stat-card">
-            <h4>System Risk Level</h4>
-            <p>
-              {fraudData.filter((f) => f.fraudScore > 60).length} flagged
-            </p>
+            <h4>Risk Alerts</h4>
+            <p>{fraudData.filter((f) => f.fraudScore > 60).length}</p>
           </div>
         )}
       </div>
 
-      {/* ================= CHARTS ================= */}
+      {/* CHARTS */}
       <div className="stats-grid">
 
-        {/* REVENUE LINE CHART */}
+        {/* LINE */}
         <div className="stat-card" style={{ height: 300 }}>
           <h4>Revenue Trend</h4>
           <ResponsiveContainer width="100%" height="90%">
@@ -232,7 +235,7 @@ export default function Reports({ user }) {
           </ResponsiveContainer>
         </div>
 
-        {/* PAYMENT PIE CHART */}
+        {/* PIE */}
         <div className="stat-card" style={{ height: 300 }}>
           <h4>Payment Status</h4>
           <ResponsiveContainer width="100%" height="90%">
@@ -252,7 +255,7 @@ export default function Reports({ user }) {
           </ResponsiveContainer>
         </div>
 
-        {/* EVENT PERFORMANCE */}
+        {/* BAR */}
         <div className="stat-card" style={{ height: 300 }}>
           <h4>Event Performance</h4>
           <ResponsiveContainer width="100%" height="90%">
@@ -267,7 +270,7 @@ export default function Reports({ user }) {
 
       </div>
 
-      {/* ================= FRAUD PANEL ================= */}
+      {/* FRAUD PANEL */}
       {role === "admin" && (
         <div className="table-box">
           <h4>Fraud Detection Panel</h4>
@@ -279,7 +282,7 @@ export default function Reports({ user }) {
                 <th>User</th>
                 <th>Event</th>
                 <th>Amount</th>
-                <th>Fraud Score</th>
+                <th>Risk</th>
               </tr>
             </thead>
 
@@ -300,9 +303,8 @@ export default function Reports({ user }) {
         </div>
       )}
 
-      {/* ================= TABLE ================= */}
+      {/* TABLE */}
       <div className="table-box">
-
         <table>
           <thead>
             <tr>
@@ -333,19 +335,15 @@ export default function Reports({ user }) {
           </tbody>
         </table>
 
-        {/* PAGINATION */}
         <div className="pagination">
-          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
             Prev
           </button>
 
           <span>Page {page}</span>
 
-          <button onClick={() => setPage(p => p + 1)}>
-            Next
-          </button>
+          <button onClick={() => setPage((p) => p + 1)}>Next</button>
         </div>
-
       </div>
     </div>
   );
