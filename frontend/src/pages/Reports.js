@@ -5,32 +5,30 @@ import io from "socket.io-client";
 import api from "../api";
 import "../styles/Reports.css";
 
-const socket = io(process.env.REACT_APP_SOCKET_URL || "http://localhost:5000");
+const socket = io(process.env.REACT_APP_SOCKET_URL);
 
 const fetchReports = async ({ queryKey }) => {
-  const [, { role, page, filters }] = queryKey;
+  const [_key, { role, page, filters }] = queryKey;
 
   const endpoint =
-    role === "organizer" ? "/reports/organizer" : "/reports";
+    role === "organizer"
+      ? "/reports/organizer"
+      : "/reports";
 
   const res = await api.get(endpoint, {
-    params: {
-      ...filters,
-      page,
-      limit: 20,
-    },
+    params: { ...filters, page, limit: 20 },
   });
 
   return res.data;
 };
 
 export default function Reports({ user }) {
-  const role = user?.role;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [page, setPage] = useState(1);
+  const role = user?.role;
 
+  const [page, setPage] = useState(1);
   const [filters] = useState({
     startDate: "",
     endDate: "",
@@ -38,49 +36,40 @@ export default function Reports({ user }) {
     paymentStatus: "",
   });
 
+  // 🔴 CRITICAL FIX: prevent undefined role fetch
   const { data, isLoading, isError } = useQuery({
     queryKey: ["reports", { role, page, filters }],
     queryFn: fetchReports,
+    enabled: !!role, // ✅ FIX #1
     keepPreviousData: true,
-    enabled: !!role,
   });
 
-  const reports = data?.reports ?? [];
-  const stats = data?.stats ?? {
+  const reports = data?.reports || [];
+  const stats = data?.stats || {
     totalRevenue: 0,
     totalBookings: 0,
     totalEvents: 0,
   };
 
-  // ================= SOCKET REAL-TIME =================
+  // ================= SOCKET =================
   useEffect(() => {
     if (!role) return;
 
     socket.emit("join_reports_room", { role });
 
     const handler = () => {
-      queryClient.invalidateQueries(["reports"]);
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
     };
 
     socket.on("report_update", handler);
 
     return () => {
       socket.off("report_update", handler);
-      socket.disconnect();
     };
   }, [role, queryClient]);
 
-  // ================= EXPORT CSV =================
+  // ================= EXPORT =================
   const exportCSV = () => {
-    const header = [
-      "ID",
-      "User",
-      "Event",
-      "Amount",
-      "Payment Status",
-      "Booking Status",
-    ];
-
     const rows = reports.map((r) => [
       r.booking_id,
       r.user_name,
@@ -91,27 +80,25 @@ export default function Reports({ user }) {
     ]);
 
     const csv = [
-      header.join(","),
+      ["ID", "User", "Event", "Amount", "Payment", "Status"].join(","),
       ...rows.map((r) => r.join(",")),
     ].join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
-
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement("a");
     a.href = url;
     a.download = `${role}-reports.csv`;
     a.click();
   };
 
-  // ================= EXPORT PDF =================
   const exportPDF = async () => {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
 
     const doc = new jsPDF();
-
-    doc.text(`${role?.toUpperCase() ?? "REPORTS"}`, 14, 10);
+    doc.text(`${role?.toUpperCase()} REPORTS`, 14, 10);
 
     autoTable(doc, {
       head: [["ID", "User", "Event", "Amount", "Status"]],
@@ -127,16 +114,13 @@ export default function Reports({ user }) {
     doc.save(`${role}-reports.pdf`);
   };
 
-  // ================= DRILL DOWN =================
   const openEvent = (eventId) => {
-    if (!eventId) return;
     navigate(`/dashboard/events/${eventId}/analytics`);
   };
 
   return (
     <div className="reports-page">
 
-      {/* HEADER */}
       <div className="reports-header">
         <div>
           <h2>
@@ -153,29 +137,24 @@ export default function Reports({ user }) {
         </div>
       </div>
 
-      {/* STATS */}
       <div className="stats-grid">
         <div className="stat-card">
           <h4>Revenue</h4>
           <p>KES {stats.totalRevenue}</p>
         </div>
-
         <div className="stat-card">
           <h4>Bookings</h4>
           <p>{stats.totalBookings}</p>
         </div>
-
         <div className="stat-card">
           <h4>Events</h4>
           <p>{stats.totalEvents}</p>
         </div>
       </div>
 
-      {/* STATES */}
-      {isLoading && <p className="info">Loading reports...</p>}
-      {isError && <p className="error">Failed to load reports</p>}
+      {isLoading && <p>Loading...</p>}
+      {isError && <p>Error loading reports</p>}
 
-      {/* TABLE */}
       <div className="table-box">
         <table>
           <thead>
@@ -207,20 +186,12 @@ export default function Reports({ user }) {
           </tbody>
         </table>
 
-        {/* PAGINATION */}
         <div className="pagination">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
+          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
             Prev
           </button>
-
           <span>Page {page}</span>
-
-          <button onClick={() => setPage((p) => p + 1)}>
-            Next
-          </button>
+          <button onClick={() => setPage(p => p + 1)}>Next</button>
         </div>
       </div>
     </div>
