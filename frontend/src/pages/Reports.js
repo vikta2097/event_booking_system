@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import io from "socket.io-client";
@@ -8,7 +8,7 @@ import "../styles/Reports.css";
 const socket = io(process.env.REACT_APP_SOCKET_URL);
 
 const fetchReports = async ({ queryKey }) => {
-  const [_key, { role, page, filters }] = queryKey;
+  const [, { role, page, filters }] = queryKey;
 
   const endpoint =
     role === "organizer"
@@ -29,6 +29,7 @@ export default function Reports({ user }) {
   const role = user?.role;
 
   const [page, setPage] = useState(1);
+
   const [filters] = useState({
     startDate: "",
     endDate: "",
@@ -36,11 +37,11 @@ export default function Reports({ user }) {
     paymentStatus: "",
   });
 
-  // 🔴 CRITICAL FIX: prevent undefined role fetch
+  // ================= QUERY =================
   const { data, isLoading, isError } = useQuery({
     queryKey: ["reports", { role, page, filters }],
     queryFn: fetchReports,
-    enabled: !!role, // ✅ FIX #1
+    enabled: !!role,
     keepPreviousData: true,
   });
 
@@ -51,22 +52,55 @@ export default function Reports({ user }) {
     totalEvents: 0,
   };
 
+  const analytics = data?.analytics || {};
+
   // ================= SOCKET =================
   useEffect(() => {
     if (!role) return;
 
     socket.emit("join_reports_room", { role });
 
-    const handler = () => {
+    const refresh = () => {
       queryClient.invalidateQueries({ queryKey: ["reports"] });
     };
 
-    socket.on("report_update", handler);
+    socket.on("report_update", refresh);
 
     return () => {
-      socket.off("report_update", handler);
+      socket.off("report_update", refresh);
+      socket.disconnect();
     };
   }, [role, queryClient]);
+
+  // ================= VISUAL DERIVATIONS =================
+
+  const paymentBreakdown = useMemo(() => {
+    const map = {};
+    reports.forEach((r) => {
+      const key = r.payment_status || "unknown";
+      map[key] = (map[key] || 0) + 1;
+    });
+    return Object.entries(map);
+  }, [reports]);
+
+  const topEvents = useMemo(() => {
+    const map = {};
+    reports.forEach((r) => {
+      if (!r.event_title) return;
+
+      if (!map[r.event_title]) {
+        map[r.event_title] = { count: 0, revenue: 0 };
+      }
+
+      map[r.event_title].count += 1;
+      map[r.event_title].revenue += Number(r.payment_amount || 0);
+    });
+
+    return Object.entries(map)
+      .map(([name, val]) => ({ name, ...val }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+  }, [reports]);
 
   // ================= EXPORT =================
   const exportCSV = () => {
@@ -114,20 +148,18 @@ export default function Reports({ user }) {
     doc.save(`${role}-reports.pdf`);
   };
 
-  const openEvent = (eventId) => {
-    navigate(`/dashboard/events/${eventId}/analytics`);
+  const openEvent = (id) => {
+    navigate(`/dashboard/events/${id}/analytics`);
   };
 
+  // ================= UI =================
   return (
     <div className="reports-page">
 
+      {/* HEADER */}
       <div className="reports-header">
         <div>
-          <h2>
-            {role === "admin"
-              ? "Admin Reports"
-              : "Organizer Reports"}
-          </h2>
+          <h2>{role === "admin" ? "Admin Reports" : "Organizer Reports"}</h2>
           <p>Live analytics dashboard</p>
         </div>
 
@@ -137,25 +169,62 @@ export default function Reports({ user }) {
         </div>
       </div>
 
+      {/* STATS */}
       <div className="stats-grid">
         <div className="stat-card">
           <h4>Revenue</h4>
           <p>KES {stats.totalRevenue}</p>
         </div>
+
         <div className="stat-card">
           <h4>Bookings</h4>
           <p>{stats.totalBookings}</p>
         </div>
+
         <div className="stat-card">
           <h4>Events</h4>
           <p>{stats.totalEvents}</p>
         </div>
       </div>
 
+      {/* VISUAL ANALYTICS (NO CSS CHANGE REQUIRED) */}
+      <div className="stats-grid">
+
+        <div className="stat-card">
+          <h4>Payment Status Breakdown</h4>
+          {paymentBreakdown.map(([key, val]) => (
+            <p key={key}>{key}: {val}</p>
+          ))}
+        </div>
+
+        <div className="stat-card">
+          <h4>Top Events</h4>
+          {topEvents.map((e) => (
+            <p key={e.name}>
+              {e.name} — KES {e.revenue}
+            </p>
+          ))}
+        </div>
+
+        <div className="stat-card">
+          <h4>Avg Booking Value</h4>
+          <p>
+            KES{" "}
+            {stats.totalBookings
+              ? Math.round(stats.totalRevenue / stats.totalBookings)
+              : 0}
+          </p>
+        </div>
+
+      </div>
+
+      {/* LOADING / ERROR */}
       {isLoading && <p>Loading...</p>}
       {isError && <p>Error loading reports</p>}
 
+      {/* TABLE */}
       <div className="table-box">
+
         <table>
           <thead>
             <tr>
@@ -186,13 +255,19 @@ export default function Reports({ user }) {
           </tbody>
         </table>
 
+        {/* PAGINATION */}
         <div className="pagination">
           <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
             Prev
           </button>
+
           <span>Page {page}</span>
-          <button onClick={() => setPage(p => p + 1)}>Next</button>
+
+          <button onClick={() => setPage(p => p + 1)}>
+            Next
+          </button>
         </div>
+
       </div>
     </div>
   );
