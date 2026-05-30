@@ -1,76 +1,112 @@
+/* ============================= */
+/*   GLOBAL SIDEBAR AWARE ROOT   */
+/* ============================= */
+
 :root {
   --sidebar-width: 250px;
+  --sidebar-collapsed: 70px;
+  --transition: all 0.3s ease;
 }
 
-/* ================= BASE PAGE ================= */
+/* ============================= */
+/*       REPORT PAGE BASE        */
+/* ============================= */
+
 .reports-page {
-  padding: 20px;
   margin-left: var(--sidebar-width);
-  background: #f7f8fa;
+  padding: 20px;
   min-height: 100vh;
+  background: #f6f8fb;
   font-family: Arial, sans-serif;
-  transition: margin-left 0.3s ease;
+  transition: var(--transition);
 }
 
-/* ================= HEADER ================= */
+/* When sidebar is collapsed */
+.sidebar.collapsed ~ .reports-page {
+  margin-left: var(--sidebar-collapsed);
+}
+
+/* Mobile sidebar hidden */
+@media (max-width: 768px) {
+  .reports-page {
+    margin-left: 0;
+  }
+}
+
+/* ============================= */
+/*           HEADER              */
+/* ============================= */
+
 .reports-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
 
-  max-width: calc(100vw - var(--sidebar-width) - 40px);
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .reports-header h2 {
-  margin: 0;
   font-size: 22px;
   font-weight: 700;
+  margin: 0;
 }
 
 .reports-header p {
-  margin: 4px 0 0 0;
-  color: #666;
+  margin: 4px 0 0;
   font-size: 13px;
+  color: #666;
 }
 
-/* ================= ACTION BUTTONS ================= */
+/* ============================= */
+/*        ACTION BUTTONS         */
+/* ============================= */
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
 .actions button {
-  margin-left: 10px;
   padding: 8px 14px;
   border: none;
-  background: #1f6feb;
-  color: white;
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  background: #1f6feb;
+  color: #fff;
+  transition: 0.2s;
 }
 
 .actions button:hover {
   background: #1256c4;
 }
 
-/* ================= STATS GRID ================= */
+/* ============================= */
+/*          KPI GRID             */
+/* ============================= */
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 15px;
 
-  max-width: calc(100vw - var(--sidebar-width) - 40px);
   margin-bottom: 20px;
 }
 
 .stat-card {
-  background: white;
+  background: #fff;
   padding: 15px;
   border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  min-height: 100px;
 }
 
 .stat-card h4 {
-  margin: 0;
   font-size: 13px;
   color: #666;
+  margin: 0;
 }
 
 .stat-card p {
@@ -79,18 +115,45 @@
   margin-top: 8px;
 }
 
-/* ================= TABLE ================= */
+/* ============================= */
+/*         CHART CONTAINERS      */
+/* ============================= */
+
+.stat-card {
+  position: relative;
+}
+
+.stat-card[style*="height"] {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Recharts fix */
+.recharts-wrapper {
+  width: 100% !important;
+}
+
+/* ============================= */
+/*          FRAUD PANEL          */
+/* ============================= */
+
 .table-box {
-  background: white;
+  background: #fff;
   padding: 15px;
   border-radius: 10px;
-
+  margin-top: 20px;
   overflow-x: auto;
-
-  max-width: calc(100vw - var(--sidebar-width) - 40px);
-
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
+
+.table-box h4 {
+  margin: 0 0 10px;
+}
+
+/* ============================= */
+/*            TABLE              */
+/* ============================= */
 
 table {
   width: 100%;
@@ -103,46 +166,42 @@ thead {
 }
 
 th, td {
-  text-align: left;
   padding: 12px;
   font-size: 13px;
   border-bottom: 1px solid #eee;
+  text-align: left;
 }
 
 tr:hover {
   background: #fafafa;
 }
 
-/* ================= DRILL BUTTON ================= */
-table button {
-  padding: 6px 10px;
-  border: none;
-  background: #28a745;
-  color: white;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 12px;
+/* ============================= */
+/*        FRAUD HIGHLIGHT        */
+/* ============================= */
+
+td[style*="red"] {
+  font-weight: bold;
 }
 
-table button:hover {
-  background: #1f7d35;
-}
+/* ============================= */
+/*          PAGINATION           */
+/* ============================= */
 
-/* ================= PAGINATION ================= */
 .pagination {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 15px;
   gap: 10px;
+  margin-top: 15px;
 }
 
 .pagination button {
   padding: 6px 12px;
   border: none;
-  background: #333;
-  color: white;
   border-radius: 5px;
+  background: #333;
+  color: #fff;
   cursor: pointer;
 }
 
@@ -151,33 +210,34 @@ table button:hover {
   cursor: not-allowed;
 }
 
-/* ================= STATES ================= */
-.info {
-  color: #555;
-  margin-bottom: 10px;
+/* ============================= */
+/*          RESPONSIVE           */
+/* ============================= */
+
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
-.error {
-  color: red;
-  margin-bottom: 10px;
-}
-
-/* ================= RESPONSIVE ================= */
-@media (max-width: 900px) {
-  .reports-page {
-    margin-left: 0;
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
   }
 
   .reports-header {
-    max-width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card p {
+    font-size: 16px;
   }
 
-  .stats-grid {
-    grid-template-columns: 1fr;
-    max-width: 100%;
-  }
-
-  .table-box {
-    max-width: 100%;
+  .actions button {
+    font-size: 12px;
+    padding: 6px 10px;
   }
 }

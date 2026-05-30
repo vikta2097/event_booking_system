@@ -2,24 +2,51 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import io from "socket.io-client";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+} from "recharts";
+
 import api from "../api";
 import "../styles/Reports.css";
 
 const socket = io(process.env.REACT_APP_SOCKET_URL);
 
+// ---------------- FETCH ----------------
 const fetchReports = async ({ queryKey }) => {
   const [, { role, page, filters }] = queryKey;
 
   const endpoint =
-    role === "organizer"
-      ? "/reports/organizer"
-      : "/reports";
+    role === "organizer" ? "/reports/organizer" : "/reports";
 
   const res = await api.get(endpoint, {
     params: { ...filters, page, limit: 20 },
   });
 
   return res.data;
+};
+
+// ---------------- FRAUD SCORE ----------------
+const calculateFraudScore = (r, avg) => {
+  let score = 0;
+
+  const amount = Number(r.payment_amount || 0);
+
+  if (r.payment_status?.toLowerCase() === "failed") score += 40;
+  if (amount > avg * 3) score += 35;
+  if (!r.user_name) score += 15;
+  if (!r.booking_id) score += 10;
+
+  return Math.min(score, 100);
 };
 
 export default function Reports({ user }) {
@@ -37,7 +64,7 @@ export default function Reports({ user }) {
     paymentStatus: "",
   });
 
-  // ================= QUERY =================
+  // ---------------- DATA ----------------
   const { data, isLoading, isError } = useQuery({
     queryKey: ["reports", { role, page, filters }],
     queryFn: fetchReports,
@@ -54,7 +81,7 @@ export default function Reports({ user }) {
 
   const analytics = data?.analytics || {};
 
-  // ================= SOCKET =================
+  // ---------------- SOCKET ----------------
   useEffect(() => {
     if (!role) return;
 
@@ -68,41 +95,29 @@ export default function Reports({ user }) {
 
     return () => {
       socket.off("report_update", refresh);
-      socket.disconnect();
     };
   }, [role, queryClient]);
 
-  // ================= VISUAL DERIVATIONS =================
+  // ---------------- FRAUD BASELINE ----------------
+  const avgBooking =
+    stats.totalBookings > 0
+      ? stats.totalRevenue / stats.totalBookings
+      : 0;
 
-  const paymentBreakdown = useMemo(() => {
-    const map = {};
-    reports.forEach((r) => {
-      const key = r.payment_status || "unknown";
-      map[key] = (map[key] || 0) + 1;
-    });
-    return Object.entries(map);
-  }, [reports]);
+  const fraudData = useMemo(() => {
+    return (analytics.suspiciousBookings || reports)
+      .map((r) => ({
+        ...r,
+        fraudScore: calculateFraudScore(r, avgBooking),
+      }))
+      .sort((a, b) => b.fraudScore - a.fraudScore)
+      .slice(0, 10);
+  }, [reports, analytics, avgBooking]);
 
-  const topEvents = useMemo(() => {
-    const map = {};
-    reports.forEach((r) => {
-      if (!r.event_title) return;
+  // ---------------- COLORS ----------------
+  const COLORS = ["#00C49F", "#FF8042", "#FFBB28", "#8884d8"];
 
-      if (!map[r.event_title]) {
-        map[r.event_title] = { count: 0, revenue: 0 };
-      }
-
-      map[r.event_title].count += 1;
-      map[r.event_title].revenue += Number(r.payment_amount || 0);
-    });
-
-    return Object.entries(map)
-      .map(([name, val]) => ({ name, ...val }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
-  }, [reports]);
-
-  // ================= EXPORT =================
+  // ---------------- EXPORT CSV ----------------
   const exportCSV = () => {
     const rows = reports.map((r) => [
       r.booking_id,
@@ -127,6 +142,7 @@ export default function Reports({ user }) {
     a.click();
   };
 
+  // ---------------- PDF ----------------
   const exportPDF = async () => {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
@@ -159,8 +175,12 @@ export default function Reports({ user }) {
       {/* HEADER */}
       <div className="reports-header">
         <div>
-          <h2>{role === "admin" ? "Admin Reports" : "Organizer Reports"}</h2>
-          <p>Live analytics dashboard</p>
+          <h2>
+            {role === "admin"
+              ? "Admin Analytics Dashboard"
+              : "Organizer Analytics Dashboard"}
+          </h2>
+          <p>Live system intelligence overview</p>
         </div>
 
         <div className="actions">
@@ -169,7 +189,7 @@ export default function Reports({ user }) {
         </div>
       </div>
 
-      {/* STATS */}
+      {/* KPI CARDS (ROLE BASED) */}
       <div className="stats-grid">
         <div className="stat-card">
           <h4>Revenue</h4>
@@ -185,44 +205,102 @@ export default function Reports({ user }) {
           <h4>Events</h4>
           <p>{stats.totalEvents}</p>
         </div>
+
+        {role === "admin" && (
+          <div className="stat-card">
+            <h4>System Risk Level</h4>
+            <p>
+              {fraudData.filter((f) => f.fraudScore > 60).length} flagged
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* VISUAL ANALYTICS (NO CSS CHANGE REQUIRED) */}
+      {/* ================= CHARTS ================= */}
       <div className="stats-grid">
 
-        <div className="stat-card">
-          <h4>Payment Status Breakdown</h4>
-          {paymentBreakdown.map(([key, val]) => (
-            <p key={key}>{key}: {val}</p>
-          ))}
+        {/* REVENUE LINE CHART */}
+        <div className="stat-card" style={{ height: 300 }}>
+          <h4>Revenue Trend</h4>
+          <ResponsiveContainer width="100%" height="90%">
+            <LineChart data={analytics.timeSeriesData || []}>
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="revenue" stroke="#00C49F" />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
 
-        <div className="stat-card">
-          <h4>Top Events</h4>
-          {topEvents.map((e) => (
-            <p key={e.name}>
-              {e.name} — KES {e.revenue}
-            </p>
-          ))}
+        {/* PAYMENT PIE CHART */}
+        <div className="stat-card" style={{ height: 300 }}>
+          <h4>Payment Status</h4>
+          <ResponsiveContainer width="100%" height="90%">
+            <PieChart>
+              <Pie
+                data={analytics.paymentStatus || []}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={80}
+              >
+                {(analytics.paymentStatus || []).map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
 
-        <div className="stat-card">
-          <h4>Avg Booking Value</h4>
-          <p>
-            KES{" "}
-            {stats.totalBookings
-              ? Math.round(stats.totalRevenue / stats.totalBookings)
-              : 0}
-          </p>
+        {/* EVENT PERFORMANCE */}
+        <div className="stat-card" style={{ height: 300 }}>
+          <h4>Event Performance</h4>
+          <ResponsiveContainer width="100%" height="90%">
+            <BarChart data={analytics.eventPerformance || []}>
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="revenue" fill="#8884d8" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
       </div>
 
-      {/* LOADING / ERROR */}
-      {isLoading && <p>Loading...</p>}
-      {isError && <p>Error loading reports</p>}
+      {/* ================= FRAUD PANEL ================= */}
+      {role === "admin" && (
+        <div className="table-box">
+          <h4>Fraud Detection Panel</h4>
 
-      {/* TABLE */}
+          <table>
+            <thead>
+              <tr>
+                <th>Booking</th>
+                <th>User</th>
+                <th>Event</th>
+                <th>Amount</th>
+                <th>Fraud Score</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {fraudData.map((r) => (
+                <tr key={r.booking_id}>
+                  <td>{r.booking_id}</td>
+                  <td>{r.user_name}</td>
+                  <td>{r.event_title}</td>
+                  <td>{r.payment_amount}</td>
+                  <td style={{ color: r.fraudScore > 60 ? "red" : "green" }}>
+                    {r.fraudScore}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ================= TABLE ================= */}
       <div className="table-box">
 
         <table>
