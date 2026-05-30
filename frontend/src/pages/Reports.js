@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import "./Reports.css";
+import "../styles/Reports.css";
 import api from "../api";
 import jsPDF from "jspdf";
 
