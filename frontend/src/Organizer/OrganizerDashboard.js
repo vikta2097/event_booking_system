@@ -6,7 +6,7 @@ import OrganizerSidebar from "./OrganizerSidebar";
 import DashboardHome from "./DashboardHome";
 import Events from "../pages/Events";
 import OrganizerBookings from "./OrganizerBookings";
-import OrganizerReports from "../pages/Reports";
+import Reports from "../pages/Reports";
 import TicketScanner from "./TicketScanner";
 import ChatbotWidget from "./ChatbotWidget";
 import NotificationBell from "../pages/NotificationBell";
