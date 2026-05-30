@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import io from "socket.io-client";
@@ -8,13 +8,16 @@ import "../styles/Reports.css";
 const socket = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000");
 
 const fetchReports = async ({ queryKey }) => {
-  const [_key, { role, page, filters }] = queryKey;
+  const [, { role, page, filters }] = queryKey;
 
-  const endpoint =
-    role === "organizer" ? "/reports/organizer" : "/reports";
+  const endpoint = role === "organizer" ? "/reports/organizer" : "/reports";
 
   const res = await api.get(endpoint, {
-    params: { ...filters, page, limit: 20 },
+    params: {
+      ...filters,
+      page,
+      limit: 20,
+    },
   });
 
   return res.data;
@@ -26,7 +29,8 @@ export default function Reports({ user }) {
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({
+
+  const [filters] = useState({
     startDate: "",
     endDate: "",
     eventId: "",
@@ -38,30 +42,41 @@ export default function Reports({ user }) {
     queryKey: ["reports", { role, page, filters }],
     queryFn: fetchReports,
     keepPreviousData: true,
+    enabled: !!role,
   });
 
-  const reports = data?.reports || [];
-  const stats = data?.stats || {
-    totalRevenue: 0,
-    totalBookings: 0,
-    totalEvents: 0,
-  };
-
-  const analytics = data?.analytics || {};
+  const reports = useMemo(() => data?.reports || [], [data]);
+  const stats = useMemo(
+    () =>
+      data?.stats || {
+        totalRevenue: 0,
+        totalBookings: 0,
+        totalEvents: 0,
+      },
+    [data]
+  );
 
   // ================= REAL-TIME SOCKET =================
   useEffect(() => {
+    if (!role) return;
+
     socket.emit("join_reports_room", { role });
 
-    socket.on("report_update", () => {
-      queryClient.invalidateQueries(["reports"]);
-    });
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    };
 
-    return () => socket.disconnect();
+    socket.on("report_update", handleUpdate);
+
+    return () => {
+      socket.off("report_update", handleUpdate);
+    };
   }, [role, queryClient]);
 
-  // ================= EXPORT =================
+  // ================= EXPORT CSV =================
   const exportCSV = () => {
+    if (!reports.length) return;
+
     const rows = reports.map((r) => [
       r.booking_id,
       r.user_name,
@@ -83,9 +98,14 @@ export default function Reports({ user }) {
     a.href = url;
     a.download = `${role}-reports.csv`;
     a.click();
+
+    URL.revokeObjectURL(url);
   };
 
+  // ================= EXPORT PDF =================
   const exportPDF = async () => {
+    if (!reports.length) return;
+
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
 
@@ -109,21 +129,33 @@ export default function Reports({ user }) {
 
   // ================= DRILL DOWN =================
   const openEvent = (eventId) => {
+    if (!eventId) return;
     navigate(`/dashboard/events/${eventId}/analytics`);
   };
 
+  // ================= UI =================
   return (
     <div className="reports-page">
       {/* HEADER */}
       <div className="reports-header">
         <div>
-          <h2>{role === "admin" ? "Admin Reports" : "Organizer Reports"}</h2>
+          <h2>
+            {role === "admin"
+              ? "Admin Reports"
+              : role === "organizer"
+              ? "Organizer Reports"
+              : "Reports"}
+          </h2>
           <p>Live analytics dashboard</p>
         </div>
 
         <div className="actions">
-          <button onClick={exportCSV}>CSV</button>
-          <button onClick={exportPDF}>PDF</button>
+          <button onClick={exportCSV} disabled={!reports.length}>
+            CSV
+          </button>
+          <button onClick={exportPDF} disabled={!reports.length}>
+            PDF
+          </button>
         </div>
       </div>
 
@@ -143,7 +175,7 @@ export default function Reports({ user }) {
         </div>
       </div>
 
-      {/* LOADING */}
+      {/* LOADING / ERROR */}
       {isLoading && <p>Loading...</p>}
       {isError && <p>Error loading reports</p>}
 
@@ -162,8 +194,8 @@ export default function Reports({ user }) {
           </thead>
 
           <tbody>
-            {reports.map((r, i) => (
-              <tr key={i}>
+            {reports.map((r) => (
+              <tr key={r.booking_id}>
                 <td>{r.booking_id}</td>
                 <td>{r.user_name}</td>
                 <td>{r.event_title}</td>
@@ -181,11 +213,15 @@ export default function Reports({ user }) {
 
         {/* PAGINATION */}
         <div className="pagination">
-          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
             Prev
           </button>
+
           <span>Page {page}</span>
-          <button onClick={() => setPage(p => p + 1)}>Next</button>
+
+          <button onClick={() => setPage((p) => p + 1)}>
+            Next
+          </button>
         </div>
       </div>
     </div>
