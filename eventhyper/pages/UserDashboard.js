@@ -17,9 +17,6 @@ import NotificationBell from "./NotificationBell";
 const Stack = createNativeStackNavigator();
 
 // ─── Top Bar ──────────────────────────────────────────────────────────────────
-// ✅ Receives innerNav prop directly from UserDashboard — avoids useNavigation()
-// which would return the ROOT navigator (App.js Stack) and fail to find
-// screens that only exist in the nested Stack (UserHome, UserBookings, etc.)
 const TopBar = ({ user, onLogout, innerNav }) => {
   return (
     <SafeAreaView style={styles.topBarSafe} edges={["top"]}>

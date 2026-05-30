@@ -23,7 +23,7 @@ const socket = io(process.env.REACT_APP_SOCKET_URL);
 
 // ================= FETCH =================
 const fetchReports = async ({ queryKey }) => {
-  const [, { role, page, filters }] = queryKey;
+  const [, role, page, filters] = queryKey;
 
   const endpoint = role === "organizer" ? "/reports/organizer" : "/reports";
 
@@ -34,7 +34,7 @@ const fetchReports = async ({ queryKey }) => {
   return res.data;
 };
 
-// ================= FRAUD SCORE =================
+// ================= FRAUD =================
 const calculateFraudScore = (r, avg) => {
   let score = 0;
 
@@ -53,9 +53,9 @@ export default function Reports({ user }) {
   const queryClient = useQueryClient();
 
   const role = user?.role;
-
   const [page, setPage] = useState(1);
 
+  // IMPORTANT: keep filters stable but NOT inside queryKey object
   const filters = useMemo(
     () => ({
       startDate: "",
@@ -67,7 +67,11 @@ export default function Reports({ user }) {
   );
 
   // ================= QUERY =================
-  const { data } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["reports", role, page, filters],
     queryFn: fetchReports,
     enabled: !!role,
@@ -80,6 +84,7 @@ export default function Reports({ user }) {
     totalBookings: 0,
     totalEvents: 0,
   };
+
   const analytics = data?.analytics ?? {};
 
   // ================= SOCKET =================
@@ -105,7 +110,7 @@ export default function Reports({ user }) {
       ? stats.totalRevenue / stats.totalBookings
       : 0;
 
-  // ================= FRAUD DATA =================
+  // ================= FRAUD =================
   const fraudData = useMemo(() => {
     const source = analytics.suspiciousBookings?.length
       ? analytics.suspiciousBookings
@@ -122,7 +127,7 @@ export default function Reports({ user }) {
 
   const COLORS = ["#00C49F", "#FF8042", "#FFBB28", "#8884d8"];
 
-  // ================= EXPORT CSV =================
+  // ================= EXPORT =================
   const exportCSV = () => {
     const rows = reports.map((r) => [
       r.booking_id,
@@ -147,7 +152,6 @@ export default function Reports({ user }) {
     a.click();
   };
 
-  // ================= EXPORT PDF =================
   const exportPDF = async () => {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
@@ -176,6 +180,10 @@ export default function Reports({ user }) {
   // ================= UI =================
   return (
     <div className="reports-page">
+
+      {/* LOADING / ERROR (fix CI warnings) */}
+      {isLoading && <p>Loading reports...</p>}
+      {isError && <p>Failed to load reports</p>}
 
       {/* HEADER */}
       <div className="reports-header">
@@ -222,7 +230,6 @@ export default function Reports({ user }) {
       {/* CHARTS */}
       <div className="stats-grid">
 
-        {/* LINE */}
         <div className="stat-card" style={{ height: 300 }}>
           <h4>Revenue Trend</h4>
           <ResponsiveContainer width="100%" height="90%">
@@ -235,7 +242,6 @@ export default function Reports({ user }) {
           </ResponsiveContainer>
         </div>
 
-        {/* PIE */}
         <div className="stat-card" style={{ height: 300 }}>
           <h4>Payment Status</h4>
           <ResponsiveContainer width="100%" height="90%">
@@ -255,7 +261,6 @@ export default function Reports({ user }) {
           </ResponsiveContainer>
         </div>
 
-        {/* BAR */}
         <div className="stat-card" style={{ height: 300 }}>
           <h4>Event Performance</h4>
           <ResponsiveContainer width="100%" height="90%">
