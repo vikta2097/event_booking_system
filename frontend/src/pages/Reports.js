@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import io from "socket.io-client";
 import api from "../api";
 import "../styles/Reports.css";
 
-const socket = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000");
+const socket = io(process.env.REACT_APP_SOCKET_URL || "http://localhost:5000");
 
 const fetchReports = async ({ queryKey }) => {
   const [, { role, page, filters }] = queryKey;
 
-  const endpoint = role === "organizer" ? "/reports/organizer" : "/reports";
+  const endpoint =
+    role === "organizer" ? "/reports/organizer" : "/reports";
 
   const res = await api.get(endpoint, {
     params: {
@@ -37,7 +38,6 @@ export default function Reports({ user }) {
     paymentStatus: "",
   });
 
-  // ================= REACT QUERY =================
   const { data, isLoading, isError } = useQuery({
     queryKey: ["reports", { role, page, filters }],
     queryFn: fetchReports,
@@ -45,37 +45,41 @@ export default function Reports({ user }) {
     enabled: !!role,
   });
 
-  const reports = useMemo(() => data?.reports || [], [data]);
-  const stats = useMemo(
-    () =>
-      data?.stats || {
-        totalRevenue: 0,
-        totalBookings: 0,
-        totalEvents: 0,
-      },
-    [data]
-  );
+  const reports = data?.reports ?? [];
+  const stats = data?.stats ?? {
+    totalRevenue: 0,
+    totalBookings: 0,
+    totalEvents: 0,
+  };
 
-  // ================= REAL-TIME SOCKET =================
+  // ================= SOCKET REAL-TIME =================
   useEffect(() => {
     if (!role) return;
 
     socket.emit("join_reports_room", { role });
 
-    const handleUpdate = () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    const handler = () => {
+      queryClient.invalidateQueries(["reports"]);
     };
 
-    socket.on("report_update", handleUpdate);
+    socket.on("report_update", handler);
 
     return () => {
-      socket.off("report_update", handleUpdate);
+      socket.off("report_update", handler);
+      socket.disconnect();
     };
   }, [role, queryClient]);
 
   // ================= EXPORT CSV =================
   const exportCSV = () => {
-    if (!reports.length) return;
+    const header = [
+      "ID",
+      "User",
+      "Event",
+      "Amount",
+      "Payment Status",
+      "Booking Status",
+    ];
 
     const rows = reports.map((r) => [
       r.booking_id,
@@ -87,31 +91,27 @@ export default function Reports({ user }) {
     ]);
 
     const csv = [
-      ["ID", "User", "Event", "Amount", "Payment", "Status"].join(","),
+      header.join(","),
       ...rows.map((r) => r.join(",")),
     ].join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
 
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `${role}-reports.csv`;
     a.click();
-
-    URL.revokeObjectURL(url);
   };
 
   // ================= EXPORT PDF =================
   const exportPDF = async () => {
-    if (!reports.length) return;
-
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
 
     const doc = new jsPDF();
 
-    doc.text(`${role.toUpperCase()} REPORTS`, 14, 10);
+    doc.text(`${role?.toUpperCase() ?? "REPORTS"}`, 14, 10);
 
     autoTable(doc, {
       head: [["ID", "User", "Event", "Amount", "Status"]],
@@ -133,29 +133,23 @@ export default function Reports({ user }) {
     navigate(`/dashboard/events/${eventId}/analytics`);
   };
 
-  // ================= UI =================
   return (
     <div className="reports-page">
+
       {/* HEADER */}
       <div className="reports-header">
         <div>
           <h2>
             {role === "admin"
               ? "Admin Reports"
-              : role === "organizer"
-              ? "Organizer Reports"
-              : "Reports"}
+              : "Organizer Reports"}
           </h2>
           <p>Live analytics dashboard</p>
         </div>
 
         <div className="actions">
-          <button onClick={exportCSV} disabled={!reports.length}>
-            CSV
-          </button>
-          <button onClick={exportPDF} disabled={!reports.length}>
-            PDF
-          </button>
+          <button onClick={exportCSV}>CSV</button>
+          <button onClick={exportPDF}>PDF</button>
         </div>
       </div>
 
@@ -165,19 +159,21 @@ export default function Reports({ user }) {
           <h4>Revenue</h4>
           <p>KES {stats.totalRevenue}</p>
         </div>
+
         <div className="stat-card">
           <h4>Bookings</h4>
           <p>{stats.totalBookings}</p>
         </div>
+
         <div className="stat-card">
           <h4>Events</h4>
           <p>{stats.totalEvents}</p>
         </div>
       </div>
 
-      {/* LOADING / ERROR */}
-      {isLoading && <p>Loading...</p>}
-      {isError && <p>Error loading reports</p>}
+      {/* STATES */}
+      {isLoading && <p className="info">Loading reports...</p>}
+      {isError && <p className="error">Failed to load reports</p>}
 
       {/* TABLE */}
       <div className="table-box">
@@ -213,7 +209,10 @@ export default function Reports({ user }) {
 
         {/* PAGINATION */}
         <div className="pagination">
-          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
             Prev
           </button>
 
