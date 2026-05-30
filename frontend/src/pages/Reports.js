@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import io from "socket.io-client";
+
 import {
   LineChart,
   Line,
@@ -14,6 +15,8 @@ import {
   BarChart,
   Bar,
   ResponsiveContainer,
+  CartesianGrid,
+  Legend,
 } from "recharts";
 
 import api from "../api";
@@ -25,25 +28,43 @@ const socket = io(process.env.REACT_APP_SOCKET_URL);
 const fetchReports = async ({ queryKey }) => {
   const [, role, page, filters] = queryKey;
 
-  const endpoint = role === "organizer" ? "/reports/organizer" : "/reports";
+  const endpoint =
+    role === "organizer"
+      ? "/reports/organizer"
+      : "/reports";
 
   const res = await api.get(endpoint, {
-    params: { ...filters, page, limit: 20 },
+    params: {
+      ...filters,
+      page,
+      limit: 20,
+    },
   });
 
   return res.data;
 };
 
-// ================= FRAUD =================
+// ================= FRAUD SCORE =================
 const calculateFraudScore = (r, avg) => {
   let score = 0;
 
   const amount = Number(r.payment_amount || 0);
 
-  if ((r.payment_status || "").toLowerCase() === "failed") score += 40;
-  if (amount > avg * 3) score += 35;
-  if (!r.user_name) score += 15;
-  if (!r.booking_id) score += 10;
+  if ((r.payment_status || "").toLowerCase() === "failed") {
+    score += 40;
+  }
+
+  if (amount > avg * 3) {
+    score += 35;
+  }
+
+  if (!r.user_name) {
+    score += 15;
+  }
+
+  if (!r.booking_id) {
+    score += 10;
+  }
 
   return Math.min(score, 100);
 };
@@ -53,9 +74,10 @@ export default function Reports({ user }) {
   const queryClient = useQueryClient();
 
   const role = user?.role;
+
   const [page, setPage] = useState(1);
 
-  // IMPORTANT: keep filters stable but NOT inside queryKey object
+  // ================= STABLE FILTERS =================
   const filters = useMemo(
     () => ({
       startDate: "",
@@ -78,14 +100,24 @@ export default function Reports({ user }) {
     keepPreviousData: true,
   });
 
-  const reports = data?.reports ?? [];
-  const stats = data?.stats ?? {
-    totalRevenue: 0,
-    totalBookings: 0,
-    totalEvents: 0,
-  };
+  // ================= STABLE DATA =================
+  const reports = useMemo(() => {
+    return data?.reports || [];
+  }, [data]);
 
-  const analytics = data?.analytics ?? {};
+  const stats = useMemo(() => {
+    return (
+      data?.stats || {
+        totalRevenue: 0,
+        totalBookings: 0,
+        totalEvents: 0,
+      }
+    );
+  }, [data]);
+
+  const analytics = useMemo(() => {
+    return data?.analytics || {};
+  }, [data]);
 
   // ================= SOCKET =================
   useEffect(() => {
@@ -93,28 +125,32 @@ export default function Reports({ user }) {
 
     socket.emit("join_reports_room", { role });
 
-    const refresh = () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    const refreshReports = () => {
+      queryClient.invalidateQueries({
+        queryKey: ["reports"],
+      });
     };
 
-    socket.on("report_update", refresh);
+    socket.on("report_update", refreshReports);
 
     return () => {
-      socket.off("report_update", refresh);
+      socket.off("report_update", refreshReports);
     };
   }, [role, queryClient]);
 
-  // ================= AVG =================
-  const avgBooking =
-    stats.totalBookings > 0
-      ? stats.totalRevenue / stats.totalBookings
-      : 0;
+  // ================= AVERAGE BOOKING =================
+  const avgBooking = useMemo(() => {
+    if (!stats.totalBookings) return 0;
 
-  // ================= FRAUD =================
+    return stats.totalRevenue / stats.totalBookings;
+  }, [stats]);
+
+  // ================= FRAUD DATA =================
   const fraudData = useMemo(() => {
-    const source = analytics.suspiciousBookings?.length
-      ? analytics.suspiciousBookings
-      : reports;
+    const source =
+      analytics?.suspiciousBookings?.length > 0
+        ? analytics.suspiciousBookings
+        : reports;
 
     return source
       .map((r) => ({
@@ -123,11 +159,18 @@ export default function Reports({ user }) {
       }))
       .sort((a, b) => b.fraudScore - a.fraudScore)
       .slice(0, 10);
-  }, [reports, analytics.suspiciousBookings, avgBooking]);
+  }, [reports, analytics, avgBooking]);
 
-  const COLORS = ["#00C49F", "#FF8042", "#FFBB28", "#8884d8"];
+  // ================= COLORS =================
+  const COLORS = [
+    "#00C49F",
+    "#FF8042",
+    "#FFBB28",
+    "#8884d8",
+    "#0088FE",
+  ];
 
-  // ================= EXPORT =================
+  // ================= EXPORT CSV =================
   const exportCSV = () => {
     const rows = reports.map((r) => [
       r.booking_id,
@@ -139,28 +182,60 @@ export default function Reports({ user }) {
     ]);
 
     const csv = [
-      ["ID", "User", "Event", "Amount", "Payment", "Status"].join(","),
+      [
+        "ID",
+        "User",
+        "Event",
+        "Amount",
+        "Payment",
+        "Status",
+      ].join(","),
+
       ...rows.map((r) => r.join(",")),
     ].join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], {
+      type: "text/csv",
+    });
+
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
+
     a.href = url;
     a.download = `${role}-reports.csv`;
+
     a.click();
+
+    URL.revokeObjectURL(url);
   };
 
+  // ================= EXPORT PDF =================
   const exportPDF = async () => {
     const jsPDF = (await import("jspdf")).default;
-    const autoTable = (await import("jspdf-autotable")).default;
+
+    const autoTable =
+      (await import("jspdf-autotable")).default;
 
     const doc = new jsPDF();
-    doc.text(`${role?.toUpperCase()} REPORTS`, 14, 10);
+
+    doc.text(
+      `${role?.toUpperCase()} REPORTS`,
+      14,
+      10
+    );
 
     autoTable(doc, {
-      head: [["ID", "User", "Event", "Amount", "Status"]],
+      head: [
+        [
+          "ID",
+          "User",
+          "Event",
+          "Amount",
+          "Status",
+        ],
+      ],
+
       body: reports.map((r) => [
         r.booking_id,
         r.user_name,
@@ -173,112 +248,217 @@ export default function Reports({ user }) {
     doc.save(`${role}-reports.pdf`);
   };
 
+  // ================= NAVIGATION =================
   const openEvent = (id) => {
     navigate(`/dashboard/events/${id}/analytics`);
   };
+
+  // ================= LOADING =================
+  if (isLoading) {
+    return (
+      <div className="reports-page">
+        <div className="loading-box">
+          <p>Loading reports...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ================= ERROR =================
+  if (isError) {
+    return (
+      <div className="reports-page">
+        <div className="error-box">
+          <p>Failed to load reports.</p>
+        </div>
+      </div>
+    );
+  }
 
   // ================= UI =================
   return (
     <div className="reports-page">
 
-      {/* LOADING / ERROR (fix CI warnings) */}
-      {isLoading && <p>Loading reports...</p>}
-      {isError && <p>Failed to load reports</p>}
-
-      {/* HEADER */}
+      {/* ================= HEADER ================= */}
       <div className="reports-header">
+
         <div>
           <h2>
             {role === "admin"
               ? "Admin Analytics Dashboard"
               : "Organizer Analytics Dashboard"}
           </h2>
-          <p>Live system intelligence overview</p>
+
+          <p>
+            Live reporting and analytics overview
+          </p>
         </div>
 
         <div className="actions">
-          <button onClick={exportCSV}>CSV</button>
-          <button onClick={exportPDF}>PDF</button>
+          <button onClick={exportCSV}>
+            Export CSV
+          </button>
+
+          <button onClick={exportPDF}>
+            Export PDF
+          </button>
         </div>
       </div>
 
-      {/* KPI */}
+      {/* ================= KPI CARDS ================= */}
       <div className="stats-grid">
+
         <div className="stat-card">
-          <h4>Revenue</h4>
-          <p>KES {stats.totalRevenue}</p>
+          <h4>Total Revenue</h4>
+
+          <p>
+            KES{" "}
+            {Number(stats.totalRevenue || 0).toLocaleString()}
+          </p>
         </div>
 
         <div className="stat-card">
-          <h4>Bookings</h4>
+          <h4>Total Bookings</h4>
+
           <p>{stats.totalBookings}</p>
         </div>
 
         <div className="stat-card">
-          <h4>Events</h4>
+          <h4>Total Events</h4>
+
           <p>{stats.totalEvents}</p>
         </div>
 
         {role === "admin" && (
           <div className="stat-card">
             <h4>Risk Alerts</h4>
-            <p>{fraudData.filter((f) => f.fraudScore > 60).length}</p>
+
+            <p>
+              {
+                fraudData.filter(
+                  (f) => f.fraudScore > 60
+                ).length
+              }
+            </p>
           </div>
         )}
       </div>
 
-      {/* CHARTS */}
+      {/* ================= CHARTS ================= */}
       <div className="stats-grid">
 
-        <div className="stat-card" style={{ height: 300 }}>
+        {/* REVENUE TREND */}
+        <div
+          className="stat-card"
+          style={{ height: "350px" }}
+        >
           <h4>Revenue Trend</h4>
-          <ResponsiveContainer width="100%" height="90%">
-            <LineChart data={analytics.timeSeriesData || []}>
+
+          <ResponsiveContainer
+            width="100%"
+            height="90%"
+          >
+            <LineChart
+              data={analytics.timeSeriesData || []}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+
               <XAxis dataKey="date" />
+
               <YAxis />
+
               <Tooltip />
-              <Line type="monotone" dataKey="revenue" stroke="#00C49F" />
+
+              <Legend />
+
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                stroke="#00C49F"
+                strokeWidth={3}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="stat-card" style={{ height: 300 }}>
+        {/* PAYMENT STATUS */}
+        <div
+          className="stat-card"
+          style={{ height: "350px" }}
+        >
           <h4>Payment Status</h4>
-          <ResponsiveContainer width="100%" height="90%">
+
+          <ResponsiveContainer
+            width="100%"
+            height="90%"
+          >
             <PieChart>
               <Pie
                 data={analytics.paymentStatus || []}
                 dataKey="value"
                 nameKey="name"
-                outerRadius={80}
+                outerRadius={90}
+                label
               >
-                {(analytics.paymentStatus || []).map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
+                {(analytics.paymentStatus || []).map(
+                  (_, i) => (
+                    <Cell
+                      key={i}
+                      fill={
+                        COLORS[i % COLORS.length]
+                      }
+                    />
+                  )
+                )}
               </Pie>
+
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="stat-card" style={{ height: 300 }}>
+        {/* EVENT PERFORMANCE */}
+        <div
+          className="stat-card"
+          style={{ height: "350px" }}
+        >
           <h4>Event Performance</h4>
-          <ResponsiveContainer width="100%" height="90%">
-            <BarChart data={analytics.eventPerformance || []}>
+
+          <ResponsiveContainer
+            width="100%"
+            height="90%"
+          >
+            <BarChart
+              data={
+                analytics.eventPerformance || []
+              }
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+
               <XAxis dataKey="name" />
+
               <YAxis />
+
               <Tooltip />
-              <Bar dataKey="revenue" fill="#8884d8" />
+
+              <Legend />
+
+              <Bar
+                dataKey="revenue"
+                fill="#8884d8"
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
-
       </div>
 
-      {/* FRAUD PANEL */}
+      {/* ================= ADMIN FRAUD PANEL ================= */}
       {role === "admin" && (
         <div className="table-box">
-          <h4>Fraud Detection Panel</h4>
+
+          <div className="table-header">
+            <h3>Fraud Detection Panel</h3>
+          </div>
 
           <table>
             <thead>
@@ -287,7 +467,7 @@ export default function Reports({ user }) {
                 <th>User</th>
                 <th>Event</th>
                 <th>Amount</th>
-                <th>Risk</th>
+                <th>Fraud Score</th>
               </tr>
             </thead>
 
@@ -295,11 +475,27 @@ export default function Reports({ user }) {
               {fraudData.map((r) => (
                 <tr key={r.booking_id}>
                   <td>{r.booking_id}</td>
+
                   <td>{r.user_name}</td>
+
                   <td>{r.event_title}</td>
-                  <td>{r.payment_amount}</td>
-                  <td style={{ color: r.fraudScore > 60 ? "red" : "green" }}>
-                    {r.fraudScore}
+
+                  <td>
+                    KES {r.payment_amount}
+                  </td>
+
+                  <td>
+                    <span
+                      style={{
+                        color:
+                          r.fraudScore > 60
+                            ? "#ef4444"
+                            : "#10b981",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {r.fraudScore}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -308,8 +504,17 @@ export default function Reports({ user }) {
         </div>
       )}
 
-      {/* TABLE */}
+      {/* ================= REPORT TABLE ================= */}
       <div className="table-box">
+
+        <div className="table-header">
+          <h3>
+            {role === "admin"
+              ? "System Transactions"
+              : "Organizer Transactions"}
+          </h3>
+        </div>
+
         <table>
           <thead>
             <tr>
@@ -326,12 +531,24 @@ export default function Reports({ user }) {
             {reports.map((r) => (
               <tr key={r.booking_id}>
                 <td>{r.booking_id}</td>
+
                 <td>{r.user_name}</td>
+
                 <td>{r.event_title}</td>
-                <td>{r.payment_amount}</td>
-                <td>{r.payment_status}</td>
+
                 <td>
-                  <button onClick={() => openEvent(r.event_id)}>
+                  KES {r.payment_amount}
+                </td>
+
+                <td>{r.payment_status}</td>
+
+                <td>
+                  <button
+                    className="drill-btn"
+                    onClick={() =>
+                      openEvent(r.event_id)
+                    }
+                  >
                     Drill
                   </button>
                 </td>
@@ -340,14 +557,27 @@ export default function Reports({ user }) {
           </tbody>
         </table>
 
+        {/* ================= PAGINATION ================= */}
         <div className="pagination">
-          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+
+          <button
+            disabled={page === 1}
+            onClick={() =>
+              setPage((p) => p - 1)
+            }
+          >
             Prev
           </button>
 
           <span>Page {page}</span>
 
-          <button onClick={() => setPage((p) => p + 1)}>Next</button>
+          <button
+            onClick={() =>
+              setPage((p) => p + 1)
+            }
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>
