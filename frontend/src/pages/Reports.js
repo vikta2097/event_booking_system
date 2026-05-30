@@ -1,502 +1,338 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import io from "socket.io-client";
+import React, { useEffect, useState, useMemo } from "react";
+import "./Reports.css";
+import api from "../api";
+import jsPDF from "jspdf";
 
 import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
   LineChart,
   Line,
   XAxis,
   YAxis,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  ResponsiveContainer,
   CartesianGrid,
-  Legend,
 } from "recharts";
 
-import api from "../api";
-import "../styles/Reports.css";
+import { io } from "socket.io-client";
 
-const socket = io(process.env.REACT_APP_SOCKET_URL);
+const socket = io("http://localhost:5000");
 
-// ================= FETCH =================
-const fetchReports = async ({ queryKey }) => {
-  const [, role, page, filters] = queryKey;
+const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
-  const endpoint =
-    role === "organizer"
-      ? "/reports/organizer"
-      : "/reports";
+const formatCurrency = (v) => `KES ${Number(v || 0).toLocaleString()}`;
 
-  const res = await api.get(endpoint, {
-    params: {
-      ...filters,
-      page,
-      limit: 20,
-    },
-  });
+const deltaText = (v) => `${v >= 0 ? "↑" : "↓"} ${Math.abs(v || 0)}%`;
 
-  return res.data;
-};
+export default function Reports({ user, token }) {
+  const isAdmin = user?.role === "admin";
 
-// ================= FRAUD SCORE =================
-const calculateFraudScore = (r, avg) => {
-  let score = 0;
+  const [reports, setReports] = useState([]);
+  const [stats, setStats] = useState({});
+  const [analytics, setAnalytics] = useState(null);
 
-  const amount = Number(r.payment_amount || 0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  if ((r.payment_status || "").toLowerCase() === "failed") {
-    score += 40;
-  }
+  const [activeTab, setActiveTab] = useState("overview");
 
-  if (amount > avg * 3) {
-    score += 35;
-  }
+  const [dateRange, setDateRange] = useState("30days");
 
-  if (!r.user_name) {
-    score += 15;
-  }
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedEvents, setSelectedEvents] = useState([]);
 
-  if (!r.booking_id) {
-    score += 10;
-  }
+  const safe = analytics || {
+    paymentStatus: [],
+    bookingStatus: [],
+    eventPerformance: [],
+    suspiciousBookings: [],
+    timeSeries: [],
+    revenueGrowth: 0,
+    bookingsGrowth: 0,
+    avgBookingValue: 0,
+  };
 
-  return Math.min(score, 100);
-};
+  // ── DATE FILTER ─────────────────────────────
+  const applyDateRange = (range) => {
+    const end = new Date();
+    const start = new Date();
 
-export default function Reports({ user }) {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
+    if (range === "7days") start.setDate(start.getDate() - 7);
+    if (range === "30days") start.setDate(start.getDate() - 30);
+    if (range === "90days") start.setDate(start.getDate() - 90);
 
-  const role = user?.role;
+    setDateRange(range);
 
-  const [page, setPage] = useState(1);
+    return {
+      startDate: start.toISOString().split("T")[0],
+      endDate: end.toISOString().split("T")[0],
+    };
+  };
 
-  // ================= STABLE FILTERS =================
-  const filters = useMemo(
-    () => ({
-      startDate: "",
-      endDate: "",
-      eventId: "",
-      paymentStatus: "",
-    }),
-    []
-  );
+  // ── FETCH ─────────────────────────────
+  const fetchReports = async (range = dateRange) => {
+    setLoading(true);
+    setError("");
 
-  // ================= QUERY =================
-  const {
-    data,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["reports", role, page, filters],
-    queryFn: fetchReports,
-    enabled: !!role,
-    keepPreviousData: true,
-  });
+    const dateFilter = applyDateRange(range);
 
-  // ================= STABLE DATA =================
-  const reports = useMemo(() => {
-    return data?.reports || [];
-  }, [data]);
+    try {
+      const endpoint = isAdmin
+        ? "/reports/admin"
+        : "/reports/organizer";
 
-  const stats = useMemo(() => {
-    return (
-      data?.stats || {
-        totalRevenue: 0,
-        totalBookings: 0,
-        totalEvents: 0,
-      }
-    );
-  }, [data]);
-
-  const analytics = useMemo(() => {
-    return data?.analytics || {};
-  }, [data]);
-
-  // ================= SOCKET =================
-  useEffect(() => {
-    if (!role) return;
-
-    socket.emit("join_reports_room", { role });
-
-    const refreshReports = () => {
-      queryClient.invalidateQueries({
-        queryKey: ["reports"],
+      const res = await api.get(endpoint, {
+        params: dateFilter,
+        headers: { Authorization: `Bearer ${token}` },
       });
-    };
 
-    socket.on("report_update", refreshReports);
+      setReports(res.data.reports);
+      setStats(res.data.stats);
+      setAnalytics(res.data.analytics);
+    } catch (err) {
+      setError(err.message || "Failed to load reports");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return () => {
-      socket.off("report_update", refreshReports);
-    };
-  }, [role, queryClient]);
-
-  // ================= AVERAGE BOOKING =================
-  const avgBooking = useMemo(() => {
-    if (!stats.totalBookings) return 0;
-
-    return stats.totalRevenue / stats.totalBookings;
-  }, [stats]);
-
-  // ================= FRAUD DATA =================
-  const fraudData = useMemo(() => {
-    const source =
-      analytics?.suspiciousBookings?.length > 0
-        ? analytics.suspiciousBookings
-        : reports;
-
-    return source
-      .map((r) => ({
-        ...r,
-        fraudScore: calculateFraudScore(r, avgBooking),
-      }))
-      .sort((a, b) => b.fraudScore - a.fraudScore)
-      .slice(0, 10);
-  }, [reports, analytics, avgBooking]);
-
-  // ================= COLORS =================
-  const COLORS = [
-    "#00C49F",
-    "#FF8042",
-    "#FFBB28",
-    "#8884d8",
-    "#0088FE",
-  ];
-
-  // ================= EXPORT CSV =================
-  const exportCSV = () => {
-    const rows = reports.map((r) => [
-      r.booking_id,
-      r.user_name,
-      r.event_title,
-      r.payment_amount,
-      r.payment_status,
-      r.booking_status,
-    ]);
-
-    const csv = [
-      [
-        "ID",
-        "User",
-        "Event",
-        "Amount",
-        "Payment",
-        "Status",
-      ].join(","),
-
-      ...rows.map((r) => r.join(",")),
-    ].join("\n");
-
-    const blob = new Blob([csv], {
-      type: "text/csv",
+  // ── LIVE UPDATES ─────────────────────────────
+  useEffect(() => {
+    socket.on("reports-update", (data) => {
+      setReports(data.reports);
+      setStats(data.stats);
+      setAnalytics(data.analytics);
     });
 
-    const url = URL.createObjectURL(blob);
+    return () => socket.off("reports-update");
+  }, []);
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  // ── EXPORT CSV ─────────────────────────────
+  const exportCSV = () => {
+    const header = "ID,User,Event,Amount,Status\n";
+
+    const rows = reports
+      .map((r) =>
+        `${r.booking_id},${r.user_name},${r.event_title},${r.amount},${r.status}`
+      )
+      .join("\n");
+
+    const blob = new Blob([header + rows], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
 
     const a = document.createElement("a");
-
     a.href = url;
-    a.download = `${role}-reports.csv`;
-
+    a.download = "reports.csv";
     a.click();
-
-    URL.revokeObjectURL(url);
   };
 
-  // ================= EXPORT PDF =================
-  const exportPDF = async () => {
-    const jsPDF = (await import("jspdf")).default;
-
-    const autoTable =
-      (await import("jspdf-autotable")).default;
-
+  // ── EXPORT PDF ─────────────────────────────
+  const exportPDF = () => {
     const doc = new jsPDF();
+    doc.text("Event Reports", 10, 10);
 
-    doc.text(
-      `${role?.toUpperCase()} REPORTS`,
-      14,
-      10
-    );
-
-    autoTable(doc, {
-      head: [
-        [
-          "ID",
-          "User",
-          "Event",
-          "Amount",
-          "Status",
-        ],
-      ],
-
-      body: reports.map((r) => [
-        r.booking_id,
-        r.user_name,
-        r.event_title,
-        r.payment_amount,
-        r.payment_status,
-      ]),
+    reports.slice(0, 25).forEach((r, i) => {
+      doc.text(
+        `${r.booking_id} | ${r.user_name} | ${r.event_title} | ${r.amount}`,
+        10,
+        20 + i * 8
+      );
     });
 
-    doc.save(`${role}-reports.pdf`);
+    doc.save("reports.pdf");
   };
 
-  // ================= NAVIGATION =================
-  const openEvent = (id) => {
-    navigate(`/dashboard/events/${id}/analytics`);
-  };
+  // ── EVENT COMPARISON ─────────────────────────────
+  const comparedEvents = compareMode
+    ? safe.eventPerformance.filter((e) =>
+        selectedEvents.includes(e.name)
+      )
+    : safe.eventPerformance;
 
-  // ================= LOADING =================
-  if (isLoading) {
-    return (
-      <div className="reports-page">
-        <div className="loading-box">
-          <p>Loading reports...</p>
-        </div>
-      </div>
-    );
-  }
+  const timeSeries = safe.timeSeries || [];
 
-  // ================= ERROR =================
-  if (isError) {
-    return (
-      <div className="reports-page">
-        <div className="error-box">
-          <p>Failed to load reports.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ================= UI =================
+  // ── UI ─────────────────────────────
   return (
-    <div className="reports-page">
+    <div className="reports-container">
 
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
       <div className="reports-header">
-
         <div>
           <h2>
-            {role === "admin"
-              ? "Admin Analytics Dashboard"
-              : "Organizer Analytics Dashboard"}
+            {isAdmin ? "Admin Dashboard" : "Organizer Dashboard"}
           </h2>
-
           <p>
-            Live reporting and analytics overview
+            {isAdmin
+              ? "System-wide analytics"
+              : "Your event performance"}
           </p>
         </div>
 
-        <div className="actions">
-          <button onClick={exportCSV}>
-            Export CSV
-          </button>
-
-          <button onClick={exportPDF}>
-            Export PDF
-          </button>
+        <div className="header-actions">
+          <button onClick={fetchReports}>Refresh</button>
+          <button onClick={exportCSV}>CSV</button>
+          <button onClick={exportPDF}>PDF</button>
         </div>
       </div>
 
-      {/* ================= KPI CARDS ================= */}
+      {/* DATE FILTERS */}
+      <div className="date-filters">
+        {["7days", "30days", "90days"].map((r) => (
+          <button
+            key={r}
+            className={dateRange === r ? "active" : ""}
+            onClick={() => fetchReports(r)}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
+
+      {error && <div className="error">{error}</div>}
+      {loading && <div className="loading">Loading...</div>}
+
+      {/* KPI */}
       <div className="stats-grid">
-
         <div className="stat-card">
-          <h4>Total Revenue</h4>
-
-          <p>
-            KES{" "}
-            {Number(stats.totalRevenue || 0).toLocaleString()}
-          </p>
+          <h4>Revenue</h4>
+          <p>{formatCurrency(stats.totalRevenue)}</p>
+          <small className={safe.revenueGrowth >= 0 ? "up" : "down"}>
+            {deltaText(safe.revenueGrowth)}
+          </small>
         </div>
 
         <div className="stat-card">
-          <h4>Total Bookings</h4>
-
+          <h4>Bookings</h4>
           <p>{stats.totalBookings}</p>
+          <small className={safe.bookingsGrowth >= 0 ? "up" : "down"}>
+            {deltaText(safe.bookingsGrowth)}
+          </small>
         </div>
 
         <div className="stat-card">
-          <h4>Total Events</h4>
-
+          <h4>Events</h4>
           <p>{stats.totalEvents}</p>
         </div>
 
-        {role === "admin" && (
-          <div className="stat-card">
-            <h4>Risk Alerts</h4>
+        <div className="stat-card">
+          <h4>Avg Booking</h4>
+          <p>{formatCurrency(safe.avgBookingValue)}</p>
+        </div>
+      </div>
 
-            <p>
-              {
-                fraudData.filter(
-                  (f) => f.fraudScore > 60
-                ).length
-              }
-            </p>
-          </div>
+      {/* COMPARE MODE */}
+      <div className="compare">
+        <label>
+          <input
+            type="checkbox"
+            checked={compareMode}
+            onChange={() => setCompareMode(!compareMode)}
+          />
+          Compare Events
+        </label>
+
+        {compareMode && (
+          <select
+            multiple
+            onChange={(e) =>
+              setSelectedEvents(
+                Array.from(e.target.selectedOptions, (o) => o.value)
+              )
+            }
+          >
+            {safe.eventPerformance.map((e, i) => (
+              <option key={i} value={e.name}>
+                {e.name}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 
-      {/* ================= CHARTS ================= */}
-      <div className="stats-grid">
-
-        {/* REVENUE TREND */}
-        <div
-          className="stat-card"
-          style={{ height: "350px" }}
-        >
-          <h4>Revenue Trend</h4>
-
-          <ResponsiveContainer
-            width="100%"
-            height="90%"
+      {/* TABS */}
+      <div className="tabs">
+        {["overview", "events", "trends"].map((t) => (
+          <button
+            key={t}
+            className={activeTab === t ? "active" : ""}
+            onClick={() => setActiveTab(t)}
           >
-            <LineChart
-              data={analytics.timeSeriesData || []}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-
-              <XAxis dataKey="date" />
-
-              <YAxis />
-
-              <Tooltip />
-
-              <Legend />
-
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="#00C49F"
-                strokeWidth={3}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* PAYMENT STATUS */}
-        <div
-          className="stat-card"
-          style={{ height: "350px" }}
-        >
-          <h4>Payment Status</h4>
-
-          <ResponsiveContainer
-            width="100%"
-            height="90%"
-          >
-            <PieChart>
-              <Pie
-                data={analytics.paymentStatus || []}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={90}
-                label
-              >
-                {(analytics.paymentStatus || []).map(
-                  (_, i) => (
-                    <Cell
-                      key={i}
-                      fill={
-                        COLORS[i % COLORS.length]
-                      }
-                    />
-                  )
-                )}
-              </Pie>
-
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* EVENT PERFORMANCE */}
-        <div
-          className="stat-card"
-          style={{ height: "350px" }}
-        >
-          <h4>Event Performance</h4>
-
-          <ResponsiveContainer
-            width="100%"
-            height="90%"
-          >
-            <BarChart
-              data={
-                analytics.eventPerformance || []
-              }
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-
-              <XAxis dataKey="name" />
-
-              <YAxis />
-
-              <Tooltip />
-
-              <Legend />
-
-              <Bar
-                dataKey="revenue"
-                fill="#8884d8"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+            {t}
+          </button>
+        ))}
       </div>
 
-      {/* ================= ADMIN FRAUD PANEL ================= */}
-      {role === "admin" && (
-        <div className="table-box">
+      {/* OVERVIEW */}
+      {activeTab === "overview" && (
+        <div className="charts">
 
-          <div className="table-header">
-            <h3>Fraud Detection Panel</h3>
+          {/* TREND */}
+          <div className="chart-box full">
+            <h4>Revenue Trend</h4>
+
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={timeSeries}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Line dataKey="revenue" stroke="#3b82f6" />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
+
+          {/* PIE */}
+          <div className="chart-box">
+            <h4>Payment Status</h4>
+            <PieChart width={300} height={250}>
+              <Pie data={safe.paymentStatus} dataKey="percentage">
+                {safe.paymentStatus.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+            </PieChart>
+          </div>
+
+          <div className="chart-box">
+            <h4>Booking Status</h4>
+            <PieChart width={300} height={250}>
+              <Pie data={safe.bookingStatus} dataKey="percentage">
+                {safe.bookingStatus.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+            </PieChart>
+          </div>
+
+        </div>
+      )}
+
+      {/* EVENTS */}
+      {activeTab === "events" && (
+        <div className="table">
+          <h4>Event Performance</h4>
 
           <table>
             <thead>
               <tr>
-                <th>Booking</th>
-                <th>User</th>
                 <th>Event</th>
-                <th>Amount</th>
-                <th>Fraud Score</th>
+                <th>Bookings</th>
+                <th>Revenue</th>
               </tr>
             </thead>
-
             <tbody>
-              {fraudData.map((r) => (
-                <tr key={r.booking_id}>
-                  <td>{r.booking_id}</td>
-
-                  <td>{r.user_name}</td>
-
-                  <td>{r.event_title}</td>
-
-                  <td>
-                    KES {r.payment_amount}
-                  </td>
-
-                  <td>
-                    <span
-                      style={{
-                        color:
-                          r.fraudScore > 60
-                            ? "#ef4444"
-                            : "#10b981",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {r.fraudScore}
-                    </span>
-                  </td>
+              {comparedEvents.map((e, i) => (
+                <tr key={i}>
+                  <td>{e.name}</td>
+                  <td>{e.bookings}</td>
+                  <td>{formatCurrency(e.revenue)}</td>
                 </tr>
               ))}
             </tbody>
@@ -504,82 +340,19 @@ export default function Reports({ user }) {
         </div>
       )}
 
-      {/* ================= REPORT TABLE ================= */}
-      <div className="table-box">
+      {/* ALERTS */}
+      {activeTab === "trends" && (
+        <div className="table">
+          <h4>Alerts</h4>
 
-        <div className="table-header">
-          <h3>
-            {role === "admin"
-              ? "System Transactions"
-              : "Organizer Transactions"}
-          </h3>
+          {safe.suspiciousBookings.map((b, i) => (
+            <div key={i} className="alert">
+              {b.reason}
+            </div>
+          ))}
         </div>
+      )}
 
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>User</th>
-              <th>Event</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {reports.map((r) => (
-              <tr key={r.booking_id}>
-                <td>{r.booking_id}</td>
-
-                <td>{r.user_name}</td>
-
-                <td>{r.event_title}</td>
-
-                <td>
-                  KES {r.payment_amount}
-                </td>
-
-                <td>{r.payment_status}</td>
-
-                <td>
-                  <button
-                    className="drill-btn"
-                    onClick={() =>
-                      openEvent(r.event_id)
-                    }
-                  >
-                    Drill
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* ================= PAGINATION ================= */}
-        <div className="pagination">
-
-          <button
-            disabled={page === 1}
-            onClick={() =>
-              setPage((p) => p - 1)
-            }
-          >
-            Prev
-          </button>
-
-          <span>Page {page}</span>
-
-          <button
-            onClick={() =>
-              setPage((p) => p + 1)
-            }
-          >
-            Next
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

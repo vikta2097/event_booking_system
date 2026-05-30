@@ -1,243 +1,94 @@
-/* ============================= */
-/*   GLOBAL SIDEBAR AWARE ROOT   */
-/* ============================= */
-
-:root {
-  --sidebar-width: 250px;
-  --sidebar-collapsed: 70px;
-  --transition: all 0.3s ease;
-}
-
-/* ============================= */
-/*       REPORT PAGE BASE        */
-/* ============================= */
-
-.reports-page {
-  margin-left: var(--sidebar-width);
+.reports-container {
   padding: 20px;
+  background: #f5f5f5;
   min-height: 100vh;
-  background: #f6f8fb;
-  font-family: Arial, sans-serif;
-  transition: var(--transition);
 }
-
-/* When sidebar is collapsed */
-.sidebar.collapsed ~ .reports-page {
-  margin-left: var(--sidebar-collapsed);
-}
-
-/* Mobile sidebar hidden */
-@media (max-width: 768px) {
-  .reports-page {
-    margin-left: 0;
-  }
-}
-
-/* ============================= */
-/*           HEADER              */
-/* ============================= */
 
 .reports-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-
-  flex-wrap: wrap;
-  gap: 10px;
 }
 
-.reports-header h2 {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.reports-header p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #666;
-}
-
-/* ============================= */
-/*        ACTION BUTTONS         */
-/* ============================= */
-
-.actions {
-  display: flex;
-  gap: 10px;
-}
-
-.actions button {
-  padding: 8px 14px;
+.header-actions button {
+  margin-left: 8px;
+  padding: 6px 10px;
+  background: #3b82f6;
+  color: white;
   border: none;
   border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  background: #1f6feb;
-  color: #fff;
-  transition: 0.2s;
 }
 
-.actions button:hover {
-  background: #1256c4;
+.date-filters button {
+  margin: 5px;
+  padding: 6px 10px;
+  border: none;
+  background: #ddd;
+  border-radius: 6px;
 }
 
-/* ============================= */
-/*          KPI GRID             */
-/* ============================= */
+.date-filters .active {
+  background: #3b82f6;
+  color: white;
+}
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  background: #fff;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  min-height: 100px;
-}
-
-.stat-card h4 {
-  font-size: 13px;
-  color: #666;
-  margin: 0;
-}
-
-.stat-card p {
-  font-size: 18px;
-  font-weight: bold;
-  margin-top: 8px;
-}
-
-/* ============================= */
-/*         CHART CONTAINERS      */
-/* ============================= */
-
-.stat-card {
-  position: relative;
-}
-
-.stat-card[style*="height"] {
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Recharts fix */
-.recharts-wrapper {
-  width: 100% !important;
-}
-
-/* ============================= */
-/*          FRAUD PANEL          */
-/* ============================= */
-
-.table-box {
-  background: #fff;
-  padding: 15px;
-  border-radius: 10px;
-  margin-top: 20px;
-  overflow-x: auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.table-box h4 {
-  margin: 0 0 10px;
-}
-
-/* ============================= */
-/*            TABLE              */
-/* ============================= */
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 700px;
-}
-
-thead {
-  background: #f1f3f6;
-}
-
-th, td {
-  padding: 12px;
-  font-size: 13px;
-  border-bottom: 1px solid #eee;
-  text-align: left;
-}
-
-tr:hover {
-  background: #fafafa;
-}
-
-/* ============================= */
-/*        FRAUD HIGHLIGHT        */
-/* ============================= */
-
-td[style*="red"] {
-  font-weight: bold;
-}
-
-/* ============================= */
-/*          PAGINATION           */
-/* ============================= */
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  margin-top: 15px;
+  margin-top: 20px;
 }
 
-.pagination button {
+.stat-card {
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.up { color: green; }
+.down { color: red; }
+
+.tabs {
+  margin-top: 20px;
+}
+
+.tabs button {
+  margin-right: 10px;
   padding: 6px 12px;
   border: none;
-  border-radius: 5px;
-  background: #333;
-  color: #fff;
-  cursor: pointer;
+  background: #ddd;
+  border-radius: 6px;
 }
 
-.pagination button:disabled {
-  background: #999;
-  cursor: not-allowed;
+.tabs .active {
+  background: #3b82f6;
+  color: white;
 }
 
-/* ============================= */
-/*          RESPONSIVE           */
-/* ============================= */
-
-@media (max-width: 1024px) {
-  .stats-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+.charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-top: 20px;
 }
 
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .reports-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.chart-box {
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
 }
 
-@media (max-width: 480px) {
-  .stat-card p {
-    font-size: 16px;
-  }
+.full {
+  grid-column: span 2;
+}
 
-  .actions button {
-    font-size: 12px;
-    padding: 6px 10px;
-  }
+.table {
+  background: white;
+  padding: 15px;
+  margin-top: 20px;
+  border-radius: 10px;
+}
+
+.compare {
+  margin-top: 15px;
 }
