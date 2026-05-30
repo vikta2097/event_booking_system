@@ -6,7 +6,7 @@ import OrganizerSidebar from "./OrganizerSidebar";
 import DashboardHome from "./DashboardHome";
 import Events from "../pages/Events";
 import OrganizerBookings from "./OrganizerBookings";
-import OrganizerReports from "./OrganizerReports";
+import OrganizerReports from "../pages/Reports";
 import TicketScanner from "./TicketScanner";
 import ChatbotWidget from "./ChatbotWidget";
 import NotificationBell from "../pages/NotificationBell";
@@ -53,7 +53,7 @@ const OrganizerDashboard = ({ onLogout }) => {
             <Route index element={<DashboardHome />} />
             <Route path="events" element={<Events currentUser={currentUser} />} />
             <Route path="bookings" element={<OrganizerBookings currentUser={currentUser} />} />
-            <Route path="reports" element={<OrganizerReports currentUser={currentUser} />} />
+            <Route path="reports" element={<Reports currentUser={currentUser} />} />
             <Route path="scan" element={<TicketScanner />} />
             <Route path="*" element={<Navigate to="." replace />} />
           </Routes>
