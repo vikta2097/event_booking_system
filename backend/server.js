@@ -3,30 +3,95 @@ const http = require("http");
 const cors = require("cors");
 const path = require("path");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const db = require("./db");
-
-// ===== AUTH MIDDLEWARE =====
 const { verifyToken } = require("./auth");
 
-// ===== SOCKET.IO SETUP =====
 const app = express();
 const server = http.createServer(app);
+
 const { Server } = require("socket.io");
 
+const JWT_SECRET = process.env.JWT_SECRET || "your_secret";
+
+// ================= SOCKET.IO =================
 const io = new Server(server, {
   cors: {
-    // ✅ Added null origin — React Native sends no Origin header (or null)
-    // Without this, every mobile API call gets blocked by CORS
     origin: [
       "http://localhost:3000",
       "https://eventhyper.netlify.app",
-      null, // React Native / Expo mobile app
     ],
     credentials: true,
   },
 });
 
-// ===== ROUTES =====
+// ================= SOCKET AUTH MIDDLEWARE =================
+io.use((socket, next) => {
+  try {
+    const token =
+      socket.handshake.auth?.token ||
+      socket.handshake.headers?.authorization?.split(" ")[1];
+
+    if (!token) {
+      return next(new Error("Authentication error: No token provided"));
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    socket.user = {
+      id: decoded.id,
+      role: decoded.role,
+    };
+
+    next();
+  } catch (err) {
+    next(new Error("Authentication error: Invalid token"));
+  }
+});
+
+// ================= SOCKET STATE =================
+const connectedUsers = new Map();
+
+// ================= SOCKET CONNECTION =================
+io.on("connection", (socket) => {
+  console.log(`🔐 Authenticated socket: ${socket.id}`, socket.user);
+
+  const userId = socket.user.id;
+
+  // Auto-join secure user room
+  const room = `user_${userId}`;
+  socket.join(room);
+
+  connectedUsers.set(userId, socket.id);
+
+  socket.emit("connected", {
+    message: "Socket authenticated successfully",
+    userId,
+    room,
+  });
+
+  // Optional heartbeat
+  socket.on("ping", () => socket.emit("pong"));
+
+  // SAFE: no user input room joining anymore
+  socket.on("join_user_room", () => {
+    socket.join(room);
+    socket.emit("joined_room", { room });
+  });
+
+  socket.on("disconnect", () => {
+    connectedUsers.delete(userId);
+    console.log(`❌ Socket disconnected: ${socket.id}`);
+  });
+});
+
+// ================= EXPORT SOCKET =================
+const getIO = () => io;
+
+module.exports.io = io;
+module.exports.getIO = getIO;
+
+// ================= ROUTES =================
 const authRoutes = require("./routes/authentification");
 const adminRoutes = require("./routes/admins");
 const bookingsRouter = require("./routes/bookings");
@@ -43,9 +108,8 @@ const ticketsRouter = require("./routes/tickets");
 const contactRoutes = require("./routes/contact");
 const testRoutes = require("./routes/test");
 const chatbotRoutes = require("./routes/chatbot");
-const tagsRouter = require('./routes/tags');
+const tagsRouter = require("./routes/tags");
 
-// Notifications
 const {
   router: notificationRoutes,
   attachSocket,
@@ -53,50 +117,10 @@ const {
 
 attachSocket(io);
 
-// M-Pesa callback
 const mpesaCallback = require("./routes/mpesaCallback");
-
-// Event scheduler
 require("./eventScheduler");
 
-// ===== SOCKET IO LOGIC =====
-const connectedUsers = new Map();
-
-io.on("connection", (socket) => {
-  console.log(`✅ Socket connected: ${socket.id}`);
-
-  socket.on("join_user_room", (userId) => {
-    const room = `user_${userId}`;
-    socket.join(room);
-    connectedUsers.set(userId, socket.id);
-    console.log(`👤 User ${userId} joined ${room}`);
-    socket.emit("joined_room", { userId, room });
-  });
-
-  socket.on("leave_user_room", (userId) => {
-    const room = `user_${userId}`;
-    socket.leave(room);
-    connectedUsers.delete(userId);
-    console.log(`👋 User ${userId} left ${room}`);
-  });
-
-  socket.on("disconnect", () => {
-    for (const [userId, id] of connectedUsers.entries()) {
-      if (id === socket.id) {
-        connectedUsers.delete(userId);
-        console.log(`❌ User ${userId} disconnected`);
-        break;
-      }
-    }
-    console.log(`❌ Socket disconnected: ${socket.id}`);
-  });
-
-  socket.on("ping", () => socket.emit("pong"));
-});
-
-global.io = io;
-
-// ===== CORS CONFIG =====
+// ================= CORS =================
 const allowedOrigins = [
   "http://localhost:3000",
   "https://eventhyper.netlify.app",
@@ -105,15 +129,11 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // ✅ Allow requests with no Origin header — this is how React Native
-      // (Expo) sends requests. Mobile apps don't have a browser origin.
-      // Previously this was blocked, causing all mobile API calls to fail
-      // with CORS errors even though the requests were legitimate.
       if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin))
+        return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-
-      callback(new Error("CORS not allowed for: " + origin));
+      return callback(new Error("CORS blocked"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -121,12 +141,12 @@ app.use(
   })
 );
 
-// ===== BODY PARSER & STATIC FILES =====
+// ================= MIDDLEWARE =================
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/uploads/avatars", express.static(path.join(__dirname, "uploads/avatars")));
 
-// ===== API ROUTES =====
+// ================= ROUTES =================
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingsRouter);
@@ -143,81 +163,77 @@ app.use("/api/tickets", ticketsRouter);
 app.use("/api/contact", contactRoutes);
 app.use("/api", testRoutes);
 app.use("/api/chatbot", chatbotRoutes);
-app.use('/api/tags', tagsRouter);
+app.use("/api/tags", tagsRouter);
 
-// 🔒 Protected notifications route
 app.use("/api/notifications", verifyToken, notificationRoutes);
 
-// M-Pesa callback
 mpesaCallback(app, db);
 
-// ===== TOKEN VALIDATION =====
-app.get("/api/validate-token", verifyToken, (req, res) => {
-  res.json({ valid: true, user: req.user });
-});
+// ================= SOCKET ACCESS IN ROUTES =================
+app.set("io", io);
 
-// ===== HEALTH CHECK =====
+// ================= HEALTH =================
 app.get("/", (req, res) => {
-  res.send("✅ Event Booking System API running...");
+  res.send("API running...");
 });
 
 app.get("/api/health", (req, res) => {
   res.json({
     status: "healthy",
-    timestamp: new Date().toISOString(),
     connectedUsers: connectedUsers.size,
+    timestamp: new Date().toISOString(),
   });
 });
 
-// ===== 404 =====
+// ================= TOKEN CHECK =================
+app.get("/api/validate-token", verifyToken, (req, res) => {
+  res.json({ valid: true, user: req.user });
+});
+
+// ================= ERROR HANDLING =================
 app.use((req, res) => {
-  res.status(404).json({ message: "Endpoint not found" });
+  res.status(404).json({ message: "Not found" });
 });
 
-// ===== GLOBAL ERROR HANDLER =====
 app.use((err, req, res, next) => {
-  console.error("❌ Unhandled error:", err);
-  res.status(500).json({ message: "Internal server error" });
+  console.error(err);
+  res.status(500).json({ message: "Server error" });
 });
 
-// ===== CREATE DEFAULT ADMIN =====
+// ================= ADMIN SEED =================
 const ensureDefaultAdmin = async () => {
   try {
     const result = await db.query(
       "SELECT * FROM usercredentials WHERE role = 'admin' LIMIT 1"
     );
+
     if (result.rows.length === 0) {
-      console.log("⚠️ Creating default admin...");
       const hash = await bcrypt.hash("Admin@123", 10);
+
       await db.query(
-        "INSERT INTO usercredentials (fullname, email, password_hash, role) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO usercredentials (fullname, email, password_hash, role) VALUES ($1,$2,$3,$4)",
         ["System Admin", "admin@system.com", hash, "admin"]
       );
-      console.log("✅ Default admin created");
-    } else {
-      console.log("✅ Admin already exists");
     }
-  } catch (error) {
-    console.error("❌ Error creating default admin:", error);
+  } catch (e) {
+    console.error(e);
   }
 };
 
-// ===== START SERVER =====
+// ================= START SERVER =================
 const startServer = async () => {
   try {
-    const client = await db.pool.connect();
-    client.release();
-    console.log("✅ Database connected.");
+    await db.pool.connect();
 
     const PORT = process.env.PORT || 3300;
+
     server.listen(PORT, async () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 CORS: ${allowedOrigins.join(", ")} + React Native (no-origin)`);
-      console.log(`🔌 Socket.IO ready`);
+      console.log(`Server running on ${PORT}`);
+      console.log(`Socket.IO secured & active`);
       await ensureDefaultAdmin();
     });
   } catch (err) {
-    console.error("❌ Failed to connect to DB:", err.message);
+    console.error("DB connection failed", err.message);
     process.exit(1);
   }
 };

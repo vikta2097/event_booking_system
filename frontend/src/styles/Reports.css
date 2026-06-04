@@ -1,137 +1,611 @@
-/* ============================= */
-/*   REPORTS PAGE (SIDEBAR SAFE) */
-/* ============================= */
 
-.container {
-  margin-left: 250px; /* 👈 CRITICAL: matches sidebar width */
-  padding: 20px;
-  background: #f5f5f5;
-  min-height: 100vh;
-  font-family: Arial, sans-serif;
-  transition: margin-left 0.3s ease;
+/* ── Wrapper ─────────────────────────────────────────────────────────────── */
+
+.reports-page {
+  font-family: var(--font-sans);
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
 }
 
-/* When sidebar is collapsed */
-.sidebar.collapsed ~ .container {
-  margin-left: 70px;
+/* ── Page header ─────────────────────────────────────────────────────────── */
+
+.reports-header {
+  margin-bottom: 1.5rem;
 }
 
-/* ============================= */
-/*           HEADER              */
-/* ============================= */
+.reports-header h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
 
-.header {
+.reports-header p {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 4px 0 0;
+}
+
+/* ── Filter bar ──────────────────────────────────────────────────────────── */
+
+.reports-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.reports-filters__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reports-filters__group label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.reports-filters__group input[type="date"],
+.reports-filters__group select {
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 0.5px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  outline: none;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  font-family: var(--font-sans);
+}
+
+.reports-filters__group input[type="date"]:focus,
+.reports-filters__group select:focus {
+  border-color: var(--color-primary);
+}
+
+.reports-filters__apply {
+  align-self: flex-end;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: opacity 0.15s;
+}
+
+.reports-filters__apply:hover {
+  opacity: 0.88;
+}
+
+.reports-filters__summary {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+/* ── Section nav pills ───────────────────────────────────────────────────── */
+
+.reports-nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.reports-nav__pill {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 0.5px solid var(--color-border-muted);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.reports-nav__pill:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.reports-nav__pill--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+/* ── State: loading / error ──────────────────────────────────────────────── */
+
+.reports-loading {
+  text-align: center;
+  padding: 3rem;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 0.5px solid var(--color-border);
+}
+
+.reports-loading__icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.reports-error {
+  padding: 1.25rem;
+  background: var(--color-danger-light);
+  border-radius: var(--radius-lg);
+  border: 0.5px solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reports-error__retry {
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-danger);
+  font-family: var(--font-sans);
+}
+
+/* ── Sections container ──────────────────────────────────────────────────── */
+
+.reports-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Card (shared panel shell) ───────────────────────────────────────────── */
+
+.rpt-card {
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+
+/* ── Section title ───────────────────────────────────────────────────────── */
+
+.rpt-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 0.5px solid var(--color-border);
+}
+
+/* ── Stat cards grid ─────────────────────────────────────────────────────── */
+
+.rpt-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.rpt-stat-card {
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rpt-stat-card__label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rpt-stat-card__value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.rpt-stat-card__sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.rpt-stat-card__sub--up   { color: var(--color-primary); }
+.rpt-stat-card__sub--down { color: var(--color-danger);  }
+
+/* ── Chart tooltip ───────────────────────────────────────────────────────── */
+
+.rpt-tooltip {
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--color-text-primary);
+  padding: 8px 12px;
+}
+
+.rpt-tooltip__label {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.rpt-tooltip__row {
+  margin: 2px 0;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.rpt-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  border: 1px dashed var(--color-border-muted);
+  border-radius: var(--radius-md);
+}
+
+/* ── Status badge ────────────────────────────────────────────────────────── */
+
+.rpt-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+  border: 1px solid transparent;
+}
+
+.rpt-badge--paid,
+.rpt-badge--completed { background: var(--color-primary-light); color: var(--color-primary); border-color: var(--color-primary); }
+.rpt-badge--confirmed { background: color-mix(in srgb, var(--color-secondary) 12%, transparent); color: var(--color-secondary); border-color: var(--color-secondary); }
+.rpt-badge--pending   { background: color-mix(in srgb, var(--color-accent)    12%, transparent); color: var(--color-accent);    border-color: var(--color-accent);   }
+.rpt-badge--failed,
+.rpt-badge--cancelled { background: var(--color-danger-light); color: var(--color-danger); border-color: var(--color-danger); }
+.rpt-badge--refunded  { background: color-mix(in srgb, var(--color-info)   12%, transparent); color: var(--color-info);    border-color: var(--color-info);    }
+.rpt-badge--unknown   { background: color-mix(in srgb, var(--color-muted)  12%, transparent); color: var(--color-muted);   border-color: var(--color-muted);   }
+
+/* ── Two-column grid (shared by several sections) ────────────────────────── */
+
+.rpt-col2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ── Revenue section ─────────────────────────────────────────────────────── */
+
+.rpt-revenue__header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
-.heading {
-  font-size: 22px;
-  font-weight: bold;
-  color: #1e3a5f;
-}
-
-.subHeadingLight {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.headerActions {
+.rpt-revenue__toggle {
   display: flex;
-  gap: 10px;
+  gap: 6px;
 }
 
-/* ============================= */
-/*        BUTTONS               */
-/* ============================= */
-
-.btnPrimary {
-  background: #3b82f6;
-  color: white;
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: none;
+.rpt-toggle-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
+  border: 0.5px solid var(--color-border-muted);
+  font-weight: 500;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 
-.btnSecondary {
-  background: #e5e7eb;
-  color: #374151;
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
+.rpt-toggle-btn--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
 }
 
-/* ============================= */
-/*        DATE RANGE            */
-/* ============================= */
+/* ── Booking activity section ────────────────────────────────────────────── */
 
-.rangeRow {
+.rpt-booking-headline {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.rangeBtn {
-  padding: 6px 12px;
-  border-radius: 20px;
-  background: #e5e7eb;
-  border: none;
-  cursor: pointer;
+.rpt-booking-headline__count {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.rpt-booking-headline__growth {
   font-size: 12px;
+  font-weight: 500;
 }
 
-.rangeBtnActive {
-  background: #3b82f6;
-  color: white;
+.rpt-booking-headline__growth--up   { color: var(--color-primary); }
+.rpt-booking-headline__growth--down { color: var(--color-danger);  }
+
+/* ── Attendance section ──────────────────────────────────────────────────── */
+
+.rpt-attendance {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 16px;
 }
 
-/* ============================= */
-/*         CARDS                */
-/* ============================= */
+/* ── Pie legend ──────────────────────────────────────────────────────────── */
 
-.card {
-  background: white;
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 15px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+.rpt-pie-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
 }
 
-/* ============================= */
-/*       RESPONSIVE             */
-/* ============================= */
+.rpt-pie-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
 
-@media (max-width: 1024px) {
-  .container {
-    margin-left: 220px;
+.rpt-pie-legend__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Operational section alerts ──────────────────────────────────────────── */
+
+.rpt-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rpt-alert {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  border-left: 3px solid transparent;
+}
+
+.rpt-alert--ok {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-left-color: var(--color-primary);
+}
+
+.rpt-alert--warning {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+
+.rpt-alert--danger {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border-left-color: var(--color-danger);
+}
+
+/* ── Suspicious bookings mini-table ──────────────────────────────────────── */
+
+.rpt-flagged {
+  margin-top: 16px;
+}
+
+.rpt-flagged__heading {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+/* ── Customer behavior section ───────────────────────────────────────────── */
+
+.rpt-avg-value {
+  margin-bottom: 12px;
+}
+
+.rpt-avg-value__label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.rpt-avg-value__number {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.rpt-peak-note {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+  text-align: center;
+}
+
+.rpt-peak-note strong {
+  color: var(--color-secondary);
+}
+
+/* ── Event success section ───────────────────────────────────────────────── */
+
+/* reuses .rpt-stats-grid + .rpt-card */
+
+/* ── Bookings detail table ───────────────────────────────────────────────── */
+
+.rpt-table-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.rpt-table-controls__search {
+  flex: 1;
+  min-width: 180px;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 0.5px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  outline: none;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  font-family: var(--font-sans);
+}
+
+.rpt-table-controls__search:focus {
+  border-color: var(--color-primary);
+}
+
+.rpt-table-controls__select {
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 0.5px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  outline: none;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+.rpt-table-controls__count {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.rpt-table-wrap {
+  overflow-x: auto;
+}
+
+.rpt-table {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.rpt-table thead tr {
+  background: var(--color-bg);
+}
+
+.rpt-table th {
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-bottom: 0.5px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.rpt-table td {
+  padding: 6px 10px;
+  border-bottom: 0.5px solid var(--color-border-soft);
+}
+
+.rpt-table__id      { color: var(--color-text-muted); }
+.rpt-table__event   { color: var(--color-text-primary); font-weight: 500; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rpt-table__name    { color: var(--color-text-secondary); }
+.rpt-table__date    { color: var(--color-text-secondary); white-space: nowrap; }
+.rpt-table__seats   { color: var(--color-text-secondary); text-align: center; }
+.rpt-table__amount  { color: var(--color-text-primary); font-weight: 500; }
+
+/* ── Pagination ──────────────────────────────────────────────────────────── */
+
+.rpt-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.rpt-pagination__btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 0.5px solid var(--color-border-muted);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.rpt-pagination__btn:disabled {
+  color: var(--color-border-muted);
+  cursor: not-allowed;
+}
+
+.rpt-pagination__btn:not(:disabled):hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.rpt-pagination__info {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 680px) {
+  .rpt-col2,
+  .rpt-attendance {
+    grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 768px) {
-  .container {
-    margin-left: 0; /* sidebar becomes overlay */
-  }
-}
-
-@media (max-width: 480px) {
-  .container {
-    padding: 12px;
+  .rpt-stats-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
-  .heading {
-    font-size: 18px;
+  .reports-filters {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .btnPrimary,
-  .btnSecondary {
-    padding: 6px 10px;
-    font-size: 12px;
+  .reports-filters__summary {
+    margin-left: 0;
   }
 }
