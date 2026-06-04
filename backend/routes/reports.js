@@ -58,22 +58,33 @@ const buildFilters = ({
   };
 };
 
+// ───────────────── analytics builder ─────────────────
+
 const buildAnalytics = (reports = []) => {
-  const totalRevenue = reports.reduce(
-    (s, r) => s + (parseFloat(r.payment_amount) || 0),
+  const safeAmount = (v) => parseFloat(v || 0);
+
+  // ONLY successful payments should count as revenue
+  const successful = reports.filter(
+    r => (r.payment_status || "").toLowerCase() === "success"
+  );
+
+  const totalRevenue = successful.reduce(
+    (s, r) => s + safeAmount(r.payment_amount),
     0
   );
 
   const totalBookings = reports.length;
   const totalEvents = new Set(reports.map(r => r.event_id)).size;
 
-  // ───── Time series ─────
+  // ───── time series ─────
   const tsMap = {};
 
   reports.forEach(r => {
     if (!r.booking_date) return;
 
     const d = new Date(r.booking_date);
+    if (isNaN(d)) return;
+
     const key = d.toISOString().split("T")[0];
 
     if (!tsMap[key]) {
@@ -88,11 +99,11 @@ const buildAnalytics = (reports = []) => {
       };
     }
 
-    tsMap[key].revenue += parseFloat(
-      r.booking_amount || r.payment_amount || 0
-    );
-
     tsMap[key].bookings += 1;
+
+    if ((r.payment_status || "").toLowerCase() === "success") {
+      tsMap[key].revenue += safeAmount(r.payment_amount);
+    }
   });
 
   const timeSeriesData = Object.values(tsMap)
@@ -103,11 +114,11 @@ const buildAnalytics = (reports = []) => {
       bookings,
     }));
 
-  // ───── Event performance ─────
+  // ───── event performance ─────
   const eventMap = {};
 
   reports.forEach(r => {
-    const id = r.event_id || `unknown-${r.event_title || "Unknown"}`;
+    const id = r.event_id || "unknown";
 
     if (!eventMap[id]) {
       eventMap[id] = {
@@ -115,22 +126,22 @@ const buildAnalytics = (reports = []) => {
         name: r.event_title || "Unknown",
         bookings: 0,
         revenue: 0,
-        date: r.event_date || null,
       };
     }
 
     eventMap[id].bookings += 1;
-    eventMap[id].revenue += parseFloat(
-      r.booking_amount || r.payment_amount || 0
-    );
+
+    if ((r.payment_status || "").toLowerCase() === "success") {
+      eventMap[id].revenue += safeAmount(r.payment_amount);
+    }
   });
 
   const eventPerformance = Object.values(eventMap)
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 10);
 
-  // ───── Status distributions ─────
-  const dist = (field, withPct = false) => {
+  // ───── distribution helper ─────
+  const dist = (field) => {
     const map = {};
 
     reports.forEach(r => {
@@ -141,57 +152,54 @@ const buildAnalytics = (reports = []) => {
     return Object.entries(map).map(([name, value]) => ({
       name: name.charAt(0).toUpperCase() + name.slice(1),
       value,
-      ...(withPct && {
-        percentage: Number(
-          ((value / (reports.length || 1)) * 100).toFixed(1)
-        ),
-      }),
     }));
   };
 
-  const paymentStatus = dist("payment_status", true);
+  const paymentStatus = dist("payment_status");
   const bookingStatus = dist("booking_status");
 
-  // ───── Growth ─────
-  const chron = [...reports].sort(
-    (a, b) => new Date(a.booking_date) - new Date(b.booking_date)
-  );
+  // ───── REAL growth (last 7 days vs previous 7 days) ─────
+  const sorted = [...reports]
+    .filter(r => r.booking_date)
+    .sort((a, b) => new Date(a.booking_date) - new Date(b.booking_date));
 
-  const mid = Math.floor(chron.length / 2);
+  const now = new Date();
+  const cutoff = new Date();
+  cutoff.setDate(now.getDate() - 7);
 
-  const first = chron.slice(0, mid);
-  const second = chron.slice(mid);
+  const last7 = sorted.filter(r => new Date(r.booking_date) >= cutoff);
+  const prev7 = sorted.filter(r => new Date(r.booking_date) < cutoff);
 
-  const sumRevenue = arr =>
+  const sumRevenue = (arr) =>
     arr.reduce(
       (s, r) =>
-        s + (parseFloat(r.booking_amount || r.payment_amount || 0) || 0),
+        (r.payment_status || "").toLowerCase() === "success"
+          ? s + safeAmount(r.payment_amount)
+          : s,
       0
     );
 
-  const firstRev = sumRevenue(first);
-  const secondRev = sumRevenue(second);
-
   const revenueGrowth =
-    firstRev > 0
-      ? Number((((secondRev - firstRev) / firstRev) * 100).toFixed(1))
-      : 0;
-
-  const bookingsGrowth =
-    first.length > 0
+    sumRevenue(prev7) > 0
       ? Number(
-          (((second.length - first.length) / first.length) * 100).toFixed(1)
+          (((sumRevenue(last7) - sumRevenue(prev7)) / sumRevenue(prev7)) * 100).toFixed(1)
         )
       : 0;
 
-  // ───── Avg booking value ─────
+  const bookingsGrowth =
+    prev7.length > 0
+      ? Number(
+          (((last7.length - prev7.length) / prev7.length) * 100).toFixed(1)
+        )
+      : 0;
+
+  // ───── avg booking ─────
   const avgBookingValue =
     totalBookings > 0 ? totalRevenue / totalBookings : 0;
 
-  // ───── Suspicious bookings ─────
+  // ───── suspicious bookings ─────
   const suspiciousBookings = reports.filter(r => {
-    const amount =
-      parseFloat(r.booking_amount || r.payment_amount || 0) || 0;
+    const amount = safeAmount(r.payment_amount);
 
     return (
       amount > avgBookingValue * 3 ||
@@ -199,28 +207,30 @@ const buildAnalytics = (reports = []) => {
     );
   });
 
-  // ───── Day of week ─────
-  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  // ───── day of week ─────
   const dayMap = {};
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   reports.forEach(r => {
     if (!r.booking_date) return;
 
-    const day = new Date(r.booking_date).toLocaleDateString("en-US", {
-      weekday: "short",
-    });
+    const d = new Date(r.booking_date);
+    if (isNaN(d)) return;
+
+    const day = days[d.getDay()];
 
     if (!dayMap[day]) {
       dayMap[day] = { day, bookings: 0, revenue: 0 };
     }
 
     dayMap[day].bookings += 1;
-    dayMap[day].revenue += parseFloat(
-      r.booking_amount || r.payment_amount || 0
-    );
+
+    if ((r.payment_status || "").toLowerCase() === "success") {
+      dayMap[day].revenue += safeAmount(r.payment_amount);
+    }
   });
 
-  const dayOfWeekData = dayNames.map(
+  const dayOfWeekData = days.map(
     d => dayMap[d] || { day: d, bookings: 0, revenue: 0 }
   );
 
@@ -245,7 +255,7 @@ const buildAnalytics = (reports = []) => {
   };
 };
 
-// ───────────────── main query ─────────────────
+// ───────────────── main query (FIXED: no duplicates) ─────────────────
 
 const REPORT_QUERY = `
 SELECT 
@@ -273,20 +283,22 @@ SELECT
 FROM bookings b
 LEFT JOIN events e ON b.event_id = e.id
 LEFT JOIN usercredentials u ON b.user_id = u.id
-LEFT JOIN payments p ON p.booking_id = b.id
+
+-- FIX: prevent duplicate rows from multiple payments
+LEFT JOIN LATERAL (
+  SELECT *
+  FROM payments p2
+  WHERE p2.booking_id = b.id
+  ORDER BY p2.created_at DESC
+  LIMIT 1
+) p ON true
 `;
 
-// ───────────────── admin/user reports ─────────────────
+// ───────────────── routes ─────────────────
 
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const {
-      startDate,
-      endDate,
-      eventId,
-      paymentStatus,
-      symbol,
-    } = req.query;
+    const { startDate, endDate, eventId, paymentStatus, symbol } = req.query;
 
     const isAdmin = req.user.role === "admin";
 
@@ -309,7 +321,6 @@ router.get("/", verifyToken, async (req, res) => {
 
     const analytics = buildAnalytics(reports);
 
-    // optional stock analytics
     let stockAnalytics = [];
 
     if (symbol) {
@@ -369,22 +380,15 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-// ───────────────── organizer reports ─────────────────
+// ───────────────── organizer ─────────────────
 
 router.get("/organizer", verifyToken, async (req, res) => {
   try {
     if (!["organizer", "admin"].includes(req.user.role)) {
-      return res
-        .status(403)
-        .json({ error: "Organizer access required" });
+      return res.status(403).json({ error: "Organizer access required" });
     }
 
-    const {
-      startDate,
-      endDate,
-      eventId,
-      paymentStatus,
-    } = req.query;
+    const { startDate, endDate, eventId, paymentStatus } = req.query;
 
     const { whereClause, values } = buildFilters({
       startDate,

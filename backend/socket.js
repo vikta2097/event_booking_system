@@ -1,64 +1,72 @@
-// socket.js
+const jwt = require("jsonwebtoken");
+
 let io = null;
 
-/**
- * Initialize Socket.IO instance
- * Called once from server.js
- */
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is not defined");
+}
+
 const initSocket = (serverIO) => {
   io = serverIO;
 
+  // 🔐 AUTH MIDDLEWARE
+  io.use((socket, next) => {
+    try {
+      const token =
+        socket.handshake.auth?.token ||
+        socket.handshake.headers?.authorization?.split(" ")[1];
+
+      if (!token) return next(new Error("No token"));
+
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      socket.user = {
+        id: decoded.id,
+        role: decoded.role,
+      };
+
+      next();
+    } catch {
+      next(new Error("Invalid token"));
+    }
+  });
+
   io.on("connection", (socket) => {
-    console.log(`🔌 Socket connected: ${socket.id}`);
+    const userId = socket.user.id;
+    const role = socket.user.role;
 
-    // Join user-specific room
-    socket.on("join_user_room", (userId) => {
-      socket.join(`user_${userId}`);
-      console.log(`👤 Joined user room: user_${userId}`);
-    });
+    // auto secure rooms
+    socket.join(`user_${userId}`);
+    socket.join(role);
 
-    // Join role-based rooms (admin / organizer)
-    socket.on("join_role_room", (role) => {
-      socket.join(role);
-      console.log(`🏷️ Joined role room: ${role}`);
+    console.log(`🔌 Auth socket: ${socket.id} (${userId})`);
+
+    socket.emit("connected", {
+      userId,
+      role,
     });
 
     socket.on("disconnect", () => {
-      console.log(`❌ Socket disconnected: ${socket.id}`);
+      console.log(`❌ Disconnected: ${socket.id}`);
     });
   });
 
   return io;
 };
 
-/**
- * Emit to a specific user
- */
+// helpers
 const emitToUser = (userId, event, payload) => {
   if (!io) return;
   io.to(`user_${userId}`).emit(event, payload);
 };
 
-/**
- * Emit to a role group (admin / organizer)
- */
 const emitToRole = (role, event, payload) => {
   if (!io) return;
   io.to(role).emit(event, payload);
 };
 
-/**
- * Broadcast to everyone
- */
 const emitToAll = (event, payload) => {
-  if (!io) return;
-  io.emit(event, payload);
-};
-
-/**
- * Emit to a specific event context (future scalability)
- */
-const emitEvent = (event, payload) => {
   if (!io) return;
   io.emit(event, payload);
 };
@@ -68,5 +76,4 @@ module.exports = {
   emitToUser,
   emitToRole,
   emitToAll,
-  emitEvent
 };
