@@ -1,9 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
-const { verifyToken } = require("../auth");
+const { verifyToken, verifyAdmin } = require("../auth");
 
-// ✅ Safe socket access (NO global)
+// Safe Socket.IO access
 const { getIO } = require("../socket");
 
 // Notifications
@@ -24,9 +24,9 @@ const emitEvent = (event, payload) => {
   }
 };
 
-// ======================
-// GET ALL BOOKINGS
-// ======================
+// ======================================================
+// GET ALL BOOKINGS (Admin / User scoped)
+// ======================================================
 router.get("/", verifyToken, async (req, res) => {
   try {
     const isAdmin = req.user.role === "admin";
@@ -53,7 +53,6 @@ router.get("/", verifyToken, async (req, res) => {
         u.fullname AS user_name,
         u.email AS user_email,
         u.phone AS user_phone
-
       FROM bookings b
       INNER JOIN events e ON b.event_id = e.id
       INNER JOIN usercredentials u ON b.user_id = u.id
@@ -70,8 +69,7 @@ router.get("/", verifyToken, async (req, res) => {
 
     const result = await db.query(query, params);
 
-    // attach tickets
-    const bookingsWithTickets = await Promise.all(
+    const enriched = await Promise.all(
       result.rows.map(async (b) => {
         const tickets = await db.query(
           `SELECT bt.*, tt.name AS ticket_name
@@ -80,53 +78,101 @@ router.get("/", verifyToken, async (req, res) => {
            WHERE bt.booking_id = $1`,
           [b.id]
         );
-
         return { ...b, tickets: tickets.rows };
       })
     );
 
-    res.json(bookingsWithTickets);
+    res.json(enriched);
   } catch (err) {
     console.error("Fetch bookings error:", err);
     res.status(500).json({ error: "Failed to fetch bookings" });
   }
 });
 
-// ======================
-// GET ORGANIZER BOOKINGS
-// ======================
-router.get("/organizer", verifyToken, async (req, res) => {
+// ======================================================
+// GET SINGLE BOOKING (FULL DETAILS)
+// ======================================================
+router.get("/:id", verifyToken, async (req, res) => {
   try {
+    const bookingId = req.params.id;
     const userId = req.user.id;
-
-    if (!["organizer", "admin"].includes(req.user.role)) {
-      return res.status(403).json({ error: "Organizer access required" });
-    }
+    const isAdmin = req.user.role === "admin";
 
     const result = await db.query(
       `
       SELECT 
-        b.id,
-        b.reference,
-        b.booking_date,
-        b.seats,
-        b.total_amount,
-        b.status AS booking_status,
-
-        e.id AS event_id,
+        b.*,
         e.title AS event_title,
         e.event_date,
-        e.start_time,
         e.location,
-        e.price AS event_price,
-
-        u.id AS user_id,
+        e.venue,
+        e.start_time,
+        e.end_time,
         u.fullname AS user_name,
         u.email AS user_email,
-        u.phone AS user_phone,
+        u.phone AS user_phone
+      FROM bookings b
+      INNER JOIN events e ON b.event_id = e.id
+      INNER JOIN usercredentials u ON b.user_id = u.id
+      WHERE b.id = $1
+      `,
+      [bookingId]
+    );
 
+    if (!result.rows.length)
+      return res.status(404).json({ error: "Booking not found" });
+
+    const booking = result.rows[0];
+
+    if (!isAdmin && booking.user_id !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const tickets = await db.query(
+      `
+      SELECT bt.*, tt.name, tt.description
+      FROM booking_tickets bt
+      JOIN ticket_types tt ON bt.ticket_type_id = tt.id
+      WHERE bt.booking_id = $1
+      `,
+      [bookingId]
+    );
+
+    const generated = await db.query(
+      `SELECT id, ticket_type_id, qr_code FROM tickets WHERE booking_id = $1`,
+      [bookingId]
+    );
+
+    booking.tickets = tickets.rows;
+    booking.generatedTickets = generated.rows;
+
+    res.json(booking);
+  } catch (err) {
+    console.error("Get booking error:", err);
+    res.status(500).json({ error: "Failed to fetch booking" });
+  }
+});
+
+// ======================================================
+// GET ORGANIZER BOOKINGS
+// ======================================================
+router.get("/organizer", verifyToken, async (req, res) => {
+  try {
+    if (!["organizer", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Organizer access required" });
+    }
+
+    const userId = req.user.id;
+
+    const result = await db.query(
+      `
+      SELECT 
+        b.*,
+        e.title AS event_title,
+        e.event_date,
+        e.location,
+        u.fullname AS user_name,
         p.status AS payment_status
-
       FROM bookings b
       INNER JOIN events e ON b.event_id = e.id
       INNER JOIN usercredentials u ON b.user_id = u.id
@@ -146,7 +192,6 @@ router.get("/organizer", verifyToken, async (req, res) => {
            WHERE bt.booking_id = $1`,
           [b.id]
         );
-
         return { ...b, tickets: tickets.rows };
       })
     );
@@ -158,9 +203,9 @@ router.get("/organizer", verifyToken, async (req, res) => {
   }
 });
 
-// ======================
-// CREATE BOOKING (SAFE + ATOMIC)
-// ======================
+// ======================================================
+// CREATE BOOKING (FULL SAFE TRANSACTION)
+// ======================================================
 router.post("/", verifyToken, async (req, res) => {
   const client = await db.getClient();
 
@@ -168,13 +213,12 @@ router.post("/", verifyToken, async (req, res) => {
     const { event_id, tickets } = req.body;
     const userId = req.user.id;
 
-    if (!event_id || !Array.isArray(tickets) || tickets.length === 0) {
-      return res.status(400).json({ error: "event_id and tickets required" });
+    if (!event_id || !Array.isArray(tickets) || !tickets.length) {
+      return res.status(400).json({ error: "Invalid request" });
     }
 
     await client.query("BEGIN");
 
-    // get event
     const eventRes = await client.query(
       "SELECT id, title, created_by FROM events WHERE id = $1",
       [event_id]
@@ -190,9 +234,6 @@ router.post("/", verifyToken, async (req, res) => {
     let totalAmount = 0;
     let totalSeats = 0;
 
-    // ======================
-    // LOCK TICKET ROWS
-    // ======================
     for (const t of tickets) {
       const ttRes = await client.query(
         `
@@ -210,7 +251,6 @@ router.post("/", verifyToken, async (req, res) => {
       }
 
       const tt = ttRes.rows[0];
-
       const available = tt.quantity_available - tt.quantity_sold;
 
       if (t.quantity > available) {
@@ -229,7 +269,6 @@ router.post("/", verifyToken, async (req, res) => {
       Date.now() +
       Math.random().toString(36).slice(2, 8).toUpperCase();
 
-    // create booking
     const bookingRes = await client.query(
       `
       INSERT INTO bookings
@@ -242,7 +281,6 @@ router.post("/", verifyToken, async (req, res) => {
 
     const bookingId = bookingRes.rows[0].id;
 
-    // insert tickets + atomic update
     for (const t of tickets) {
       const update = await client.query(
         `
@@ -256,21 +294,14 @@ router.post("/", verifyToken, async (req, res) => {
 
       if (update.rowCount === 0) {
         await client.query("ROLLBACK");
-        return res.status(400).json({
-          error: "Ticket limit exceeded during update",
-        });
+        return res.status(400).json({ error: "Stock conflict" });
       }
 
       await client.query(
         `
         INSERT INTO booking_tickets
         (booking_id, ticket_type_id, quantity, price)
-        VALUES (
-          $1,
-          $2,
-          $3,
-          (SELECT price FROM ticket_types WHERE id = $2)
-        )
+        VALUES ($1,$2,$3,(SELECT price FROM ticket_types WHERE id=$2))
         `,
         [bookingId, t.ticket_type_id, t.quantity]
       );
@@ -278,9 +309,6 @@ router.post("/", verifyToken, async (req, res) => {
 
     await client.query("COMMIT");
 
-    // ======================
-    // REAL-TIME EVENTS
-    // ======================
     emitEvent("booking_created", {
       booking_id: bookingId,
       user_id: userId,
@@ -291,18 +319,17 @@ router.post("/", verifyToken, async (req, res) => {
       reference,
     });
 
-    // notifications
     await sendNotification(
       userId,
       "🎫 Booking Created",
-      `Booking for "${event.title}" created successfully.`,
+      `Booking for "${event.title}" created.`,
       "booking",
       { booking_id: bookingId }
     );
 
     if (event.created_by) {
       const user = await db.query(
-        "SELECT fullname FROM usercredentials WHERE id = $1",
+        "SELECT fullname FROM usercredentials WHERE id=$1",
         [userId]
       );
 
@@ -315,24 +342,19 @@ router.post("/", verifyToken, async (req, res) => {
       });
     }
 
-    res.status(201).json({
-      success: true,
-      booking_id: bookingId,
-      reference,
-      total_amount: totalAmount,
-    });
+    res.status(201).json({ success: true, bookingId, reference });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("Booking error:", err);
+    console.error(err);
     res.status(500).json({ error: "Booking failed" });
   } finally {
     client.release();
   }
 });
 
-// ======================
+// ======================================================
 // CANCEL BOOKING
-// ======================
+// ======================================================
 router.put("/:id/cancel", verifyToken, async (req, res) => {
   const client = await db.getClient();
 
@@ -356,18 +378,22 @@ router.put("/:id/cancel", verifyToken, async (req, res) => {
 
     if (!result.rows.length) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Booking not found" });
+      return res.status(404).json({ error: "Not found" });
     }
 
     const booking = result.rows[0];
 
     if (!isAdmin && booking.user_id !== userId) {
       await client.query("ROLLBACK");
-      return res.status(403).json({ error: "Not allowed" });
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    if (booking.status === "cancelled") {
+      return res.status(400).json({ error: "Already cancelled" });
     }
 
     await client.query(
-      "UPDATE bookings SET status = 'cancelled' WHERE id = $1",
+      "UPDATE bookings SET status='cancelled' WHERE id=$1",
       [bookingId]
     );
 
@@ -390,7 +416,7 @@ router.put("/:id/cancel", verifyToken, async (req, res) => {
     res.json({ message: "Cancelled" });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("Cancel error:", err);
+    console.error(err);
     res.status(500).json({ error: "Cancel failed" });
   } finally {
     client.release();
