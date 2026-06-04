@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { Server } = require("socket.io");
 
 let io = null;
 
@@ -7,10 +8,21 @@ if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is not defined");
 }
 
-const initSocket = (serverIO) => {
-  io = serverIO;
+/**
+ * Initialize Socket.IO (ONLY ONCE)
+ */
+const initSocket = (server) => {
+  io = new Server(server, {
+    cors: {
+      origin: [
+        "http://localhost:3000",
+        "https://eventhyper.netlify.app",
+      ],
+      credentials: true,
+    },
+  });
 
-  // 🔐 AUTH MIDDLEWARE
+  // AUTH MIDDLEWARE
   io.use((socket, next) => {
     try {
       const token =
@@ -27,53 +39,40 @@ const initSocket = (serverIO) => {
       };
 
       next();
-    } catch {
+    } catch (err) {
       next(new Error("Invalid token"));
     }
   });
 
   io.on("connection", (socket) => {
-    const userId = socket.user.id;
-    const role = socket.user.role;
+    const { id, role } = socket.user;
 
-    // auto secure rooms
-    socket.join(`user_${userId}`);
+    socket.join(`user_${id}`);
     socket.join(role);
 
-    console.log(`🔌 Auth socket: ${socket.id} (${userId})`);
+    console.log(`🔌 Socket connected: ${socket.id} (${id})`);
 
-    socket.emit("connected", {
-      userId,
-      role,
-    });
+    socket.emit("connected", { userId: id, role });
 
     socket.on("disconnect", () => {
-      console.log(`❌ Disconnected: ${socket.id}`);
+      console.log(`❌ Socket disconnected: ${socket.id}`);
     });
   });
 
   return io;
 };
 
-// helpers
-const emitToUser = (userId, event, payload) => {
-  if (!io) return;
-  io.to(`user_${userId}`).emit(event, payload);
-};
-
-const emitToRole = (role, event, payload) => {
-  if (!io) return;
-  io.to(role).emit(event, payload);
-};
-
-const emitToAll = (event, payload) => {
-  if (!io) return;
-  io.emit(event, payload);
+/**
+ * Singleton getter
+ */
+const getIO = () => {
+  if (!io) {
+    throw new Error("Socket.IO not initialized. Call initSocket(server) first.");
+  }
+  return io;
 };
 
 module.exports = {
   initSocket,
-  emitToUser,
-  emitToRole,
-  emitToAll,
+  getIO,
 };

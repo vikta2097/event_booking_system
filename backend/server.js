@@ -2,7 +2,6 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const path = require("path");
-const bcrypt = require("bcrypt");
 const db = require("./db");
 const { verifyToken } = require("./auth");
 const { Server } = require("socket.io");
@@ -10,6 +9,7 @@ const { Server } = require("socket.io");
 const app = express();
 const server = http.createServer(app);
 
+// ================= SOCKET =================
 const io = new Server(server, {
   cors: {
     origin: [
@@ -20,9 +20,8 @@ const io = new Server(server, {
   },
 });
 
-// expose socket globally (for routes)
+// ✅ SINGLE SOURCE OF TRUTH (NO module.exports.io)
 app.set("io", io);
-module.exports.io = io;
 
 // ================= SOCKET INIT =================
 const { initSocket } = require("./socket");
@@ -70,8 +69,8 @@ app.use(cors({
     return cb(new Error("CORS blocked"));
   },
   credentials: true,
-  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
 // ================= MIDDLEWARE =================
@@ -100,8 +99,6 @@ app.use("/api/tags", tagsRouter);
 
 app.use("/api/notifications", verifyToken, notificationRoutes);
 
-mpesaCallback(app, db);
-
 // ================= HEALTH =================
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
@@ -113,7 +110,7 @@ const startServer = async () => {
 
   const PORT = process.env.PORT || 3300;
 
-  server.listen(PORT, async () => {
+  server.listen(PORT, () => {
     console.log(`Server running on ${PORT}`);
   });
 };
