@@ -218,7 +218,7 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
 
     const event = eventResult.rows[0];
 
-    if (req.user.role !== "admin" && req.user.id !== event.created_by) {
+    if (req.user.role !== "admin" && parseInt(req.user.id) !== parseInt(event.created_by)) {
       return res.status(403).json({ error: "Not allowed" });
     }
 
@@ -300,7 +300,7 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
 
     const ticketType = check.rows[0];
 
-    if (req.user.role !== "admin" && req.user.id !== ticketType.created_by) {
+    if (req.user.role !== "admin" && parseInt(req.user.id) !== parseInt(ticketType.created_by)) {
       return res.status(403).json({ error: "Permission denied" });
     }
 
@@ -407,7 +407,7 @@ router.delete("/ticket-types/:id", verifyToken, async (req, res) => {
 
     const ticketType = check.rows[0];
 
-    if (req.user.role !== "admin" && req.user.id !== ticketType.created_by) {
+    if (req.user.role !== "admin" && parseInt(req.user.id) !== parseInt(ticketType.created_by)) {
       return res.status(403).json({ error: "Permission denied" });
     }
 
