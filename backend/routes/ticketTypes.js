@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
-const { verifyToken, verifyAdmin } = require("../auth");
+const { verifyToken } = require("../auth");
 
 // ======================
 // GET ticket types for an event (public, accurate availability)
