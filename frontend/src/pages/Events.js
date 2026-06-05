@@ -21,8 +21,6 @@ const Events = ({ currentUser }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const tableWrapperRef = useRef(null);
-  const stickyScrollRef = useRef(null);
-  const stickyInnerRef = useRef(null);
 
   // -----------------------------
   // Helpers
@@ -36,7 +34,6 @@ const Events = ({ currentUser }) => {
     if (!event) return "upcoming";
     if (event.status === "cancelled") return "cancelled";
 
-    // event_date may be "2026-01-12" OR a full ISO "2026-01-12T00:00:00.000Z"
     const dateOnly = (event.event_date || "").toString().split("T")[0];
     const startStr = event.start_time || "00:00:00";
     const endStr = event.end_time || "23:59:59";
@@ -45,43 +42,27 @@ const Events = ({ currentUser }) => {
     const end = dateOnly ? new Date(`${dateOnly}T${endStr}`) : null;
     const now = new Date();
 
-    if (end && !isNaN(end) && now > end) return "expired";
-    if (start && end && !isNaN(start) && !isNaN(end) && now >= start && now <= end) return "ongoing";
-    // Known DB statuses fall through cleanly
+    if (end && now > end) return "expired";
+    if (start && end && now >= start && now <= end) return "ongoing";
+
     if (["upcoming", "active", "draft", "published"].includes(event.status)) {
-      return event.status === "active" || event.status === "published" ? "upcoming" : event.status;
+      return event.status === "active" || event.status === "published"
+        ? "upcoming"
+        : event.status;
     }
+
     return "upcoming";
   };
 
   // -----------------------------
-  // Fetch functions
+  // Fetch
   // -----------------------------
-  const fetchCategories = useCallback(async () => {
-    try {
-      const res = await api.get("/categories", { headers: getAuthHeaders() });
-      return res.data || [];
-    } catch {
-      return [];
-    }
-  }, []);
-
-  const fetchTags = useCallback(async () => {
-    try {
-      const res = await api.get("/tags", { headers: getAuthHeaders() });
-      return res.data || [];
-    } catch {
-      return [];
-    }
-  }, []);
-
   const fetchEvents = useCallback(
     async (categoryMap, tagMap) => {
       if (!currentUser) return;
 
       try {
         setLoading(true);
-        setError("");
 
         let url = "/events";
         if (currentUser.role === "admin") url = "/events/admin/all";
@@ -92,18 +73,10 @@ const Events = ({ currentUser }) => {
 
         const enhanced = (res.data || []).map((ev) => ({
           ...ev,
-          status: formatEventStatus(ev),
-          category_name:
-            categoryMap[ev.category_id] || ev.category_name || "-",
+          computed_status: formatEventStatus(ev),
+          category_name: categoryMap?.[ev.category_id] || ev.category_name || "-",
           organizer_name: ev.organizer_name || "-",
           organizer_image: ev.organizer_image || ev.image || "",
-          tags_display: ev.tag_ids
-            ? ev.tag_ids
-                .split(",")
-                .map((id) => tagMap[id])
-                .filter(Boolean)
-                .join(", ")
-            : "",
         }));
 
         setEvents(enhanced);
@@ -117,34 +90,70 @@ const Events = ({ currentUser }) => {
   );
 
   const refreshData = useCallback(async () => {
-    const [categoriesData, tagsData] = await Promise.all([
-      fetchCategories(),
-      fetchTags(),
+    const [categoriesRes, tagsRes] = await Promise.all([
+      api.get("/categories", { headers: getAuthHeaders() }).catch(() => ({ data: [] })),
+      api.get("/tags", { headers: getAuthHeaders() }).catch(() => ({ data: [] })),
     ]);
+
+    const categoriesData = categoriesRes.data || [];
+    const tagsData = tagsRes.data || [];
 
     setCategories(categoriesData);
     setTags(tagsData);
 
-    const categoryMap = Object.fromEntries(
-      categoriesData.map((c) => [c.id, c.name])
-    );
+    const categoryMap = Object.fromEntries(categoriesData.map((c) => [c.id, c.name]));
     const tagMap = Object.fromEntries(tagsData.map((t) => [t.id, t.name]));
 
     await fetchEvents(categoryMap, tagMap);
-  }, [fetchCategories, fetchTags, fetchEvents]);
+  }, [fetchEvents]);
 
   // -----------------------------
-  // Event handlers (MUST be ABOVE effects)
+  // Actions
   // -----------------------------
   const openModal = (event = null) => {
     setEditingEvent(event);
     setShowModal(true);
   };
 
+  // ✔ OPTIMISTIC DELETE + CUSTOM MINI MODAL
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure?")) return;
-    await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
-    refreshData();
+    const confirmDelete = await new Promise((resolve) => {
+      const modal = document.createElement("div");
+      modal.className = "mini-confirm";
+
+      modal.innerHTML = `
+        <div class="mini-confirm-box">
+          <p>Delete this event?</p>
+          <div class="mini-actions">
+            <button id="cancel">Cancel</button>
+            <button id="ok">Delete</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      modal.querySelector("#cancel").onclick = () => {
+        document.body.removeChild(modal);
+        resolve(false);
+      };
+
+      modal.querySelector("#ok").onclick = () => {
+        document.body.removeChild(modal);
+        resolve(true);
+      };
+    });
+
+    if (!confirmDelete) return;
+
+    const previous = events;
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+
+    try {
+      await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
+    } catch (err) {
+      setEvents(previous);
+    }
   };
 
   const handleDuplicate = (event) => {
@@ -154,7 +163,6 @@ const Events = ({ currentUser }) => {
       status: "upcoming",
     };
     delete copy.id;
-    delete copy.created_at;
     openModal(copy);
   };
 
@@ -164,13 +172,13 @@ const Events = ({ currentUser }) => {
   };
 
   // -----------------------------
-  // Filtered events (MUST be before effects using it)
+  // Filtered
   // -----------------------------
   const filteredEvents = events
     .filter((e) => {
       if (filterStatus === "active")
-        return e.status === "upcoming" || e.status === "ongoing";
-      if (filterStatus === "expired") return e.status === "expired";
+        return e.computed_status === "upcoming" || e.computed_status === "ongoing";
+      if (filterStatus === "expired") return e.computed_status === "expired";
       return true;
     })
     .filter((e) => {
@@ -192,33 +200,6 @@ const Events = ({ currentUser }) => {
     if (currentUser) refreshData();
   }, [currentUser, refreshData]);
 
-  useEffect(() => {
-    const wrapper = tableWrapperRef.current;
-    const sticky = stickyScrollRef.current;
-    const inner = stickyInnerRef.current;
-    if (!wrapper || !sticky || !inner) return;
-
-    const syncWidth = () => {
-      inner.style.width = wrapper.scrollWidth + "px";
-    };
-
-    syncWidth();
-
-    const onScroll = () => {
-      sticky.scrollLeft = wrapper.scrollLeft;
-    };
-
-    wrapper.addEventListener("scroll", onScroll);
-
-    const ro = new ResizeObserver(syncWidth);
-    ro.observe(wrapper);
-
-    return () => {
-      wrapper.removeEventListener("scroll", onScroll);
-      ro.disconnect();
-    };
-  }, [filteredEvents]);
-
   if (!currentUser) return <p>Loading user...</p>;
 
   // -----------------------------
@@ -226,20 +207,16 @@ const Events = ({ currentUser }) => {
   // -----------------------------
   return (
     <div className="events-container">
+
       <div className="events-header">
         <h2>Manage Events</h2>
         <button className="add-btn" onClick={() => openModal()}>➕ Add Event</button>
       </div>
 
       {currentUser.role === "admin" && (
-        <AdminPanels
-          categories={categories}
-          tags={tags}
-          onRefresh={refreshData}
-        />
+        <AdminPanels categories={categories} tags={tags} onRefresh={refreshData} />
       )}
 
-      {/* Fix 4: search input gets its class */}
       <div className="search-bar">
         <input
           className="search-input"
@@ -249,26 +226,10 @@ const Events = ({ currentUser }) => {
         />
       </div>
 
-      {/* Fix 5: active filter button gets .active class */}
       <div className="filter-buttons">
-        <button
-          className={filterStatus === "all" ? "active" : ""}
-          onClick={() => setFilterStatus("all")}
-        >
-          All
-        </button>
-        <button
-          className={filterStatus === "active" ? "active" : ""}
-          onClick={() => setFilterStatus("active")}
-        >
-          Active
-        </button>
-        <button
-          className={filterStatus === "expired" ? "active" : ""}
-          onClick={() => setFilterStatus("expired")}
-        >
-          Expired
-        </button>
+        <button className={filterStatus === "all" ? "active" : ""} onClick={() => setFilterStatus("all")}>All</button>
+        <button className={filterStatus === "active" ? "active" : ""} onClick={() => setFilterStatus("active")}>Active</button>
+        <button className={filterStatus === "expired" ? "active" : ""} onClick={() => setFilterStatus("expired")}>Expired</button>
       </div>
 
       {loading ? (
@@ -276,116 +237,61 @@ const Events = ({ currentUser }) => {
       ) : error ? (
         <p className="error">{error}</p>
       ) : (
-        <>
-          <div className="events-table-wrapper" ref={tableWrapperRef}>
-            <table className="events-table">
-              <colgroup>
-                <col style={{ width: "90px" }} />   {/* Image */}
-                <col style={{ minWidth: "160px" }} /> {/* Title */}
-                <col style={{ width: "120px" }} />  {/* Status */}
-                <col style={{ minWidth: "140px" }} /> {/* Location */}
-                <col style={{ minWidth: "120px" }} /> {/* Venue */}
-                <col style={{ width: "110px" }} />  {/* Date */}
-                <col style={{ minWidth: "130px" }} /> {/* Organizer */}
-                <col style={{ minWidth: "240px" }} /> {/* Actions */}
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Image</th>
-                  <th>Title</th>
-                  <th>Status</th>
-                  <th>Location</th>
-                  <th>Venue</th>
-                  <th>Date</th>
-                  <th>Organizer</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+        <div className="events-table-scroll" ref={tableWrapperRef}>
+          <table className="events-table">
 
-              <tbody>
-                {filteredEvents.map((event) => (
+            <thead>
+              <tr>
+                <th>Image</th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Location</th>
+                <th>Venue</th>
+                <th>Date</th>
+                <th>Organizer</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredEvents.map((event) => {
+                const s = (event.computed_status || "upcoming").toLowerCase();
+                return (
                   <tr key={event.id}>
-                    {/* Image */}
                     <td>
                       {event.organizer_image ? (
-                        <img
-                          src={event.organizer_image}
-                          alt={event.organizer_name || "organizer"}
-                          className="event-poster"
-                          onError={(e) => { e.target.style.display = "none"; }}
-                        />
+                        <img className="event-poster" src={event.organizer_image} alt="" />
                       ) : (
                         <div className="no-poster">🖼️</div>
                       )}
                     </td>
 
-                    {/* Title */}
                     <td>{event.title}</td>
 
-                    {/* Status — dedicated column, badge stays here */}
                     <td>
-                      {(() => {
-                        const s = (event.status || "upcoming").toLowerCase();
-                        const label = s.charAt(0).toUpperCase() + s.slice(1);
-                        return (
-                          <span className={`status-badge ${s}`}>
-                            <span className="status-dot" />
-                            {label}
-                          </span>
-                        );
-                      })()}
+                      <span className={`status-badge ${s}`}>{s}</span>
                     </td>
 
-                    {/* Location */}
-                    <td>
-                      {event.map_link ? (
-                        <a href={event.map_link} target="_blank" rel="noopener noreferrer">
-                          📍 {event.location || "View Map"}
-                        </a>
-                      ) : (
-                        event.location || <span className="no-tags">—</span>
-                      )}
-                    </td>
-
-                    {/* Venue */}
-                    <td>{event.venue || <span className="no-tags">—</span>}</td>
-
-                    {/* Date */}
-                    <td>{event.event_date?.split("T")[0] || event.event_date}</td>
-
-                    {/* Organizer */}
+                    <td>{event.location || "—"}</td>
+                    <td>{event.venue || "—"}</td>
+                    <td>{event.event_date?.split("T")[0]}</td>
                     <td>{event.organizer_name}</td>
 
-                    {/* Actions */}
                     <td>
                       <div className="action-buttons">
-                        <button className="btn-sm view" onClick={() => openModal(event)}>
-                          View
-                        </button>
-                        <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)}>
-                          Duplicate
-                        </button>
-                        <button className="btn-sm tickets" onClick={() => handleTicketManagement(event)}>
-                          Tickets
-                        </button>
-                        <button className="btn-sm delete" onClick={() => handleDelete(event.id)}>
-                          Delete
-                        </button>
+                        <button className="btn-sm view" onClick={() => openModal(event)}>View</button>
+                        <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)}>Duplicate</button>
+                        <button className="btn-sm tickets" onClick={() => handleTicketManagement(event)}>Tickets</button>
+                        <button className="btn-sm delete" onClick={() => handleDelete(event.id)}>Delete</button>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
 
-          <div className="events-sticky-scroll" ref={stickyScrollRef}>
-            <div
-              className="events-sticky-scroll-inner"
-              ref={stickyInnerRef}
-            />
-          </div>
-        </>
+          </table>
+        </div>
       )}
 
       {showModal && (
@@ -394,10 +300,7 @@ const Events = ({ currentUser }) => {
           categories={categories}
           tags={tags}
           currentUser={currentUser}
-          onClose={() => {
-            setShowModal(false);
-            setEditingEvent(null);
-          }}
+          onClose={() => setShowModal(false)}
           onSave={refreshData}
         />
       )}
@@ -406,10 +309,7 @@ const Events = ({ currentUser }) => {
         <TicketManagement
           event={selectedEventForTickets}
           isOpen={showTicketModal}
-          onClose={() => {
-            setShowTicketModal(false);
-            setSelectedEventForTickets(null);
-          }}
+          onClose={() => setShowTicketModal(false)}
         />
       )}
     </div>

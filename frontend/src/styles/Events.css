@@ -1138,3 +1138,48 @@
 .location-confirmed__clear:hover {
   color: #ef4444;
 }
+
+/* ===========================
+   MINI DELETE CONFIRM MODAL
+=========================== */
+
+.mini-confirm {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.mini-confirm-box {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  width: 260px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.mini-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.mini-actions button {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+#ok {
+  background: #ef4444;
+  color: white;
+}
+
+#cancel {
+  background: #e5e7eb;
+}
