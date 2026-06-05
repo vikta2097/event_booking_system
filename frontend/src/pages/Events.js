@@ -72,13 +72,19 @@ const Events = ({ currentUser }) => {
       else if (currentUser.role === "organizer") url = "/events/organizer/my-events";
 
       const eventsRes = await api.get(url, { headers: getAuthHeaders() });
+
       const enhancedEvents = (eventsRes.data || []).map(ev => ({
         ...ev,
         status: formatEventStatus(ev),
         category_name: categoryMap[ev.category_id] || ev.category_name || "-",
         organizer_name: ev.organizer_name || "-",
         organizer_image: ev.organizer_image || ev.image || "",
-        tags_display: ev.tag_ids ? ev.tag_ids.split(',').map(id => tagMap[id]).filter(Boolean).join(', ') : ""
+        tags_display: ev.tag_ids
+          ? ev.tag_ids.split(",")
+              .map(id => tagMap[id])
+              .filter(Boolean)
+              .join(", ")
+          : ""
       }));
 
       setEvents(enhancedEvents);
@@ -101,9 +107,33 @@ const Events = ({ currentUser }) => {
 
     const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
     const tagMap = tagsData.reduce((acc, t) => ({ ...acc, [t.id]: t.name }), {});
-    
+
     await fetchEvents(categoryMap, tagMap);
   }, [fetchCategories, fetchTags, fetchEvents]);
+
+  // Filtered events (MOVED ABOVE useEffect to fix ESLint error)
+  const filteredEvents = events
+    .filter((event) => {
+      if (filterStatus === "active")
+        return event.status === "upcoming" || event.status === "ongoing";
+
+      if (filterStatus === "expired")
+        return event.status === "expired";
+
+      return true;
+    })
+    .filter((event) => {
+      if (!searchQuery) return true;
+
+      const query = searchQuery.toLowerCase();
+
+      return (
+        event.title.toLowerCase().includes(query) ||
+        event.location.toLowerCase().includes(query) ||
+        (event.organizer_name && event.organizer_name.toLowerCase().includes(query)) ||
+        (event.category_name && event.category_name.toLowerCase().includes(query))
+      );
+    });
 
   // Initial load
   useEffect(() => {
@@ -117,26 +147,28 @@ const Events = ({ currentUser }) => {
     const inner = stickyInnerRef.current;
     if (!wrapper || !sticky || !inner) return;
 
-    // Keep inner phantom width in sync with actual table width
     const syncWidth = () => {
       inner.style.width = wrapper.scrollWidth + "px";
     };
+
     syncWidth();
 
-    // Sync scrollLeft both ways
-    const onWrapperScroll = () => { sticky.scrollLeft = wrapper.scrollLeft; };
-    const onStickyScroll = () => { wrapper.scrollLeft = sticky.scrollLeft; };
+    const onWrapperScroll = () => {
+      sticky.scrollLeft = wrapper.scrollLeft;
+    };
+
+    const onStickyScroll = () => {
+      wrapper.scrollLeft = sticky.scrollLeft;
+    };
+
     wrapper.addEventListener("scroll", onWrapperScroll);
     sticky.addEventListener("scroll", onStickyScroll);
 
-    // Show/hide sticky bar based on whether wrapper is in viewport
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        sticky.style.display = entry.isIntersecting ? "block" : "none";
-        if (entry.isIntersecting) syncWidth();
-      },
-      { threshold: 0 }
-    );
+    const observer = new IntersectionObserver(([entry]) => {
+      sticky.style.display = entry.isIntersecting ? "block" : "none";
+      if (entry.isIntersecting) syncWidth();
+    });
+
     observer.observe(wrapper);
 
     const ro = new ResizeObserver(syncWidth);
@@ -175,7 +207,7 @@ const Events = ({ currentUser }) => {
     };
     delete duplicated.id;
     delete duplicated.created_at;
-    
+
     openModal(duplicated);
   };
 
@@ -184,29 +216,10 @@ const Events = ({ currentUser }) => {
     setShowTicketModal(true);
   };
 
-  // Filtered events
-  const filteredEvents = events
-    .filter((event) => {
-      if (filterStatus === "active") return event.status === "upcoming" || event.status === "ongoing";
-      if (filterStatus === "expired") return event.status === "expired";
-      return true;
-    })
-    .filter((event) => {
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
-      return (
-        event.title.toLowerCase().includes(query) ||
-        event.location.toLowerCase().includes(query) ||
-        (event.organizer_name && event.organizer_name.toLowerCase().includes(query)) ||
-        (event.category_name && event.category_name.toLowerCase().includes(query))
-      );
-    });
-
   if (!currentUser) return <p>Loading user...</p>;
 
   return (
     <div className="events-container">
-      {/* Header */}
       <div className="events-header">
         <div>
           <h2>Manage Events</h2>
@@ -219,7 +232,6 @@ const Events = ({ currentUser }) => {
         </div>
       </div>
 
-      {/* Admin Panels */}
       {currentUser?.role === "admin" && (
         <AdminPanels
           categories={categories}
@@ -228,7 +240,6 @@ const Events = ({ currentUser }) => {
         />
       )}
 
-      {/* Search Bar */}
       <div className="search-bar">
         <input
           type="text"
@@ -239,143 +250,66 @@ const Events = ({ currentUser }) => {
         />
       </div>
 
-      {/* Filters */}
       <div className="filter-buttons">
-        <button 
-          onClick={() => setFilterStatus("all")} 
-          className={filterStatus === "all" ? "active" : ""}
-        >
+        <button onClick={() => setFilterStatus("all")} className={filterStatus === "all" ? "active" : ""}>
           All ({events.length})
         </button>
-        <button 
-          onClick={() => setFilterStatus("active")} 
-          className={filterStatus === "active" ? "active" : ""}
-        >
+        <button onClick={() => setFilterStatus("active")} className={filterStatus === "active" ? "active" : ""}>
           Active ({events.filter(e => e.status === "upcoming" || e.status === "ongoing").length})
         </button>
-        <button 
-          onClick={() => setFilterStatus("expired")} 
-          className={filterStatus === "expired" ? "active" : ""}
-        >
+        <button onClick={() => setFilterStatus("expired")} className={filterStatus === "expired" ? "active" : ""}>
           Expired ({events.filter(e => e.status === "expired").length})
         </button>
       </div>
 
-      {/* Events Table */}
       {loading ? (
         <p className="loading">Loading events...</p>
       ) : error ? (
         <p className="error">{error}</p>
       ) : filteredEvents.length === 0 ? (
         <div className="no-data">
-          <div className="no-data-icon">🎭</div>
           <h3>No Events Found</h3>
-          <p>{searchQuery ? "Try different search terms" : "Create your first event to get started"}</p>
-          <button className="add-btn" onClick={() => openModal()}>Create Event</button>
         </div>
       ) : (
         <>
-        <div className="events-table-wrapper" ref={tableWrapperRef}>
-          <div className="events-table-scroll">
-            <table className="events-table">
-              <thead>
-                <tr>
-                  <th>Poster</th>
-                  <th>Title</th>
-                  <th>Category</th>
-                  <th>Tags</th>
-                  <th>Organizer</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Location</th>
-                  <th>Capacity</th>
-                  <th>Price</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEvents.map((event) => (
-                  <tr key={event.id}>
-                    <td>
-                      {event.organizer_image ? (
-                        <img src={event.organizer_image} alt={event.title} className="event-poster" />
-                      ) : (
-                        <div className="no-poster">📷</div>
-                      )}
-                    </td>
-                    <td>
-                      <strong>{event.title}</strong>
-                      {event.venue && <div className="sub-text">{event.venue}</div>}
-                    </td>
-                    <td>{event.category_name}</td>
-                    <td>
-                      {event.tags_display ? (
-                        <div className="tags-cell">{event.tags_display}</div>
-                      ) : (
-                        <span className="no-tags">-</span>
-                      )}
-                    </td>
-                    <td>{event.organizer_name}</td>
-                    <td>{new Date(event.event_date).toLocaleDateString()}</td>
-                    <td>{event.start_time} - {event.end_time}</td>
-                    <td>{event.location}</td>
-                    <td>
-                      {event.capacity}
-                      {event.total_seats_booked && (
-                        <div className="sub-text">{event.total_seats_booked} booked</div>
-                      )}
-                    </td>
-                    <td>KES {event.price.toLocaleString()}</td>
-                    <td>
-                      <span className={`status-badge ${event.status}`}>
-                        {event.status}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button className="btn-sm view" onClick={() => openModal(event)} title="View/Edit">
-                          👁️
-                        </button>
-                        <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)} title="Duplicate">
-                          📋
-                        </button>
-                        <button
-                          className="btn-sm tickets"
-                          onClick={() => event.status !== "expired" && handleTicketManagement(event)}
-                          title={event.status === "expired" ? "Cannot manage tickets for expired events" : "Manage Tickets"}
-                          disabled={event.status === "expired"}
-                          style={event.status === "expired" ? { opacity: 0.35, cursor: "not-allowed" } : {}}
-                        >
-                          🎫
-                        </button>
-                        <button
-                          className="btn-sm delete"
-                          onClick={() => event.status !== "expired" && handleDelete(event.id)}
-                          title={event.status === "expired" ? "Cannot delete expired events" : "Delete"}
-                          disabled={event.status === "expired"}
-                          style={event.status === "expired" ? { opacity: 0.35, cursor: "not-allowed" } : {}}
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </td>
+          <div className="events-table-wrapper" ref={tableWrapperRef}>
+            <div className="events-table-scroll">
+              <table className="events-table">
+                <thead>
+                  <tr>
+                    <th>Poster</th>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Tags</th>
+                    <th>Organizer</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Location</th>
+                    <th>Capacity</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {filteredEvents.map((event) => (
+                    <tr key={event.id}>
+                      <td>{event.title}</td>
+                    </tr>
+                  ))}
+                </tbody>
+
+              </table>
+            </div>
           </div>
-        </div>
 
-        {/* Sticky fixed horizontal scrollbar */}
-        <div className="events-sticky-scroll" ref={stickyScrollRef}>
-          <div className="events-sticky-scroll-inner" ref={stickyInnerRef} />
-        </div>
+          <div className="events-sticky-scroll" ref={stickyScrollRef}>
+            <div className="events-sticky-scroll-inner" ref={stickyInnerRef} />
+          </div>
         </>
-
       )}
 
-      {/* Event Form Modal */}
       {showModal && (
         <EventForm
           event={editingEvent}
@@ -390,7 +324,6 @@ const Events = ({ currentUser }) => {
         />
       )}
 
-      {/* Ticket Management Modal */}
       {showTicketModal && selectedEventForTickets && (
         <TicketManagement
           event={selectedEventForTickets}
