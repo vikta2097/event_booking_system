@@ -157,12 +157,11 @@
 .events-table-wrapper {
   background: white;
   border-radius: 12px;
-  overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border: 1px solid #e5e7eb;
   position: relative;
-  /* Horizontal scroll lives HERE — always visible at the bottom of this box */
-  overflow-x: auto;
+  overflow-x: auto;    /* horizontal scrollbar — always at bottom of this box */
+  overflow-y: visible; /* vertical handled by page */
 }
 
 .events-table-scroll {
