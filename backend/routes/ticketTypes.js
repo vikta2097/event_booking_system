@@ -170,17 +170,19 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
     } = req.body;
 
     // ---------------------
-    // NORMALIZATION FIX
+    // NORMALIZATION — NaN-safe
     // ---------------------
-    price = price !== undefined && price !== "" ? parseFloat(price) : undefined;
-    quantity_available = quantity_available !== undefined && quantity_available !== "" ? parseInt(quantity_available) : undefined;
+    const safeFloat = (v) => { const n = parseFloat(v); return isNaN(n) ? undefined : n; };
+    const safeInt   = (v) => { const n = parseInt(v, 10); return isNaN(n) ? undefined : n; };
 
-    group_size = group_size !== undefined && group_size !== "" ? parseInt(group_size) : null;
-    group_discount_percent = group_discount_percent !== undefined && group_discount_percent !== "" ? parseFloat(group_discount_percent) : null;
+    price              = (price !== undefined && price !== "")              ? safeFloat(price)              : undefined;
+    quantity_available = (quantity_available !== undefined && quantity_available !== "") ? safeInt(quantity_available) : undefined;
+    group_size         = (group_size !== undefined && group_size !== "")    ? safeInt(group_size)           : null;
+    group_discount_percent = (group_discount_percent !== undefined && group_discount_percent !== "") ? safeFloat(group_discount_percent) : null;
 
     early_bird_deadline = early_bird_deadline && early_bird_deadline !== "" ? early_bird_deadline : null;
 
-    is_early_bird = Boolean(is_early_bird);
+    is_early_bird     = Boolean(is_early_bird);
     is_group_discount = Boolean(is_group_discount);
 
     // ---------------------
@@ -190,8 +192,8 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Name, price, and quantity_available are required" });
     }
 
-    if (price < 0) return res.status(400).json({ error: "Price cannot be negative" });
-    if (quantity_available < 1) return res.status(400).json({ error: "Quantity must be at least 1" });
+    if (isNaN(price) || price < 0)              return res.status(400).json({ error: "Price must be a valid number \u2265 0" });
+    if (isNaN(quantity_available) || quantity_available < 1) return res.status(400).json({ error: "Quantity must be a valid integer \u2265 1" });
 
     if (is_early_bird && !early_bird_deadline) {
       return res.status(400).json({ error: "Early bird deadline required when enabled" });
@@ -218,7 +220,7 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
 
     const event = eventResult.rows[0];
 
-    if (req.user.role !== "admin" && parseInt(req.user.id) !== parseInt(event.created_by)) {
+    if (req.user.role !== "admin" && req.user.id !== event.created_by) {
       return res.status(403).json({ error: "Not allowed" });
     }
 
@@ -274,17 +276,19 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
     } = req.body;
 
     // ---------------------
-    // NORMALIZATION FIX
+    // NORMALIZATION — NaN-safe
     // ---------------------
-    price = price !== undefined && price !== "" ? parseFloat(price) : undefined;
-    quantity_available = quantity_available !== undefined && quantity_available !== "" ? parseInt(quantity_available) : undefined;
+    const safeFloat2 = (v) => { const n = parseFloat(v); return isNaN(n) ? undefined : n; };
+    const safeInt2   = (v) => { const n = parseInt(v, 10); return isNaN(n) ? undefined : n; };
 
-    group_size = group_size !== undefined && group_size !== "" ? parseInt(group_size) : null;
-    group_discount_percent = group_discount_percent !== undefined && group_discount_percent !== "" ? parseFloat(group_discount_percent) : null;
+    price              = (price !== undefined && price !== "")              ? safeFloat2(price)              : undefined;
+    quantity_available = (quantity_available !== undefined && quantity_available !== "") ? safeInt2(quantity_available) : undefined;
+    group_size         = (group_size !== undefined && group_size !== "")    ? safeInt2(group_size)           : null;
+    group_discount_percent = (group_discount_percent !== undefined && group_discount_percent !== "") ? safeFloat2(group_discount_percent) : null;
 
     early_bird_deadline = early_bird_deadline && early_bird_deadline !== "" ? early_bird_deadline : null;
 
-    is_early_bird = Boolean(is_early_bird);
+    is_early_bird     = Boolean(is_early_bird);
     is_group_discount = Boolean(is_group_discount);
 
     const check = await db.query(`
@@ -300,7 +304,7 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
 
     const ticketType = check.rows[0];
 
-    if (req.user.role !== "admin" && parseInt(req.user.id) !== parseInt(ticketType.created_by)) {
+    if (req.user.role !== "admin" && req.user.id !== ticketType.created_by) {
       return res.status(403).json({ error: "Permission denied" });
     }
 
@@ -407,7 +411,7 @@ router.delete("/ticket-types/:id", verifyToken, async (req, res) => {
 
     const ticketType = check.rows[0];
 
-    if (req.user.role !== "admin" && parseInt(req.user.id) !== parseInt(ticketType.created_by)) {
+    if (req.user.role !== "admin" && req.user.id !== ticketType.created_by) {
       return res.status(403).json({ error: "Permission denied" });
     }
 
