@@ -8,6 +8,7 @@ const { verifyToken, verifyAdmin } = require("../auth");
 // ======================
 router.get("/events/:eventId/ticket-types", async (req, res) => {
   const { eventId } = req.params;
+
   try {
     const result = await db.query(`
       SELECT 
@@ -50,7 +51,7 @@ router.get("/events/:eventId/ticket-types", async (req, res) => {
 });
 
 // ======================
-// GET single ticket type with detailed info
+// GET single ticket type
 // ======================
 router.get("/ticket-types/:id", async (req, res) => {
   try {
@@ -92,13 +93,12 @@ router.get("/ticket-types/:id", async (req, res) => {
 });
 
 // ======================
-// GET ticket type analytics
+// ANALYTICS
 // ======================
 router.get("/ticket-types/:id/analytics", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Sales over time
     const salesTrendResult = await db.query(`
       SELECT 
         DATE(b.created_at) as date,
@@ -115,7 +115,6 @@ router.get("/ticket-types/:id/analytics", verifyToken, async (req, res) => {
       ORDER BY date ASC
     `, [id]);
 
-    // Peak booking times
     const peakTimesResult = await db.query(`
       SELECT 
         EXTRACT(HOUR FROM b.created_at) as hour,
@@ -129,7 +128,6 @@ router.get("/ticket-types/:id/analytics", verifyToken, async (req, res) => {
       LIMIT 5
     `, [id]);
 
-    // Average purchase quantity
     const avgQuantityResult = await db.query(`
       SELECT 
         AVG(bt.quantity) as avg_quantity,
@@ -147,21 +145,22 @@ router.get("/ticket-types/:id/analytics", verifyToken, async (req, res) => {
       purchase_stats: avgQuantityResult.rows[0]
     });
   } catch (err) {
-    console.error("Error fetching ticket type analytics:", err);
+    console.error("Error fetching analytics:", err);
     res.status(500).json({ error: "Failed to fetch analytics" });
   }
 });
 
 // ======================
-// CREATE ticket type with enhanced features
+// CREATE ticket type (FIXED SAFE NORMALIZATION)
 // ======================
 router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { 
-      name, 
-      description, 
-      price, 
+
+    let {
+      name,
+      description,
+      price,
       quantity_available,
       is_early_bird,
       early_bird_deadline,
@@ -170,71 +169,102 @@ router.post("/events/:eventId/ticket-types", verifyToken, async (req, res) => {
       group_discount_percent
     } = req.body;
 
+    // ---------------------
+    // NORMALIZATION FIX
+    // ---------------------
+    price = price !== undefined && price !== "" ? parseFloat(price) : undefined;
+    quantity_available = quantity_available !== undefined && quantity_available !== "" ? parseInt(quantity_available) : undefined;
+
+    group_size = group_size !== undefined && group_size !== "" ? parseInt(group_size) : null;
+    group_discount_percent = group_discount_percent !== undefined && group_discount_percent !== "" ? parseFloat(group_discount_percent) : null;
+
+    early_bird_deadline = early_bird_deadline && early_bird_deadline !== "" ? early_bird_deadline : null;
+
+    is_early_bird = Boolean(is_early_bird);
+    is_group_discount = Boolean(is_group_discount);
+
+    // ---------------------
+    // VALIDATION
+    // ---------------------
     if (!name || price === undefined || quantity_available === undefined) {
       return res.status(400).json({ error: "Name, price, and quantity_available are required" });
     }
+
     if (price < 0) return res.status(400).json({ error: "Price cannot be negative" });
     if (quantity_available < 1) return res.status(400).json({ error: "Quantity must be at least 1" });
 
-    // Validate early bird
     if (is_early_bird && !early_bird_deadline) {
-      return res.status(400).json({ error: "Early bird deadline required when early bird pricing is enabled" });
+      return res.status(400).json({ error: "Early bird deadline required when enabled" });
     }
 
-    // Validate group discount
     if (is_group_discount) {
-      if (!group_size || !group_discount_percent) {
-        return res.status(400).json({ error: "Group size and discount percent required for group discounts" });
+      if (group_size === null || group_discount_percent === null) {
+        return res.status(400).json({ error: "Group size and discount percent required" });
       }
+
       if (group_discount_percent < 0 || group_discount_percent > 100) {
-        return res.status(400).json({ error: "Discount percent must be between 0 and 100" });
+        return res.status(400).json({ error: "Discount percent must be 0–100" });
       }
     }
 
-    // Check event exists and permission
-    const eventResult = await db.query(`SELECT created_by FROM events WHERE id = $1`, [eventId]);
-    if (eventResult.rows.length === 0) return res.status(404).json({ error: "Event not found" });
+    const eventResult = await db.query(
+      `SELECT created_by FROM events WHERE id = $1`,
+      [eventId]
+    );
+
+    if (eventResult.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
 
     const event = eventResult.rows[0];
+
     if (req.user.role !== "admin" && req.user.id !== event.created_by) {
-      return res.status(403).json({ error: "Only event creator or admin can add ticket types" });
+      return res.status(403).json({ error: "Not allowed" });
     }
 
     const insert = await db.query(`
       INSERT INTO ticket_types 
-        (event_id, name, description, price, quantity_available, quantity_sold, 
-         is_early_bird, early_bird_deadline, is_group_discount, group_size, group_discount_percent)
-      VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $8, $9, $10)
+      (event_id, name, description, price, quantity_available, quantity_sold,
+       is_early_bird, early_bird_deadline,
+       is_group_discount, group_size, group_discount_percent)
+      VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8,$9,$10)
       RETURNING *
     `, [
-      eventId, 
-      name, 
-      description || null, 
-      parseFloat(price), 
-      parseInt(quantity_available),
-      is_early_bird || false,
-      early_bird_deadline || null,
-      is_group_discount || false,
-      group_size ? parseInt(group_size) : null,
-      group_discount_percent ? parseFloat(group_discount_percent) : null
+      eventId,
+      name,
+      description || null,
+      price,
+      quantity_available,
+      is_early_bird,
+      early_bird_deadline,
+      is_group_discount,
+      group_size,
+      group_discount_percent
     ]);
 
-    res.status(201).json({ message: "Ticket type created", ticketType: insert.rows[0] });
+    res.status(201).json({
+      message: "Ticket type created",
+      ticketType: insert.rows[0]
+    });
+
   } catch (err) {
     console.error("Error creating ticket type:", err);
-    res.status(500).json({ error: "Failed to create ticket type", details: err.message });
+    res.status(500).json({
+      error: "Failed to create ticket type",
+      details: err.message
+    });
   }
 });
 
 // ======================
-// UPDATE ticket type
+// UPDATE ticket type (FIXED NORMALIZATION)
 // ======================
 router.put("/ticket-types/:id", verifyToken, async (req, res) => {
   try {
-    const { 
-      name, 
-      description, 
-      price, 
+    let {
+      name,
+      description,
+      price,
       quantity_available,
       is_early_bird,
       early_bird_deadline,
@@ -243,7 +273,20 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
       group_discount_percent
     } = req.body;
 
-    // Fetch ticket type + event
+    // ---------------------
+    // NORMALIZATION FIX
+    // ---------------------
+    price = price !== undefined && price !== "" ? parseFloat(price) : undefined;
+    quantity_available = quantity_available !== undefined && quantity_available !== "" ? parseInt(quantity_available) : undefined;
+
+    group_size = group_size !== undefined && group_size !== "" ? parseInt(group_size) : null;
+    group_discount_percent = group_discount_percent !== undefined && group_discount_percent !== "" ? parseFloat(group_discount_percent) : null;
+
+    early_bird_deadline = early_bird_deadline && early_bird_deadline !== "" ? early_bird_deadline : null;
+
+    is_early_bird = Boolean(is_early_bird);
+    is_group_discount = Boolean(is_group_discount);
+
     const check = await db.query(`
       SELECT tt.*, e.created_by
       FROM ticket_types tt
@@ -251,27 +294,29 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
       WHERE tt.id = $1
     `, [req.params.id]);
 
-    if (check.rows.length === 0) return res.status(404).json({ error: "Ticket type not found" });
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: "Ticket type not found" });
+    }
 
     const ticketType = check.rows[0];
+
     if (req.user.role !== "admin" && req.user.id !== ticketType.created_by) {
       return res.status(403).json({ error: "Permission denied" });
     }
 
-    if (quantity_available !== undefined && parseInt(quantity_available) < ticketType.quantity_sold) {
-      return res.status(400).json({ 
-        error: `Cannot reduce quantity below ${ticketType.quantity_sold} already sold` 
+    if (quantity_available !== undefined &&
+        parseInt(quantity_available) < ticketType.quantity_sold) {
+      return res.status(400).json({
+        error: `Cannot reduce below ${ticketType.quantity_sold}`
       });
     }
 
-    // Validate early bird
-    if (is_early_bird && !early_bird_deadline) {
-      return res.status(400).json({ error: "Early bird deadline required" });
-    }
-
-    // Validate group discount
-    if (is_group_discount && (!group_size || !group_discount_percent)) {
-      return res.status(400).json({ error: "Group size and discount percent required" });
+    if (is_group_discount) {
+      if (group_size === null || group_discount_percent === null) {
+        return res.status(400).json({
+          error: "Group size and discount percent required"
+        });
+      }
     }
 
     const updates = [];
@@ -280,39 +325,54 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
 
     if (name) { updates.push(`name = $${i++}`); values.push(name); }
     if (description !== undefined) { updates.push(`description = $${i++}`); values.push(description); }
-    if (price !== undefined) { updates.push(`price = $${i++}`); values.push(parseFloat(price)); }
-    if (quantity_available !== undefined) { 
-      updates.push(`quantity_available = $${i++}`); 
-      values.push(parseInt(quantity_available)); 
-    }
+    if (price !== undefined) { updates.push(`price = $${i++}`); values.push(price); }
+    if (quantity_available !== undefined) { updates.push(`quantity_available = $${i++}`); values.push(quantity_available); }
+
     if (is_early_bird !== undefined) {
       updates.push(`is_early_bird = $${i++}`);
       values.push(is_early_bird);
     }
+
     if (early_bird_deadline !== undefined) {
       updates.push(`early_bird_deadline = $${i++}`);
       values.push(early_bird_deadline);
     }
+
     if (is_group_discount !== undefined) {
       updates.push(`is_group_discount = $${i++}`);
       values.push(is_group_discount);
     }
+
     if (group_size !== undefined) {
       updates.push(`group_size = $${i++}`);
-      values.push(group_size ? parseInt(group_size) : null);
+      values.push(group_size);
     }
+
     if (group_discount_percent !== undefined) {
       updates.push(`group_discount_percent = $${i++}`);
-      values.push(group_discount_percent ? parseFloat(group_discount_percent) : null);
+      values.push(group_discount_percent);
     }
 
-    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
+    if (updates.length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
 
     values.push(req.params.id);
-    const updateQuery = `UPDATE ticket_types SET ${updates.join(", ")} WHERE id = $${i} RETURNING *`;
+
+    const updateQuery = `
+      UPDATE ticket_types
+      SET ${updates.join(", ")}
+      WHERE id = $${i}
+      RETURNING *
+    `;
+
     const updated = await db.query(updateQuery, values);
 
-    res.json({ message: "Ticket type updated", ticketType: updated.rows[0] });
+    res.json({
+      message: "Ticket type updated",
+      ticketType: updated.rows[0]
+    });
+
   } catch (err) {
     console.error("Error updating ticket type:", err);
     res.status(500).json({ error: "Failed to update ticket type" });
@@ -324,13 +384,14 @@ router.put("/ticket-types/:id", verifyToken, async (req, res) => {
 // ======================
 router.delete("/ticket-types/:id", verifyToken, async (req, res) => {
   try {
-    // Prevent deletion if any tickets exist
     const checkBookings = await db.query(`
       SELECT COUNT(*) as count FROM booking_tickets WHERE ticket_type_id = $1
     `, [req.params.id]);
 
     if (parseInt(checkBookings.rows[0].count) > 0) {
-      return res.status(400).json({ error: "Cannot delete ticket type with existing bookings" });
+      return res.status(400).json({
+        error: "Cannot delete ticket type with bookings"
+      });
     }
 
     const check = await db.query(`
@@ -340,15 +401,20 @@ router.delete("/ticket-types/:id", verifyToken, async (req, res) => {
       WHERE tt.id = $1
     `, [req.params.id]);
 
-    if (check.rows.length === 0) return res.status(404).json({ error: "Ticket type not found" });
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: "Ticket type not found" });
+    }
 
     const ticketType = check.rows[0];
+
     if (req.user.role !== "admin" && req.user.id !== ticketType.created_by) {
       return res.status(403).json({ error: "Permission denied" });
     }
 
     await db.query(`DELETE FROM ticket_types WHERE id = $1`, [req.params.id]);
-    res.json({ message: "Ticket type deleted successfully" });
+
+    res.json({ message: "Deleted successfully" });
+
   } catch (err) {
     console.error("Error deleting ticket type:", err);
     res.status(500).json({ error: "Failed to delete ticket type" });
@@ -356,11 +422,9 @@ router.delete("/ticket-types/:id", verifyToken, async (req, res) => {
 });
 
 // ======================
-// GET available ticket types for booking (only non-sold-out)
+// AVAILABLE TICKETS
 // ======================
 router.get("/events/:eventId/available-tickets", async (req, res) => {
-  const { eventId } = req.params;
-  
   try {
     const result = await db.query(`
       SELECT 
@@ -382,9 +446,10 @@ router.get("/events/:eventId/available-tickets", async (req, res) => {
       WHERE tt.event_id = $1
         AND (tt.quantity_available - tt.quantity_sold) > 0
       ORDER BY tt.price ASC
-    `, [eventId]);
+    `, [req.params.eventId]);
 
     res.json({ available_tickets: result.rows });
+
   } catch (err) {
     console.error("Error fetching available tickets:", err);
     res.status(500).json({ error: "Failed to fetch available tickets" });
