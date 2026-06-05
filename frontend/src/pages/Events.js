@@ -274,6 +274,7 @@ const Events = ({ currentUser }) => {
           <button className="add-btn" onClick={() => openModal()}>Create Event</button>
         </div>
       ) : (
+        <>
         <div className="events-table-wrapper" ref={tableWrapperRef}>
           <div className="events-table-scroll">
             <table className="events-table">
@@ -370,6 +371,8 @@ const Events = ({ currentUser }) => {
         <div className="events-sticky-scroll" ref={stickyScrollRef}>
           <div className="events-sticky-scroll-inner" ref={stickyInnerRef} />
         </div>
+        </>
+
       )}
 
       {/* Event Form Modal */}
