@@ -160,33 +160,8 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border: 1px solid #e5e7eb;
   position: relative;
-  overflow-x: scroll;  /* always show horizontal scrollbar, even before scrolling */
+  overflow-x: auto;    /* horizontal scrollbar — always at bottom of this box */
   overflow-y: visible; /* vertical handled by page */
-}
-
-/* Sticky horizontal scrollbar — stays visible at the bottom of the viewport
-   even when the user hasn't scrolled to the bottom of the table */
-.events-table-wrapper::-webkit-scrollbar {
-  height: 10px;
-}
-.events-table-wrapper::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-radius: 6px;
-  border: 2px solid #f9fafb;
-}
-.events-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-}
-.events-table-wrapper::-webkit-scrollbar-track {
-  background: #f9fafb;
-  border-radius: 6px;
-}
-
-/* Position the scrollbar track so it sticks to the bottom of the visible area */
-@supports (overflow: overlay) {
-  .events-table-wrapper {
-    overflow-x: overlay;
-  }
 }
 
 .events-table-scroll {
@@ -201,6 +176,23 @@
   min-width: 1200px;
   border-collapse: collapse;
   width: 100%;
+}
+
+/* Horizontal scrollbar on the WRAPPER (always visible at bottom) */
+.events-table-wrapper::-webkit-scrollbar {
+  height: 10px;
+}
+.events-table-wrapper::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 6px;
+  border: 2px solid #f9fafb;
+}
+.events-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+.events-table-wrapper::-webkit-scrollbar-track {
+  background: #f9fafb;
+  border-radius: 6px;
 }
 
 /* events-table-scroll vertical scroll removed — page scrolls instead */
@@ -1035,27 +1027,15 @@
 .events-table td:last-child {
   min-width: 180px;
   white-space: nowrap;
-  overflow: visible;
 }
 
-/* Status column — fixed width so badge stays contained and never bleeds into actions */
+/* Status column — contained width so badge never bleeds into actions */
 .events-table th:nth-last-child(2),
 .events-table td:nth-last-child(2) {
   min-width: 120px;
   max-width: 140px;
   white-space: nowrap;
   overflow: hidden;
-}
-
-/* Ensure status badge never overflows its cell */
-.status-badge {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  position: static !important;
-  z-index: auto !important;
 }
 
 /* btn-sm — see primary definition above */
