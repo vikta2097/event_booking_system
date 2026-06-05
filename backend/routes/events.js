@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { verifyToken, verifyAdmin } = require("../auth");
+const { deleteEvent } = require("../services/eventService");
 const multer = require("multer");
 const csv = require("csv-parser");
 const fs = require("fs");
@@ -771,21 +772,38 @@ router.put("/:id", verifyToken, async (req, res) => {
 // ======================
 // DELETE event
 // ======================
+/* ======================
+   DELETE event (FIXED)
+====================== */
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
-    const existingResult = await db.query("SELECT * FROM events WHERE id = $1", [req.params.id]);
-    if (existingResult.rows.length === 0) return res.status(404).json({ error: "Event not found" });
+    const user = req.user;
 
-    const event = existingResult.rows[0];
-    if (req.user.id !== event.created_by && req.user.role !== "admin") {
-      return res.status(403).json({ error: "Forbidden: not allowed to delete this event" });
+    // 🔒 basic defense layer (don’t rely only on service)
+    if (!user || !user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
-    await db.query("DELETE FROM events WHERE id = $1", [req.params.id]);
-    res.json({ message: "Event deleted successfully" });
+    const result = await deleteEvent(req.params.id, user);
+
+    // service-level failure handling
+    if (!result?.success) {
+      return res.status(result.status || 500).json({
+        error: result.message || "Failed to delete event",
+        details: result.error || null,
+      });
+    }
+
+    return res.json({
+      message: "Event deleted successfully",
+    });
+
   } catch (err) {
-    console.error("Error deleting event:", err);
-    res.status(500).json({ error: "Failed to delete event" });
+    console.error("DELETE /events/:id crash:", err);
+
+    return res.status(500).json({
+      error: "Internal server error during delete",
+    });
   }
 });
 

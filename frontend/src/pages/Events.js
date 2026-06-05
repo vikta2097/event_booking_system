@@ -20,6 +20,8 @@ const Events = ({ currentUser }) => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [deletingId, setDeletingId] = useState(null); // ✅ FIX: delete lock
+
   const tableWrapperRef = useRef(null);
 
   // -----------------------------
@@ -81,6 +83,7 @@ const Events = ({ currentUser }) => {
 
         setEvents(enhanced);
       } catch (err) {
+        console.error(err);
         setError("Failed to fetch events");
       } finally {
         setLoading(false);
@@ -115,8 +118,12 @@ const Events = ({ currentUser }) => {
     setShowModal(true);
   };
 
-  // ✔ OPTIMISTIC DELETE + CUSTOM MINI MODAL
+  // -----------------------------
+  // FIXED DELETE (anti-spam + rollback + lock)
+  // -----------------------------
   const handleDelete = async (id) => {
+    if (deletingId === id) return; // prevent double execution
+
     const confirmDelete = await new Promise((resolve) => {
       const modal = document.createElement("div");
       modal.className = "mini-confirm";
@@ -146,13 +153,23 @@ const Events = ({ currentUser }) => {
 
     if (!confirmDelete) return;
 
-    const previous = events;
+    setDeletingId(id);
+
+    const previous = [...events]; // ✅ FIX: real snapshot copy
+
     setEvents((prev) => prev.filter((e) => e.id !== id));
 
     try {
-      await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
+      await api.delete(`/events/${id}`, {
+        headers: getAuthHeaders(),
+      });
     } catch (err) {
+      console.error("Delete failed:", err?.response || err);
+
+      // rollback UI
       setEvents(previous);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -210,7 +227,9 @@ const Events = ({ currentUser }) => {
 
       <div className="events-header">
         <h2>Manage Events</h2>
-        <button className="add-btn" onClick={() => openModal()}>➕ Add Event</button>
+        <button className="add-btn" onClick={() => openModal()}>
+          ➕ Add Event
+        </button>
       </div>
 
       {currentUser.role === "admin" && (
@@ -227,9 +246,15 @@ const Events = ({ currentUser }) => {
       </div>
 
       <div className="filter-buttons">
-        <button className={filterStatus === "all" ? "active" : ""} onClick={() => setFilterStatus("all")}>All</button>
-        <button className={filterStatus === "active" ? "active" : ""} onClick={() => setFilterStatus("active")}>Active</button>
-        <button className={filterStatus === "expired" ? "active" : ""} onClick={() => setFilterStatus("expired")}>Expired</button>
+        <button className={filterStatus === "all" ? "active" : ""} onClick={() => setFilterStatus("all")}>
+          All
+        </button>
+        <button className={filterStatus === "active" ? "active" : ""} onClick={() => setFilterStatus("active")}>
+          Active
+        </button>
+        <button className={filterStatus === "expired" ? "active" : ""} onClick={() => setFilterStatus("expired")}>
+          Expired
+        </button>
       </div>
 
       {loading ? (
@@ -239,7 +264,6 @@ const Events = ({ currentUser }) => {
       ) : (
         <div className="events-table-scroll" ref={tableWrapperRef}>
           <table className="events-table">
-
             <thead>
               <tr>
                 <th>Image</th>
@@ -256,6 +280,7 @@ const Events = ({ currentUser }) => {
             <tbody>
               {filteredEvents.map((event) => {
                 const s = (event.computed_status || "upcoming").toLowerCase();
+
                 return (
                   <tr key={event.id}>
                     <td>
@@ -279,10 +304,25 @@ const Events = ({ currentUser }) => {
 
                     <td>
                       <div className="action-buttons">
-                        <button className="btn-sm view" onClick={() => openModal(event)}>View</button>
-                        <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)}>Duplicate</button>
-                        <button className="btn-sm tickets" onClick={() => handleTicketManagement(event)}>Tickets</button>
-                        <button className="btn-sm delete" onClick={() => handleDelete(event.id)}>Delete</button>
+                        <button className="btn-sm view" onClick={() => openModal(event)}>
+                          View
+                        </button>
+
+                        <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)}>
+                          Duplicate
+                        </button>
+
+                        <button className="btn-sm tickets" onClick={() => handleTicketManagement(event)}>
+                          Tickets
+                        </button>
+
+                        <button
+                          className="btn-sm delete"
+                          onClick={() => handleDelete(event.id)}
+                          disabled={deletingId === event.id}
+                        >
+                          {deletingId === event.id ? "Deleting..." : "Delete"}
+                        </button>
                       </div>
                     </td>
                   </tr>
