@@ -179,7 +179,7 @@
 }
 
 .events-table-scroll table {
-  min-width: 1200px;
+  min-width: 900px;
   border-collapse: collapse;
   width: 100%;
 }
@@ -231,7 +231,7 @@
 /* Table */
 .events-table {
   width: 100%;
-  min-width: 1200px; /* ensures horizontal scroll triggers */
+  min-width: 900px; /* 8 columns — triggers horizontal scroll on small screens */
   border-collapse: separate;
   border-spacing: 0;
   background: white;
@@ -1054,20 +1054,33 @@
 
 /* .action-buttons — see primary definition above */
 
-/* Make sure Actions column has enough width for all 4 buttons in one row */
-.events-table th:last-child,
-.events-table td:last-child {
-  min-width: 180px;
+/* Make sure Actions column (col 8) has enough width for all 4 buttons in one row */
+.events-table th:nth-child(8),
+.events-table td:nth-child(8) {
+  min-width: 220px;
   white-space: nowrap;
 }
 
-/* Status column — contained width so badge never bleeds into actions */
-.events-table th:nth-last-child(2),
-.events-table td:nth-last-child(2) {
-  min-width: 120px;
+/* Status column (col 3) — contained width so badge stays inside its own cell */
+.events-table th:nth-child(3),
+.events-table td:nth-child(3) {
+  min-width: 110px;
   max-width: 140px;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
+}
+
+/* Title column (col 2) — allow wrapping for long names */
+.events-table th:nth-child(2),
+.events-table td:nth-child(2) {
+  min-width: 160px;
+  max-width: 220px;
+}
+
+/* Location column (col 4) */
+.events-table th:nth-child(4),
+.events-table td:nth-child(4) {
+  min-width: 140px;
 }
 
 /* btn-sm — see primary definition above */
