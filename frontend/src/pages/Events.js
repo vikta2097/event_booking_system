@@ -269,9 +269,23 @@ const Events = ({ currentUser }) => {
             <table className="events-table">
               <thead>
                 <tr>
+                  <th>Image</th>
                   <th>Title</th>
+                  <th>Description</th>
                   <th>Category</th>
+                  <th>Tags</th>
                   <th>Status</th>
+                  <th>Price (KES)</th>
+                  <th>Capacity</th>
+                  <th>Early Bird</th>
+                  <th>Location</th>
+                  <th>Venue</th>
+                  <th>Parking</th>
+                  <th>Date</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Organizer</th>
+                  <th>Email</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -279,15 +293,90 @@ const Events = ({ currentUser }) => {
               <tbody>
                 {filteredEvents.map((event) => (
                   <tr key={event.id}>
+                    {/* organizer_image URL → rendered as image */}
+                    <td>
+                      {event.organizer_image ? (
+                        <img
+                          src={event.organizer_image}
+                          alt={event.organizer_name || "organizer"}
+                          className="event-poster"
+                          onError={(e) => { e.target.style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="no-poster">🖼️</div>
+                      )}
+                    </td>
+
                     <td>{event.title}</td>
+
+                    {/* description truncated — full text on hover via CSS */}
+                    <td>
+                      <span className="tags-cell" title={event.description}>
+                        {event.description}
+                      </span>
+                    </td>
+
                     <td>{event.category_name}</td>
-                    {/* Fix 2: status badge with dynamic class */}
+
+                    <td>
+                      {event.tags_display ? (
+                        <span className="tags-cell">{event.tags_display}</span>
+                      ) : (
+                        <span className="no-tags">—</span>
+                      )}
+                    </td>
+
                     <td>
                       <span className={`status-badge ${event.status}`}>
                         {event.status}
                       </span>
                     </td>
-                    {/* Fix 3: action buttons with classes */}
+
+                    <td>{event.price === 0 || event.price === "0" ? "Free" : event.price}</td>
+
+                    <td>{event.capacity}</td>
+
+                    {/* Early bird info */}
+                    <td>
+                      {event.is_early_bird ? (
+                        <>
+                          <span className="badge-sm early-bird">Early Bird</span>
+                          <span className="sub-text">KES {event.early_bird_price}</span>
+                          {event.early_bird_deadline && (
+                            <span className="sub-text">Until {event.early_bird_deadline}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="no-tags">—</span>
+                      )}
+                    </td>
+
+                    {/* map_link URL → shown as clickable 📍 Location */}
+                    <td>
+                      {event.map_link ? (
+                        <a href={event.map_link} target="_blank" rel="noopener noreferrer">
+                          📍 {event.location || "View Map"}
+                        </a>
+                      ) : (
+                        event.location || <span className="no-tags">—</span>
+                      )}
+                    </td>
+
+                    <td>{event.venue || <span className="no-tags">—</span>}</td>
+
+                    <td>{event.parking_info || <span className="no-tags">—</span>}</td>
+
+                    <td>{event.event_date?.split("T")[0] || event.event_date}</td>
+
+                    <td>{event.start_time}</td>
+
+                    <td>{event.end_time || <span className="no-tags">—</span>}</td>
+
+                    {/* organizer_name shown as text */}
+                    <td>{event.organizer_name}</td>
+
+                    <td>{event.organizer_email || <span className="no-tags">—</span>}</td>
+
                     <td>
                       <div className="action-buttons">
                         <button className="btn-sm view" onClick={() => openModal(event)}>
