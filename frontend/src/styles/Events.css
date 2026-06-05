@@ -160,25 +160,12 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border: 1px solid #e5e7eb;
   position: relative;
-  overflow-x: auto;    /* horizontal scrollbar — always at bottom of this box */
+  overflow-x: scroll;  /* always show horizontal scrollbar, even before scrolling */
   overflow-y: visible; /* vertical handled by page */
 }
 
-.events-table-scroll {
-  /* No max-height — page scrollbar handles vertical scroll */
-  overflow-x: visible;
-  overflow-y: visible;
-  width: 100%;
-  position: relative;
-}
-
-.events-table-scroll table {
-  min-width: 1200px;
-  border-collapse: collapse;
-  width: 100%;
-}
-
-/* Horizontal scrollbar on the WRAPPER (always visible at bottom) */
+/* Sticky horizontal scrollbar — stays visible at the bottom of the viewport
+   even when the user hasn't scrolled to the bottom of the table */
 .events-table-wrapper::-webkit-scrollbar {
   height: 10px;
 }
@@ -193,6 +180,27 @@
 .events-table-wrapper::-webkit-scrollbar-track {
   background: #f9fafb;
   border-radius: 6px;
+}
+
+/* Position the scrollbar track so it sticks to the bottom of the visible area */
+@supports (overflow: overlay) {
+  .events-table-wrapper {
+    overflow-x: overlay;
+  }
+}
+
+.events-table-scroll {
+  /* No max-height — page scrollbar handles vertical scroll */
+  overflow-x: visible;
+  overflow-y: visible;
+  width: 100%;
+  position: relative;
+}
+
+.events-table-scroll table {
+  min-width: 1200px;
+  border-collapse: collapse;
+  width: 100%;
 }
 
 /* events-table-scroll vertical scroll removed — page scrolls instead */
