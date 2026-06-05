@@ -1,22 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import api from "../api"; // Axios instance with Authorization header
 import "../styles/Payments.css";
 
 const Payments = () => {
-  const [payments, setPayments] = useState([]);
-  const [stats, setStats] = useState({ total: 0, pending: 0, failed: 0 });
+  const [allPayments, setAllPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [error, setError] = useState("");
-  const [processingRefunds, setProcessingRefunds] = useState({}); // Track refunds
+  const [processingRefunds, setProcessingRefunds] = useState({});
 
   const fetchPayments = async () => {
     try {
       setLoading(true);
+      setError("");
       const res = await api.get("/payments");
-      let data = res.data || [];
-      if (filter !== "all") data = data.filter((p) => p.status === filter);
-      setPayments(data);
+      setAllPayments(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error fetching payments:", err);
       setError("Failed to load payments");
@@ -25,23 +23,32 @@ const Payments = () => {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const res = await api.get("/payments/stats/summary");
-      setStats(res.data);
-    } catch (err) {
-      console.error("Error fetching stats:", err);
-    }
-  };
-
   useEffect(() => {
-    const fetchAll = async () => {
-      await fetchStats();
-      await fetchPayments();
+    fetchPayments();
+  }, []);
+
+  // Derived stats — always computed from full dataset, regardless of filter
+  const stats = useMemo(() => {
+    const toNum = (v) => {
+      const n = typeof v === "number" ? v : parseFloat(v);
+      return Number.isFinite(n) ? n : 0;
     };
-    fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+    let total = 0;
+    let pending = 0;
+    let failed = 0;
+    for (const p of allPayments) {
+      if (p.status === "success") total += toNum(p.amount);
+      else if (p.status === "pending") pending += 1;
+      else if (p.status === "failed" || p.status === "refunded") failed += 1;
+    }
+    return { total, pending, failed };
+  }, [allPayments]);
+
+  // Filtered view for the table
+  const payments = useMemo(() => {
+    if (filter === "all") return allPayments;
+    return allPayments.filter((p) => p.status === filter);
+  }, [allPayments, filter]);
 
   const handleRefund = async (id) => {
     if (!window.confirm("Are you sure you want to mark this as refunded?")) return;
@@ -64,7 +71,6 @@ const Payments = () => {
 
       await api.put(`/payments/refund/${id}`);
       fetchPayments();
-      fetchStats();
     } catch (err) {
       console.error("Error refunding payment:", err);
       alert(err.response?.data?.error || "Failed to process refund");
@@ -106,15 +112,15 @@ const Payments = () => {
       <div className="payment-stats">
         <div className="stat-card">
           <h4>Total Revenue</h4>
-          <p>KES {stats.total?.toLocaleString() || 0}</p>
+          <p>KES {stats.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
         <div className="stat-card">
           <h4>Pending</h4>
-          <p>{stats.pending || 0}</p>
+          <p>{stats.pending}</p>
         </div>
         <div className="stat-card">
           <h4>Failed / Refunded</h4>
-          <p>{stats.failed || 0}</p>
+          <p>{stats.failed}</p>
         </div>
       </div>
 

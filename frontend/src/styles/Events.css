@@ -283,8 +283,8 @@
 }
 
 .events-table tbody tr {
-  transition: all 0.2s ease;
-  position: relative;
+  transition: background 0.2s ease;
+  /* No position:relative — prevents badge z-index bleed into adjacent cells */
 }
 
 .events-table tbody tr:hover {
@@ -322,7 +322,6 @@
   transform: scale(1.15);
   box-shadow: 0 8px 16px rgba(0,0,0,0.2);
   border-color: #3b82f6;
-  z-index: 5;
 }
 
 .no-poster {
@@ -375,9 +374,11 @@
    STATUS BADGES
 =========================== */
 .status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 12px;
+  border-radius: 20px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -385,6 +386,7 @@
   white-space: nowrap;
   position: static;
   z-index: auto;
+  width: fit-content;
 }
 
 .status-badge.upcoming {
@@ -1054,33 +1056,66 @@
 
 /* .action-buttons — see primary definition above */
 
-/* Make sure Actions column (col 8) has enough width for all 4 buttons in one row */
-.events-table th:nth-child(8),
-.events-table td:nth-child(8) {
-  min-width: 220px;
-  white-space: nowrap;
+/* ===========================
+   EXPLICIT COLUMN WIDTHS (8-column layout)
+   These prevent the status column from collapsing to 0
+   and the badge from visually bleeding into Actions
+=========================== */
+
+/* Col 1 - Image */
+.events-table th:nth-child(1),
+.events-table td:nth-child(1) {
+  width: 90px;
+  min-width: 90px;
 }
 
-/* Status column (col 3) — contained width so badge stays inside its own cell */
-.events-table th:nth-child(3),
-.events-table td:nth-child(3) {
-  min-width: 110px;
-  max-width: 140px;
-  white-space: nowrap;
-  overflow: visible;
-}
-
-/* Title column (col 2) — allow wrapping for long names */
+/* Col 2 - Title */
 .events-table th:nth-child(2),
 .events-table td:nth-child(2) {
   min-width: 160px;
   max-width: 220px;
 }
 
-/* Location column (col 4) */
+/* Col 3 - Status: explicit width forces the column to render and contain the badge */
+.events-table th:nth-child(3),
+.events-table td:nth-child(3) {
+  width: 120px;
+  min-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Col 4 - Location */
 .events-table th:nth-child(4),
 .events-table td:nth-child(4) {
   min-width: 140px;
+}
+
+/* Col 5 - Venue */
+.events-table th:nth-child(5),
+.events-table td:nth-child(5) {
+  min-width: 120px;
+}
+
+/* Col 6 - Date */
+.events-table th:nth-child(6),
+.events-table td:nth-child(6) {
+  width: 110px;
+  min-width: 110px;
+  white-space: nowrap;
+}
+
+/* Col 7 - Organizer */
+.events-table th:nth-child(7),
+.events-table td:nth-child(7) {
+  min-width: 130px;
+}
+
+/* Col 8 - Actions: wide enough for all 4 buttons in one row */
+.events-table th:nth-child(8),
+.events-table td:nth-child(8) {
+  min-width: 240px;
+  white-space: nowrap;
 }
 
 /* btn-sm — see primary definition above */

@@ -267,6 +267,16 @@ const Events = ({ currentUser }) => {
         <>
           <div className="events-table-wrapper" ref={tableWrapperRef}>
             <table className="events-table">
+              <colgroup>
+                <col style={{ width: "90px" }} />   {/* Image */}
+                <col style={{ minWidth: "160px" }} /> {/* Title */}
+                <col style={{ width: "120px" }} />  {/* Status */}
+                <col style={{ minWidth: "140px" }} /> {/* Location */}
+                <col style={{ minWidth: "120px" }} /> {/* Venue */}
+                <col style={{ width: "110px" }} />  {/* Date */}
+                <col style={{ minWidth: "130px" }} /> {/* Organizer */}
+                <col style={{ minWidth: "240px" }} /> {/* Actions */}
+              </colgroup>
               <thead>
                 <tr>
                   <th>Image</th>
