@@ -266,7 +266,6 @@
 .events-table tbody tr:hover {
   background: linear-gradient(90deg, #f9fafb 0%, #ffffff 100%);
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  transform: scale(1.002);
 }
 
 .events-table tbody tr:hover td {
@@ -359,6 +358,9 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
+  position: static;
+  z-index: auto;
 }
 
 .status-badge.upcoming {
@@ -1031,15 +1033,29 @@
 /* Make sure Actions column has enough width for all 4 buttons in one row */
 .events-table th:last-child,
 .events-table td:last-child {
-  min-width: 170px;
+  min-width: 180px;
   white-space: nowrap;
+  overflow: visible;
 }
 
-/* Status column — fixed width so it doesn't flex into the actions space */
+/* Status column — fixed width so badge stays contained and never bleeds into actions */
 .events-table th:nth-last-child(2),
 .events-table td:nth-last-child(2) {
-  min-width: 100px;
+  min-width: 120px;
+  max-width: 140px;
   white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Ensure status badge never overflows its cell */
+.status-badge {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  position: static !important;
+  z-index: auto !important;
 }
 
 /* btn-sm — see primary definition above */
