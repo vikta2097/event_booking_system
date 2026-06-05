@@ -1,7 +1,7 @@
 const db = require("../db");
 
 /**
- * Safely deletes an event with all dependencies
+ * Deletes an event (strict ownership/admin check only)
  */
 async function deleteEvent(eventId, user) {
   const client = await db.getClient();
@@ -9,35 +9,37 @@ async function deleteEvent(eventId, user) {
   try {
     await client.query("BEGIN");
 
-    // 1. Fetch event
-    const { rows } = await client.query(
-      "SELECT * FROM events WHERE id = $1",
+    // 1. Fetch only ownership field (minimal query)
+    const result = await client.query(
+      "SELECT created_by FROM events WHERE id = $1",
       [eventId]
     );
 
-    if (rows.length === 0) {
+    if (result.rows.length === 0) {
       await client.query("ROLLBACK");
-      return { success: false, status: 404, message: "Event not found" };
+      return {
+        success: false,
+        status: 404,
+        message: "Event not found",
+      };
     }
 
-    const event = rows[0];
+    const event = result.rows[0];
 
-    // 2. Authorization check
-    const isOwner = user.id === event.created_by;
+    // 2. Authorization
+    const isOwner = event.created_by === user.id;
     const isAdmin = user.role === "admin";
 
     if (!isOwner && !isAdmin) {
       await client.query("ROLLBACK");
-      return { success: false, status: 403, message: "Forbidden" };
+      return {
+        success: false,
+        status: 403,
+        message: "Forbidden",
+      };
     }
 
-    // 3. Delete dependent records (safe order)
-    await client.query("DELETE FROM event_tags WHERE event_id = $1", [eventId]);
-    await client.query("DELETE FROM event_views WHERE event_id = $1", [eventId]);
-    await client.query("DELETE FROM event_favorites WHERE event_id = $1", [eventId]);
-    await client.query("DELETE FROM bookings WHERE event_id = $1", [eventId]);
-
-    // 4. Delete main event
+    // 3. Delete ONLY event (rely on DB CASCADE or FK rules)
     await client.query("DELETE FROM events WHERE id = $1", [eventId]);
 
     await client.query("COMMIT");
