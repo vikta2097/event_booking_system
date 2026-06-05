@@ -231,6 +231,7 @@
 /* Table */
 .events-table {
   width: 100%;
+  min-width: 1200px; /* ensures horizontal scroll triggers */
   border-collapse: separate;
   border-spacing: 0;
   background: white;

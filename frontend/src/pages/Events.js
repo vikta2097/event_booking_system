@@ -216,35 +216,53 @@ const Events = ({ currentUser }) => {
     <div className="events-container">
       <div className="events-header">
         <h2>Manage Events</h2>
-        <button onClick={() => openModal()}>➕ Add Event</button>
+        <button className="add-btn" onClick={() => openModal()}>➕ Add Event</button>
       </div>
 
       {currentUser.role === "admin" && (
-  <AdminPanels
-    categories={categories}
-    tags={tags}
-    onRefresh={refreshData}
-  />
-)}
+        <AdminPanels
+          categories={categories}
+          tags={tags}
+          onRefresh={refreshData}
+        />
+      )}
 
+      {/* Fix 4: search input gets its class */}
       <div className="search-bar">
         <input
+          className="search-input"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search..."
         />
       </div>
 
+      {/* Fix 5: active filter button gets .active class */}
       <div className="filter-buttons">
-        <button onClick={() => setFilterStatus("all")}>All</button>
-        <button onClick={() => setFilterStatus("active")}>Active</button>
-        <button onClick={() => setFilterStatus("expired")}>Expired</button>
+        <button
+          className={filterStatus === "all" ? "active" : ""}
+          onClick={() => setFilterStatus("all")}
+        >
+          All
+        </button>
+        <button
+          className={filterStatus === "active" ? "active" : ""}
+          onClick={() => setFilterStatus("active")}
+        >
+          Active
+        </button>
+        <button
+          className={filterStatus === "expired" ? "active" : ""}
+          onClick={() => setFilterStatus("expired")}
+        >
+          Expired
+        </button>
       </div>
 
       {loading ? (
-        <p>Loading...</p>
+        <p className="loading">Loading...</p>
       ) : error ? (
-        <p>{error}</p>
+        <p className="error">{error}</p>
       ) : (
         <>
           <div className="events-table-wrapper" ref={tableWrapperRef}>
@@ -263,20 +281,28 @@ const Events = ({ currentUser }) => {
                   <tr key={event.id}>
                     <td>{event.title}</td>
                     <td>{event.category_name}</td>
-                    <td>{event.status}</td>
+                    {/* Fix 2: status badge with dynamic class */}
                     <td>
-                      <button onClick={() => openModal(event)}>View</button>
-                      <button onClick={() => handleDuplicate(event)}>
-                        Duplicate
-                      </button>
-                      <button
-                        onClick={() => handleTicketManagement(event)}
-                      >
-                        Tickets
-                      </button>
-                      <button onClick={() => handleDelete(event.id)}>
-                        Delete
-                      </button>
+                      <span className={`status-badge ${event.status}`}>
+                        {event.status}
+                      </span>
+                    </td>
+                    {/* Fix 3: action buttons with classes */}
+                    <td>
+                      <div className="action-buttons">
+                        <button className="btn-sm view" onClick={() => openModal(event)}>
+                          View
+                        </button>
+                        <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)}>
+                          Duplicate
+                        </button>
+                        <button className="btn-sm tickets" onClick={() => handleTicketManagement(event)}>
+                          Tickets
+                        </button>
+                        <button className="btn-sm delete" onClick={() => handleDelete(event.id)}>
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
