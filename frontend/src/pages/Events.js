@@ -219,6 +219,14 @@ const Events = ({ currentUser }) => {
         <button onClick={() => openModal()}>➕ Add Event</button>
       </div>
 
+      {currentUser.role === "admin" && (
+  <AdminPanels
+    categories={categories}
+    tags={tags}
+    onRefresh={refreshData}
+  />
+)}
+
       <div className="search-bar">
         <input
           value={searchQuery}
