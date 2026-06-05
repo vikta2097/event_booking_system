@@ -133,13 +133,43 @@
   border-color: #3498db;
 }
 
+/* Bookings Table Wrapper — fixed horizontal scrollbar */
+.table-wrapper {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow-x: auto;
+  overflow-y: visible;
+  width: 100%;
+}
+
+.table-wrapper::-webkit-scrollbar {
+  height: 10px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #5a6fd6 0%, #6a4190 100%);
+}
+
 /* Bookings Table */
 .bookings-table {
   width: 100%;
+  min-width: 900px;
   background: white;
   border-radius: 10px;
+  border-collapse: collapse;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .bookings-table thead {
@@ -301,19 +331,7 @@
     justify-content: center;
   }
 
-  /* Make table scrollable on mobile */
-  .bookings-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-
-  .bookings-table thead,
-  .bookings-table tbody,
-  .bookings-table tr {
-    display: table;
-    width: 100%;
-  }
+  /* Table scrolls via .table-wrapper — no overrides needed */
 }
 
 @media (max-width: 480px) {

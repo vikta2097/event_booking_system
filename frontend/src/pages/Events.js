@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import api from "../api";
 import EventForm from "../events/EventForm";
 import TicketManagement from "../events/TicketManagement";
@@ -19,6 +19,10 @@ const Events = ({ currentUser }) => {
 
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const tableWrapperRef = useRef(null);
+  const stickyScrollRef = useRef(null);
+  const stickyInnerRef = useRef(null);
 
   // Helper functions
   const getAuthHeaders = () => {
@@ -105,6 +109,46 @@ const Events = ({ currentUser }) => {
   useEffect(() => {
     if (currentUser) refreshData();
   }, [currentUser, refreshData]);
+
+  // Sticky horizontal scrollbar
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    const sticky = stickyScrollRef.current;
+    const inner = stickyInnerRef.current;
+    if (!wrapper || !sticky || !inner) return;
+
+    // Keep inner phantom width in sync with actual table width
+    const syncWidth = () => {
+      inner.style.width = wrapper.scrollWidth + "px";
+    };
+    syncWidth();
+
+    // Sync scrollLeft both ways
+    const onWrapperScroll = () => { sticky.scrollLeft = wrapper.scrollLeft; };
+    const onStickyScroll = () => { wrapper.scrollLeft = sticky.scrollLeft; };
+    wrapper.addEventListener("scroll", onWrapperScroll);
+    sticky.addEventListener("scroll", onStickyScroll);
+
+    // Show/hide sticky bar based on whether wrapper is in viewport
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        sticky.style.display = entry.isIntersecting ? "block" : "none";
+        if (entry.isIntersecting) syncWidth();
+      },
+      { threshold: 0 }
+    );
+    observer.observe(wrapper);
+
+    const ro = new ResizeObserver(syncWidth);
+    ro.observe(wrapper);
+
+    return () => {
+      wrapper.removeEventListener("scroll", onWrapperScroll);
+      sticky.removeEventListener("scroll", onStickyScroll);
+      observer.disconnect();
+      ro.disconnect();
+    };
+  }, [filteredEvents]);
 
   // Event handlers
   const openModal = (event = null) => {
@@ -230,7 +274,7 @@ const Events = ({ currentUser }) => {
           <button className="add-btn" onClick={() => openModal()}>Create Event</button>
         </div>
       ) : (
-        <div className="events-table-wrapper">
+        <div className="events-table-wrapper" ref={tableWrapperRef}>
           <div className="events-table-scroll">
             <table className="events-table">
               <thead>
@@ -320,6 +364,11 @@ const Events = ({ currentUser }) => {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Sticky fixed horizontal scrollbar */}
+        <div className="events-sticky-scroll" ref={stickyScrollRef}>
+          <div className="events-sticky-scroll-inner" ref={stickyInnerRef} />
         </div>
       )}
 
