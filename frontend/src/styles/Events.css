@@ -6,7 +6,7 @@
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  overflow: visible;
+  overflow-x: auto;
 }
 
 /* ===========================
@@ -157,81 +157,52 @@
 .events-table-wrapper {
   background: white;
   border-radius: 12px;
+  overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border: 1px solid #e5e7eb;
   position: relative;
-  overflow-x: auto;
-  overflow-y: visible;
-  /* Hide the native scrollbar — sticky one renders below */
-  scrollbar-width: none;        /* Firefox */
-  -ms-overflow-style: none;     /* IE/Edge */
-}
-
-.events-table-wrapper::-webkit-scrollbar {
-  display: none; /* Chrome/Safari — hidden, sticky bar used instead */
 }
 
 .events-table-scroll {
-  overflow-x: visible;
-  overflow-y: visible;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 600px;
   width: 100%;
   position: relative;
+  scroll-behavior: smooth;
 }
 
 .events-table-scroll table {
-  min-width: 900px;
+  min-width: 1200px;
   border-collapse: collapse;
   width: 100%;
 }
 
-/* ===========================
-   STICKY HORIZONTAL SCROLLBAR
-=========================== */
-.events-sticky-scroll {
-  position: sticky;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  z-index: 20;
-  /* Show only when table is wider than viewport */
-  display: block;
-}
-
-.events-sticky-scroll-inner {
-  height: 1px; /* phantom element — width is set by JS */
-}
-
-.events-sticky-scroll::-webkit-scrollbar {
+/* Table Scrollbar Styling (WebKit) */
+.events-table-scroll::-webkit-scrollbar {
   height: 10px;
+  width: 10px;
 }
-
-.events-sticky-scroll::-webkit-scrollbar-track {
-  background: #f9fafb;
-  border-radius: 6px;
-}
-
-.events-sticky-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+.events-table-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   border-radius: 6px;
   border: 2px solid #f9fafb;
 }
-
-.events-sticky-scroll::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+.events-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
 }
-
-/* Firefox */
-.events-sticky-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #3b82f6 #f9fafb;
+.events-table-scroll::-webkit-scrollbar-track {
+  background: #f9fafb;
+  border-radius: 6px;
+  box-shadow: inset 0 0 4px rgba(0,0,0,0.05);
+}
+.events-table-scroll::-webkit-scrollbar-corner {
+  background: #f9fafb;
 }
 
 /* Table */
 .events-table {
   width: 100%;
-  min-width: 900px; /* 8 columns — triggers horizontal scroll on small screens */
   border-collapse: separate;
   border-spacing: 0;
   background: white;
@@ -283,13 +254,14 @@
 }
 
 .events-table tbody tr {
-  transition: background 0.2s ease;
-  /* No position:relative — prevents badge z-index bleed into adjacent cells */
+  transition: all 0.2s ease;
+  position: relative;
 }
 
 .events-table tbody tr:hover {
   background: linear-gradient(90deg, #f9fafb 0%, #ffffff 100%);
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transform: scale(1.002);
 }
 
 .events-table tbody tr:hover td {
@@ -322,6 +294,7 @@
   transform: scale(1.15);
   box-shadow: 0 8px 16px rgba(0,0,0,0.2);
   border-color: #3b82f6;
+  z-index: 5;
 }
 
 .no-poster {
@@ -374,19 +347,13 @@
    STATUS BADGES
 =========================== */
 .status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px 12px;
-  border-radius: 20px;
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  white-space: nowrap;
-  position: static;
-  z-index: auto;
-  width: fit-content;
 }
 
 .status-badge.upcoming {
@@ -414,10 +381,9 @@
 =========================== */
 .action-buttons {
   display: flex;
-  gap: 6px;
-  flex-wrap: nowrap;
+  gap: 8px;
+  flex-wrap: wrap;
   align-items: center;
-  white-space: nowrap;
 }
 
 .btn-sm {
@@ -972,7 +938,9 @@
    RESPONSIVE
 =========================== */
 @media (max-width: 1200px) { 
-  /* events-table-scroll: no max-height on 1200px */
+  .events-table-scroll { 
+    max-height: 500px; 
+  }
   .events-table th { 
     font-size: 11px; 
     padding: 14px 12px; 
@@ -1003,7 +971,9 @@
     margin-top: 1rem;
     border-radius: 8px;
   }
-  /* events-table-scroll: no max-height on 768px */
+  .events-table-scroll {
+    max-height: 400px;
+  }
   .events-table th {
     font-size: 10px;
     padding: 12px 10px;
@@ -1027,10 +997,10 @@
     flex-direction: column;
   }
   .action-buttons {
-    gap: 4px;
+    gap: 6px;
   }
   .btn-sm {
-    padding: 6px 8px;
+    padding: 6px 10px;
     font-size: 12px;
   }
 }
@@ -1047,7 +1017,9 @@
   .add-btn {
     width: 100%;
   }
-  /* events-table-scroll: no max-height on 480px */
+  .events-table-scroll {
+    max-height: 350px;
+  }
   .modal {
     max-width: 95vw;
   }
@@ -1056,69 +1028,19 @@
 
 /* .action-buttons — see primary definition above */
 
-/* ===========================
-   EXPLICIT COLUMN WIDTHS (8-column layout)
-   These prevent the status column from collapsing to 0
-   and the badge from visually bleeding into Actions
-=========================== */
-
-/* Col 1 - Image */
-.events-table th:nth-child(1),
-.events-table td:nth-child(1) {
-  width: 90px;
-  min-width: 90px;
-}
-
-/* Col 2 - Title */
-.events-table th:nth-child(2),
-.events-table td:nth-child(2) {
-  min-width: 160px;
-  max-width: 220px;
-}
-
-/* Col 3 - Status: explicit width forces the column to render and contain the badge */
-.events-table th:nth-child(3),
-.events-table td:nth-child(3) {
-  width: 120px;
-  min-width: 120px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-/* Col 4 - Location */
-.events-table th:nth-child(4),
-.events-table td:nth-child(4) {
-  min-width: 140px;
-}
-
-/* Col 5 - Venue */
-.events-table th:nth-child(5),
-.events-table td:nth-child(5) {
-  min-width: 120px;
-}
-
-/* Col 6 - Date */
-.events-table th:nth-child(6),
-.events-table td:nth-child(6) {
-  width: 110px;
-  min-width: 110px;
+/* Make sure Actions column has enough width */
+.events-table th:last-child,
+.events-table td:last-child {
+  min-width: 180px;
   white-space: nowrap;
 }
 
-/* Col 7 - Organizer */
-.events-table th:nth-child(7),
-.events-table td:nth-child(7) {
-  min-width: 130px;
+/* Slightly smaller buttons to fit better */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  min-width: 36px;
 }
-
-/* Col 8 - Actions: wide enough for all 4 buttons in one row */
-.events-table th:nth-child(8),
-.events-table td:nth-child(8) {
-  min-width: 240px;
-  white-space: nowrap;
-}
-
-/* btn-sm — see primary definition above */
 /* =========================================================
    LOCATION PICKER — EventForm additions
    ========================================================= */

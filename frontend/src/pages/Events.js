@@ -33,12 +33,24 @@ const Events = ({ currentUser }) => {
   };
 
   const formatEventStatus = (event) => {
+    if (!event) return "upcoming";
     if (event.status === "cancelled") return "cancelled";
+
+    // event_date may be "2026-01-12" OR a full ISO "2026-01-12T00:00:00.000Z"
+    const dateOnly = (event.event_date || "").toString().split("T")[0];
+    const startStr = event.start_time || "00:00:00";
+    const endStr = event.end_time || "23:59:59";
+
+    const start = dateOnly ? new Date(`${dateOnly}T${startStr}`) : null;
+    const end = dateOnly ? new Date(`${dateOnly}T${endStr}`) : null;
     const now = new Date();
-    const start = new Date(`${event.event_date}T${event.start_time}`);
-    const end = new Date(`${event.event_date}T${event.end_time}`);
-    if (now > end) return "expired";
-    if (now >= start && now <= end) return "ongoing";
+
+    if (end && !isNaN(end) && now > end) return "expired";
+    if (start && end && !isNaN(start) && !isNaN(end) && now >= start && now <= end) return "ongoing";
+    // Known DB statuses fall through cleanly
+    if (["upcoming", "active", "draft", "published"].includes(event.status)) {
+      return event.status === "active" || event.status === "published" ? "upcoming" : event.status;
+    }
     return "upcoming";
   };
 
@@ -312,9 +324,16 @@ const Events = ({ currentUser }) => {
 
                     {/* Status — dedicated column, badge stays here */}
                     <td>
-                      <span className={`status-badge ${event.status}`}>
-                        {event.status}
-                      </span>
+                      {(() => {
+                        const s = (event.status || "upcoming").toLowerCase();
+                        const label = s.charAt(0).toUpperCase() + s.slice(1);
+                        return (
+                          <span className={`status-badge ${s}`}>
+                            <span className="status-dot" />
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     {/* Location */}
