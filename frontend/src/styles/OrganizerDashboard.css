@@ -20,6 +20,7 @@
   flex-direction: column;
   transition: margin-left 0.25s ease;
   position: relative;
+  overflow: hidden; /* page-container scrolls instead */
 }
 
 .sidebar.collapsed ~ .main-content {
@@ -59,8 +60,10 @@
   padding: 25px;
   padding-top: 70px;
   padding-right: 80px;
-  overflow-y: auto;
+  overflow-y: auto;   /* THE one vertical scrollbar */
+  overflow-x: hidden;
   background: #f5f7fa;
+  box-sizing: border-box;
 }
 
 /* Smooth scroll for inner page */

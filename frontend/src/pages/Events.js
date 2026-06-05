@@ -295,16 +295,24 @@ const Events = ({ currentUser }) => {
                         <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)} title="Duplicate">
                           📋
                         </button>
-                        {event.status !== "expired" && (
-                          <>
-                            <button className="btn-sm tickets" onClick={() => handleTicketManagement(event)} title="Manage Tickets">
-                              🎫
-                            </button>
-                            <button className="btn-sm delete" onClick={() => handleDelete(event.id)} title="Delete">
-                              🗑️
-                            </button>
-                          </>
-                        )}
+                        <button
+                          className="btn-sm tickets"
+                          onClick={() => event.status !== "expired" && handleTicketManagement(event)}
+                          title={event.status === "expired" ? "Cannot manage tickets for expired events" : "Manage Tickets"}
+                          disabled={event.status === "expired"}
+                          style={event.status === "expired" ? { opacity: 0.35, cursor: "not-allowed" } : {}}
+                        >
+                          🎫
+                        </button>
+                        <button
+                          className="btn-sm delete"
+                          onClick={() => event.status !== "expired" && handleDelete(event.id)}
+                          title={event.status === "expired" ? "Cannot delete expired events" : "Delete"}
+                          disabled={event.status === "expired"}
+                          style={event.status === "expired" ? { opacity: 0.35, cursor: "not-allowed" } : {}}
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </td>
                   </tr>

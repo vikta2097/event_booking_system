@@ -10,10 +10,13 @@
 /* === Main Content Area === */
 .main-content {
   flex: 1;
-  overflow-y: auto;
-  padding: 24px;
+  overflow: hidden; /* page-container scrolls instead */
+  padding: 0;
   position: relative;
   margin-left: 250px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   transition: margin-left 0.25s ease;
 }
 
@@ -23,9 +26,13 @@
 
 /* === Page Container === */
 .page-container {
-  padding: 20px;
+  flex: 1;
+  padding: 25px;
   padding-top: 70px;
   padding-right: 80px;
+  overflow-y: auto;   /* THE one vertical scrollbar */
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* === Notification Bell Fixed Top Right === */
