@@ -24,7 +24,9 @@ const Events = ({ currentUser }) => {
   const stickyScrollRef = useRef(null);
   const stickyInnerRef = useRef(null);
 
-  // Helper functions
+  // -----------------------------
+  // Helpers
+  // -----------------------------
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
     return { Authorization: `Bearer ${token}` };
@@ -40,13 +42,14 @@ const Events = ({ currentUser }) => {
     return "upcoming";
   };
 
+  // -----------------------------
   // Fetch functions
+  // -----------------------------
   const fetchCategories = useCallback(async () => {
     try {
       const res = await api.get("/categories", { headers: getAuthHeaders() });
       return res.data || [];
-    } catch (err) {
-      console.error("Failed to fetch categories", err);
+    } catch {
       return [];
     }
   }, []);
@@ -55,92 +58,128 @@ const Events = ({ currentUser }) => {
     try {
       const res = await api.get("/tags", { headers: getAuthHeaders() });
       return res.data || [];
-    } catch (err) {
-      console.error("Failed to fetch tags", err);
+    } catch {
       return [];
     }
   }, []);
 
-  const fetchEvents = useCallback(async (categoryMap, tagMap) => {
-    if (!currentUser) return;
-    try {
-      setLoading(true);
-      setError("");
+  const fetchEvents = useCallback(
+    async (categoryMap, tagMap) => {
+      if (!currentUser) return;
 
-      let url = "/events";
-      if (currentUser.role === "admin") url = "/events/admin/all";
-      else if (currentUser.role === "organizer") url = "/events/organizer/my-events";
+      try {
+        setLoading(true);
+        setError("");
 
-      const eventsRes = await api.get(url, { headers: getAuthHeaders() });
+        let url = "/events";
+        if (currentUser.role === "admin") url = "/events/admin/all";
+        else if (currentUser.role === "organizer")
+          url = "/events/organizer/my-events";
 
-      const enhancedEvents = (eventsRes.data || []).map(ev => ({
-        ...ev,
-        status: formatEventStatus(ev),
-        category_name: categoryMap[ev.category_id] || ev.category_name || "-",
-        organizer_name: ev.organizer_name || "-",
-        organizer_image: ev.organizer_image || ev.image || "",
-        tags_display: ev.tag_ids
-          ? ev.tag_ids.split(",")
-              .map(id => tagMap[id])
-              .filter(Boolean)
-              .join(", ")
-          : ""
-      }));
+        const res = await api.get(url, { headers: getAuthHeaders() });
 
-      setEvents(enhancedEvents);
-    } catch (err) {
-      console.error("Error fetching events:", err);
-      setError("Failed to fetch events");
-    } finally {
-      setLoading(false);
-    }
-  }, [currentUser]);
+        const enhanced = (res.data || []).map((ev) => ({
+          ...ev,
+          status: formatEventStatus(ev),
+          category_name:
+            categoryMap[ev.category_id] || ev.category_name || "-",
+          organizer_name: ev.organizer_name || "-",
+          organizer_image: ev.organizer_image || ev.image || "",
+          tags_display: ev.tag_ids
+            ? ev.tag_ids
+                .split(",")
+                .map((id) => tagMap[id])
+                .filter(Boolean)
+                .join(", ")
+            : "",
+        }));
+
+        setEvents(enhanced);
+      } catch (err) {
+        setError("Failed to fetch events");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentUser]
+  );
 
   const refreshData = useCallback(async () => {
     const [categoriesData, tagsData] = await Promise.all([
       fetchCategories(),
-      fetchTags()
+      fetchTags(),
     ]);
 
     setCategories(categoriesData);
     setTags(tagsData);
 
-    const categoryMap = categoriesData.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
-    const tagMap = tagsData.reduce((acc, t) => ({ ...acc, [t.id]: t.name }), {});
+    const categoryMap = Object.fromEntries(
+      categoriesData.map((c) => [c.id, c.name])
+    );
+    const tagMap = Object.fromEntries(tagsData.map((t) => [t.id, t.name]));
 
     await fetchEvents(categoryMap, tagMap);
   }, [fetchCategories, fetchTags, fetchEvents]);
 
-  // Filtered events (MOVED ABOVE useEffect to fix ESLint error)
+  // -----------------------------
+  // Event handlers (MUST be ABOVE effects)
+  // -----------------------------
+  const openModal = (event = null) => {
+    setEditingEvent(event);
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure?")) return;
+    await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
+    refreshData();
+  };
+
+  const handleDuplicate = (event) => {
+    const copy = {
+      ...event,
+      title: `${event.title} (Copy)`,
+      status: "upcoming",
+    };
+    delete copy.id;
+    delete copy.created_at;
+    openModal(copy);
+  };
+
+  const handleTicketManagement = (event) => {
+    setSelectedEventForTickets(event);
+    setShowTicketModal(true);
+  };
+
+  // -----------------------------
+  // Filtered events (MUST be before effects using it)
+  // -----------------------------
   const filteredEvents = events
-    .filter((event) => {
+    .filter((e) => {
       if (filterStatus === "active")
-        return event.status === "upcoming" || event.status === "ongoing";
-
-      if (filterStatus === "expired")
-        return event.status === "expired";
-
+        return e.status === "upcoming" || e.status === "ongoing";
+      if (filterStatus === "expired") return e.status === "expired";
       return true;
     })
-    .filter((event) => {
+    .filter((e) => {
       if (!searchQuery) return true;
-
-      const query = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase();
 
       return (
-        event.title.toLowerCase().includes(query) ||
-        event.location.toLowerCase().includes(query) ||
-        (event.organizer_name && event.organizer_name.toLowerCase().includes(query)) ||
-        (event.category_name && event.category_name.toLowerCase().includes(query))
+        e.title?.toLowerCase().includes(q) ||
+        e.location?.toLowerCase().includes(q) ||
+        e.organizer_name?.toLowerCase().includes(q) ||
+        e.category_name?.toLowerCase().includes(q)
       );
     });
 
-  // Initial load
+  // -----------------------------
+  // Effects
+  // -----------------------------
   useEffect(() => {
     if (currentUser) refreshData();
   }, [currentUser, refreshData]);
 
-  // Sticky horizontal scrollbar
   useEffect(() => {
     const wrapper = tableWrapperRef.current;
     const sticky = stickyScrollRef.current;
@@ -153,159 +192,95 @@ const Events = ({ currentUser }) => {
 
     syncWidth();
 
-    const onWrapperScroll = () => {
+    const onScroll = () => {
       sticky.scrollLeft = wrapper.scrollLeft;
     };
 
-    const onStickyScroll = () => {
-      wrapper.scrollLeft = sticky.scrollLeft;
-    };
-
-    wrapper.addEventListener("scroll", onWrapperScroll);
-    sticky.addEventListener("scroll", onStickyScroll);
-
-    const observer = new IntersectionObserver(([entry]) => {
-      sticky.style.display = entry.isIntersecting ? "block" : "none";
-      if (entry.isIntersecting) syncWidth();
-    });
-
-    observer.observe(wrapper);
+    wrapper.addEventListener("scroll", onScroll);
 
     const ro = new ResizeObserver(syncWidth);
     ro.observe(wrapper);
 
     return () => {
-      wrapper.removeEventListener("scroll", onWrapperScroll);
-      sticky.removeEventListener("scroll", onStickyScroll);
-      observer.disconnect();
+      wrapper.removeEventListener("scroll", onScroll);
       ro.disconnect();
     };
   }, [filteredEvents]);
 
-  // Event handlers
-  const openModal = (event = null) => {
-    setEditingEvent(event);
-    setShowModal(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this event?")) return;
-    try {
-      await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
-      await refreshData();
-    } catch (err) {
-      console.error(err);
-      setError("Failed to delete event");
-    }
-  };
-
-  const handleDuplicate = (event) => {
-    const duplicated = {
-      ...event,
-      title: `${event.title} (Copy)`,
-      status: "upcoming"
-    };
-    delete duplicated.id;
-    delete duplicated.created_at;
-
-    openModal(duplicated);
-  };
-
-  const handleTicketManagement = (event) => {
-    setSelectedEventForTickets(event);
-    setShowTicketModal(true);
-  };
-
   if (!currentUser) return <p>Loading user...</p>;
 
+  // -----------------------------
+  // Render
+  // -----------------------------
   return (
     <div className="events-container">
       <div className="events-header">
-        <div>
-          <h2>Manage Events</h2>
-          <p className="subtitle">Create and manage your events</p>
-        </div>
-        <div className="header-actions">
-          <button className="add-btn" onClick={() => openModal()}>
-            ➕ Add Event
-          </button>
-        </div>
+        <h2>Manage Events</h2>
+        <button onClick={() => openModal()}>➕ Add Event</button>
       </div>
-
-      {currentUser?.role === "admin" && (
-        <AdminPanels
-          categories={categories}
-          tags={tags}
-          onRefresh={refreshData}
-        />
-      )}
 
       <div className="search-bar">
         <input
-          type="text"
-          placeholder="🔍 Search events..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="search-input"
+          placeholder="Search..."
         />
       </div>
 
       <div className="filter-buttons">
-        <button onClick={() => setFilterStatus("all")} className={filterStatus === "all" ? "active" : ""}>
-          All ({events.length})
-        </button>
-        <button onClick={() => setFilterStatus("active")} className={filterStatus === "active" ? "active" : ""}>
-          Active ({events.filter(e => e.status === "upcoming" || e.status === "ongoing").length})
-        </button>
-        <button onClick={() => setFilterStatus("expired")} className={filterStatus === "expired" ? "active" : ""}>
-          Expired ({events.filter(e => e.status === "expired").length})
-        </button>
+        <button onClick={() => setFilterStatus("all")}>All</button>
+        <button onClick={() => setFilterStatus("active")}>Active</button>
+        <button onClick={() => setFilterStatus("expired")}>Expired</button>
       </div>
 
       {loading ? (
-        <p className="loading">Loading events...</p>
+        <p>Loading...</p>
       ) : error ? (
-        <p className="error">{error}</p>
-      ) : filteredEvents.length === 0 ? (
-        <div className="no-data">
-          <h3>No Events Found</h3>
-        </div>
+        <p>{error}</p>
       ) : (
         <>
           <div className="events-table-wrapper" ref={tableWrapperRef}>
-            <div className="events-table-scroll">
-              <table className="events-table">
-                <thead>
-                  <tr>
-                    <th>Poster</th>
-                    <th>Title</th>
-                    <th>Category</th>
-                    <th>Tags</th>
-                    <th>Organizer</th>
-                    <th>Date</th>
-                    <th>Time</th>
-                    <th>Location</th>
-                    <th>Capacity</th>
-                    <th>Price</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+            <table className="events-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredEvents.map((event) => (
+                  <tr key={event.id}>
+                    <td>{event.title}</td>
+                    <td>{event.category_name}</td>
+                    <td>{event.status}</td>
+                    <td>
+                      <button onClick={() => openModal(event)}>View</button>
+                      <button onClick={() => handleDuplicate(event)}>
+                        Duplicate
+                      </button>
+                      <button
+                        onClick={() => handleTicketManagement(event)}
+                      >
+                        Tickets
+                      </button>
+                      <button onClick={() => handleDelete(event.id)}>
+                        Delete
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-
-                <tbody>
-                  {filteredEvents.map((event) => (
-                    <tr key={event.id}>
-                      <td>{event.title}</td>
-                    </tr>
-                  ))}
-                </tbody>
-
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           <div className="events-sticky-scroll" ref={stickyScrollRef}>
-            <div className="events-sticky-scroll-inner" ref={stickyInnerRef} />
+            <div
+              className="events-sticky-scroll-inner"
+              ref={stickyInnerRef}
+            />
           </div>
         </>
       )}
