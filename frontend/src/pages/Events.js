@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api"; // ✅ Use your configured API instance
 import "../styles/Events.css";
 
 const Events = ({ currentUser }) => {
@@ -60,7 +60,7 @@ const Events = ({ currentUser }) => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:3300/api/events");
+      const res = await api.get("/events");
       setEvents(res.data);
     } catch (err) {
       setError("Failed to fetch events");
@@ -72,7 +72,7 @@ const Events = ({ currentUser }) => {
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get("http://localhost:3300/api/categories");
+      const res = await api.get("/categories");
       setCategories(res.data);
     } catch (err) {
       console.error("Failed to fetch categories:", err);
@@ -125,9 +125,9 @@ const Events = ({ currentUser }) => {
     try {
       const payload = { ...formData, created_by: currentUser.id };
       if (editingEvent) {
-        await axios.put(`http://localhost:3300/api/events/${editingEvent.id}`, payload);
+        await api.put(`/events/${editingEvent.id}`, payload);
       } else {
-        await axios.post("http://localhost:3300/api/events", payload);
+        await api.post("/events", payload);
       }
       fetchEvents();
       setShowModal(false);
@@ -140,7 +140,7 @@ const Events = ({ currentUser }) => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this event?")) return;
     try {
-      await axios.delete(`http://localhost:3300/api/events/${id}`);
+      await api.delete(`/events/${id}`);
       fetchEvents();
     } catch (err) {
       setError("Failed to delete event");
@@ -211,8 +211,8 @@ const Events = ({ currentUser }) => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.post(
-        `http://localhost:3300/api/events/${selectedEventForTickets.id}/ticket-types`,
+      await api.post(
+        `/events/${selectedEventForTickets.id}/ticket-types`,
         {
           name: ticketFormData.name.trim(),
           description: ticketFormData.description.trim() || null,
@@ -257,7 +257,7 @@ const Events = ({ currentUser }) => {
     e.preventDefault();
     if (!newCategory.trim()) return;
     try {
-      await axios.post("http://localhost:3300/api/categories", { name: newCategory });
+      await api.post("/categories", { name: newCategory });
       setNewCategory("");
       setShowCategoryCard(false);
       fetchCategories();
@@ -268,7 +268,7 @@ const Events = ({ currentUser }) => {
 
   const handleCategoryUpdate = async (id, name) => {
     try {
-      await axios.put(`http://localhost:3300/api/categories/${id}`, { name });
+      await api.put(`/categories/${id}`, { name });
       fetchCategories();
       setEditingCategory(null);
     } catch (err) {
@@ -279,7 +279,7 @@ const Events = ({ currentUser }) => {
   const handleCategoryDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this category?")) return;
     try {
-      await axios.delete(`http://localhost:3300/api/categories/${id}`);
+      await api.delete(`/categories/${id}`);
       fetchCategories();
     } catch (err) {
       setCategoryError("Failed to delete category");
