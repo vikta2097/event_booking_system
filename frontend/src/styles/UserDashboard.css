@@ -3,24 +3,24 @@
 /* =============================== */
 .user-top-bar {
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   width: 100%;
   height: 65px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #ddd;
+  background-color: var(--topbar-bg);
+  border-bottom: 1px solid var(--topbar-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 25px;
   z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .top-bar-left .brand-title {
   font-size: 24px;
   font-weight: 700;
-  color: #0077ff;
+  color: var(--brand-primary);
   margin: 0;
 }
 
@@ -31,7 +31,7 @@
 }
 
 .top-bar-right button {
-  background: #0077ff;
+  background: var(--brand-primary);
   color: #fff;
   border: none;
   padding: 8px 14px;
@@ -41,42 +41,31 @@
   transition: 0.2s;
 }
 
-.top-bar-right button:hover {
-  background: #005fcc;
-}
+.top-bar-right button:hover { background: var(--brand-hover); }
 
-.top-bar-right .logout-btn {
-  background: #d9534f;
-}
+.top-bar-right .logout-btn { background: var(--color-danger); }
+.top-bar-right .logout-btn:hover { background: #b52b27; }
 
-.top-bar-right .logout-btn:hover {
-  background: #b52b27;
-}
-
-/* Notification bell with badge */
+/* Notification bell */
 .notification-bell {
   position: relative;
   font-size: 1.2rem;
   cursor: pointer;
   background: transparent;
   border: none;
-  color: #0077ff;
+  color: var(--brand-primary);
 }
 
-.notification-bell:hover {
-  color: #005fcc;
-}
+.notification-bell:hover { color: var(--brand-hover); }
 
 .notification-bell .badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  background: #d9534f;
+  top: -5px; right: -5px;
+  background: var(--color-danger);
   color: #fff;
   font-size: 0.65rem;
   font-weight: bold;
-  width: 16px;
-  height: 16px;
+  width: 16px; height: 16px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -88,7 +77,7 @@
 /* =============================== */
 .user-content,
 .dashboard-home {
-  padding-top: 90px; /* ensures content does NOT hide behind fixed top bar */
+  padding-top: 90px;
   max-width: 1200px;
   margin: 0 auto;
   padding-left: 20px;
@@ -99,6 +88,7 @@
   width: 100%;
   min-height: 100vh;
   padding-bottom: 50px;
+  background: var(--bg-app);
 }
 
 /* =============================== */
@@ -112,7 +102,7 @@
 .welcome-title {
   font-size: 28px;
   margin: 0;
-  color: #0077ff;
+  color: var(--brand-primary);
 }
 
 /* =============================== */
@@ -121,10 +111,12 @@
 .filters-wrapper {
   max-width: 1200px;
   margin: 0 auto 25px auto;
-  background: #ffffff;
+  background: var(--bg-surface);
   padding: 20px;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-subtle);
+  transition: background 0.25s ease;
 }
 
 /* =============================== */
@@ -136,12 +128,10 @@
   text-align: center;
   font-size: 18px;
   margin-top: 30px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
-.error-text {
-  color: #e74c3c;
-}
+.error-text { color: var(--color-danger); }
 
 /* =============================== */
 /*         EVENT GRID               */
@@ -156,27 +146,18 @@
 /* =============================== */
 /*          GUEST NOTICE            */
 /* =============================== */
-.guest-notice {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.guest-note {
-  font-size: 16px;
-  color: #555;
-}
+.guest-notice { text-align: center; margin-bottom: 20px; }
+.guest-note { font-size: 16px; color: var(--text-secondary); }
 
 .login-link,
 .register-link {
-  color: #0077ff;
+  color: var(--brand-primary);
   cursor: pointer;
   text-decoration: underline;
 }
 
 .login-link:hover,
-.register-link:hover {
-  color: #005fcc;
-}
+.register-link:hover { color: var(--brand-hover); }
 
 /* =============================== */
 /*             FOOTER               */
@@ -185,9 +166,9 @@
   margin-top: 40px;
   padding: 20px 0;
   text-align: center;
-  border-top: 1px solid #ddd;
-  color: #555;
-  background: #fafafa;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  background: var(--bg-surface-2);
 }
 
 .footer-links {
@@ -200,84 +181,40 @@
 
 .footer-link {
   cursor: pointer;
-  color: #0066cc;
+  color: var(--brand-primary);
   font-weight: 500;
   transition: 0.2s ease;
 }
 
-.footer-link:hover {
-  color: #004a99;
-  text-decoration: underline;
-}
+.footer-link:hover { color: var(--brand-hover); text-decoration: underline; }
 
-.logout-link {
-  color: #d9534f;
-}
-
-.logout-link:hover {
-  color: #b52b27;
-}
+.logout-link { color: var(--color-danger); }
+.logout-link:hover { color: #b52b27; }
 
 /* =============================== */
 /*           HIDE OLD ACTIONS       */
 /* =============================== */
-.dashboard-actions {
-  display: none !important;
-}
+.dashboard-actions { display: none !important; }
 
 /* =============================== */
 /*           RESPONSIVE             */
 /* =============================== */
-@media (max-width: 1024px) {
-  .filters-wrapper {
-    padding: 18px;
-  }
-}
-
 @media (max-width: 768px) {
-  .filters-wrapper {
-    padding: 15px;
-  }
-
-  .footer-links {
-    gap: 15px;
-  }
-
+  .filters-wrapper { padding: 15px; }
+  .footer-links { gap: 15px; }
   .user-top-bar {
     flex-direction: column;
     height: auto;
     padding: 10px 20px;
     gap: 10px;
   }
-
-  .top-bar-right {
-    width: 100%;
-    justify-content: flex-end;
-    gap: 10px;
-  }
+  .top-bar-right { width: 100%; justify-content: flex-end; gap: 10px; }
 }
 
 @media (max-width: 480px) {
-  .filters-wrapper {
-    padding: 12px;
-  }
-
-  .loading-text,
-  .error-text,
-  .no-events {
-    font-size: 16px;
-  }
-
-  .top-bar-left .brand-title {
-    font-size: 20px;
-  }
-
-  .top-bar-right button {
-    padding: 6px 10px;
-    font-size: 0.85rem;
-  }
-
-  .welcome-title {
-    font-size: 22px;
-  }
+  .filters-wrapper { padding: 12px; }
+  .loading-text, .error-text, .no-events { font-size: 16px; }
+  .top-bar-left .brand-title { font-size: 20px; }
+  .top-bar-right button { padding: 6px 10px; font-size: 0.85rem; }
+  .welcome-title { font-size: 22px; }
 }

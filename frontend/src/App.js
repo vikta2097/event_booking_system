@@ -3,9 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 
-// Dashboards
-import AdminDashboard from "./pages/AdminDashboard";
-import OrganizerDashboard from "./Organizer/OrganizerDashboard";
+// Unified dashboard (replaces AdminDashboard + OrganizerDashboard)
+import Dashboard from "./pages/Dashboard";
+
+// User-facing dashboard
 import UserDashboard from "./pages/UserDashboard";
 
 // Auth
@@ -79,88 +80,69 @@ function App() {
   if (!authChecked) return <div>Loading...</div>;
 
   const isAuthenticated = !!token;
+  const role = user?.role;
+
+  // Where to redirect after login based on role
+  const dashboardPath =
+    role === "admin" ? "/admin/dashboard" :
+    role === "organizer" ? "/organizer/dashboard" :
+    "/dashboard";
 
   return (
     <Router>
       <Routes>
 
-        {/* ================= AUTH ================= */}
+        {/* ── AUTH ── */}
         <Route
           path="/auth/login"
           element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <LoginForm onLoginSuccess={handleLogin} />
-            )
+            isAuthenticated
+              ? <Navigate to={dashboardPath} replace />
+              : <LoginForm onLoginSuccess={handleLogin} />
           }
         />
 
-        {/* ================= USER DASHBOARD ================= */}
+        {/* ── USER DASHBOARD ── */}
         <Route
           path="/dashboard/*"
           element={
-            isAuthenticated && user?.role === "admin" ? (
-              <Navigate to="/admin/dashboard" replace />
-            ) : isAuthenticated && user?.role === "organizer" ? (
-              <Navigate to="/organizer/dashboard" replace />
-            ) : (
-              <UserDashboard
-                user={user}
-                token={token}
-                onLogout={handleLogout}
-              />
-            )
+            isAuthenticated && (role === "admin" || role === "organizer")
+              ? <Navigate to={dashboardPath} replace />
+              : <UserDashboard user={user} token={token} onLogout={handleLogout} />
           }
         />
 
-        {/* ================= ADMIN DASHBOARD ================= */}
+        {/* ── ADMIN DASHBOARD (unified) ── */}
         <Route
           path="/admin/dashboard/*"
           element={
-            isAuthenticated && user?.role === "admin" ? (
-              <AdminDashboard token={token} onLogout={handleLogout} />
-            ) : (
-              <Navigate to="/auth/login" replace />
-            )
+            isAuthenticated && role === "admin"
+              ? <Dashboard onLogout={handleLogout} />
+              : <Navigate to="/auth/login" replace />
           }
         />
 
-        {/* ================= ORGANIZER DASHBOARD ================= */}
+        {/* ── ORGANIZER DASHBOARD (unified) ── */}
         <Route
           path="/organizer/dashboard/*"
           element={
-            isAuthenticated && user?.role === "organizer" ? (
-              <OrganizerDashboard
-                token={token}
-                user={user}
-                onLogout={handleLogout}
-              />
-            ) : (
-              <Navigate to="/auth/login" replace />
-            )
+            isAuthenticated && role === "organizer"
+              ? <Dashboard onLogout={handleLogout} />
+              : <Navigate to="/auth/login" replace />
           }
         />
 
-        {/* ================= ROOT ================= */}
+        {/* ── ROOT ── */}
         <Route
           path="/"
           element={
-            isAuthenticated ? (
-              user?.role === "admin" ? (
-                <Navigate to="/admin/dashboard" replace />
-              ) : user?.role === "organizer" ? (
-                <Navigate to="/organizer/dashboard" replace />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )
+            isAuthenticated
+              ? <Navigate to={dashboardPath} replace />
+              : <Navigate to="/dashboard" replace />
           }
         />
 
-        {/* ================= FALLBACK ================= */}
+        {/* ── FALLBACK ── */}
         <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>

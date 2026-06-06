@@ -1,0 +1,113 @@
+/* ===================================================
+   EVENTHYPER — Universal Theme Variables
+   Applied to <html data-theme="light|dark">
+   Import this ONCE in index.css (top of file)
+   =================================================== */
+
+/* ── Light Theme (default) ── */
+:root,
+[data-theme="light"] {
+  /* Backgrounds */
+  --bg-app:           #f3f4f6;
+  --bg-surface:       #ffffff;
+  --bg-surface-2:     #f9fafb;
+  --bg-sidebar:       linear-gradient(180deg, #1e3a8a 0%, #0d47a1 100%);
+
+  /* Text */
+  --text-primary:     #1f2937;
+  --text-secondary:   #6b7280;
+  --text-muted:       #9ca3af;
+  --text-on-sidebar:  rgba(255, 255, 255, 0.85);
+  --text-on-sidebar-active: #ffffff;
+
+  /* Borders */
+  --border-color:     #e5e7eb;
+  --border-subtle:    #f3f4f6;
+
+  /* Brand */
+  --brand-primary:    #0077ff;
+  --brand-hover:      #005fcc;
+  --brand-accent:     #10b981;
+
+  /* Shadows */
+  --shadow-sm:        0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md:        0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg:        0 4px 16px rgba(0, 0, 0, 0.12);
+
+  /* Interactive */
+  --color-hover:      rgba(0, 0, 0, 0.05);
+  --toggle-track-bg:  #d1d5db;
+
+  /* Status */
+  --color-success:    #10b981;
+  --color-danger:     #ef4444;
+  --color-warning:    #f59e0b;
+
+  /* Top bar (user dashboard) */
+  --topbar-bg:        #ffffff;
+  --topbar-border:    #dddddd;
+
+  /* Page container */
+  --page-bg:          #f3f4f6;
+
+  /* Stat cards */
+  --card-bg:          #ffffff;
+  --card-shadow:      0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Dark Theme ── */
+[data-theme="dark"] {
+  /* Backgrounds */
+  --bg-app:           #0f172a;
+  --bg-surface:       #1e293b;
+  --bg-surface-2:     #162032;
+  --bg-sidebar:       linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+
+  /* Text */
+  --text-primary:     #f1f5f9;
+  --text-secondary:   #94a3b8;
+  --text-muted:       #64748b;
+  --text-on-sidebar:  rgba(255, 255, 255, 0.75);
+  --text-on-sidebar-active: #ffffff;
+
+  /* Borders */
+  --border-color:     #334155;
+  --border-subtle:    #1e293b;
+
+  /* Brand */
+  --brand-primary:    #3b82f6;
+  --brand-hover:      #2563eb;
+  --brand-accent:     #10b981;
+
+  /* Shadows */
+  --shadow-sm:        0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md:        0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg:        0 4px 16px rgba(0, 0, 0, 0.5);
+
+  /* Interactive */
+  --color-hover:      rgba(255, 255, 255, 0.06);
+  --toggle-track-bg:  #4f46e5;
+
+  /* Status */
+  --color-success:    #34d399;
+  --color-danger:     #f87171;
+  --color-warning:    #fbbf24;
+
+  /* Top bar (user dashboard) */
+  --topbar-bg:        #1e293b;
+  --topbar-border:    #334155;
+
+  /* Page container */
+  --page-bg:          #0f172a;
+
+  /* Stat cards */
+  --card-bg:          #1e293b;
+  --card-shadow:      0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Apply variables globally ── */
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  transition: background 0.25s ease, color 0.25s ease;
+}
