@@ -20,8 +20,8 @@ import Support from "./Support";
 import TicketScanner from "./TicketScanner";
 
 // Organizer-only pages
-import OrganizerBookings from "./OrganizerBookings";
-import OrganizerReports from "./OrganizerReports";
+import OrganizerBookings from "../Organizer/OrganizerBookings";
+import OrganizerReports from "../Organizer/OrganizerReports";
 
 const Dashboard = ({ onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
