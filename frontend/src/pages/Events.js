@@ -12,25 +12,26 @@ import "../styles/Events.css";
 const DropdownPortal = ({ anchorRef, onClose, children }) => {
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
-  useEffect(() => {
-    const update = () => {
-      if (!anchorRef.current) return;
-      const r = anchorRef.current.getBoundingClientRect();
-      setCoords({
-        top: r.bottom + window.scrollY + 4,
-        left: r.right + window.scrollX,   // will be right-aligned via CSS transform
-        width: r.width,
-      });
-    };
-    update();
+  const menuRef = useRef(null);
 
-    // close on outside click
+  useEffect(() => {
+    if (!anchorRef.current) return;
+    const r = anchorRef.current.getBoundingClientRect();
+    setCoords({
+      top: r.bottom + window.scrollY + 4,
+      left: r.right + window.scrollX,
+      width: r.width,
+    });
+  }, [anchorRef]);
+
+  useEffect(() => {
     const handleClick = (e) => {
-      if (anchorRef.current && !anchorRef.current.closest(".action-dropdown").contains(e.target)) {
+      const insideTrigger = anchorRef.current?.closest(".action-dropdown")?.contains(e.target);
+      const insideMenu = menuRef.current?.contains(e.target);
+      if (!insideTrigger && !insideMenu) {
         onClose();
       }
     };
-    // close on scroll so menu doesn't float
     const handleScroll = () => onClose();
 
     document.addEventListener("mousedown", handleClick);
@@ -43,6 +44,7 @@ const DropdownPortal = ({ anchorRef, onClose, children }) => {
 
   return ReactDOM.createPortal(
     <div
+      ref={menuRef}
       className="action-dropdown__menu"
       style={{
         position: "absolute",
