@@ -32,7 +32,8 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     early_bird_price: "",
     early_bird_deadline: "",
     latitude: "",
-    longitude: ""
+    longitude: "",
+    image: ""
   });
 
   const [selectedTags, setSelectedTags] = useState([]);
@@ -72,7 +73,8 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       early_bird_price: event.early_bird_price || "",
       early_bird_deadline: event.early_bird_deadline || "",
       latitude: event.latitude || "",
-      longitude: event.longitude || ""
+      longitude: event.longitude || "",
+      image: event.image || ""
     });
 
     setSelectedTags(
@@ -451,6 +453,31 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
                   </div>
                 </div>
               )}
+
+              <div className="form-group" style={{ marginBottom: "16px" }}>
+                <label>Event Image URL</label>
+                <input
+                  name="image"
+                  value={formData.image}
+                  onChange={handleChange}
+                  placeholder="https://... (banner or cover photo)"
+                />
+                {formData.image && (
+                  <img
+                    src={formData.image}
+                    alt="Event preview"
+                    style={{
+                      marginTop: "8px",
+                      width: "100%",
+                      maxHeight: "180px",
+                      objectFit: "cover",
+                      borderRadius: "8px",
+                      border: "2px solid #e5e7eb"
+                    }}
+                    onError={(e) => { e.target.style.display = "none"; }}
+                  />
+                )}
+              </div>
 
               {tags && tags.length > 0 && (
                 <div className="form-group" style={{ marginBottom: "16px" }}>
