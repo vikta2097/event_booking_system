@@ -1,0 +1,4 @@
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "connect-src 'self' https://event-booking-system-u1z3.onrender.com wss://event-booking-system-u1z3.onrender.com"
