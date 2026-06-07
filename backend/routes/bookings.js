@@ -206,6 +206,9 @@ router.get("/:id", verifyToken, async (req, res) => {
 // ======================================================
 // CREATE BOOKING (FULL SAFE TRANSACTION)
 // ======================================================
+// ======================================================
+// CREATE BOOKING (FULL SAFE TRANSACTION)
+// ======================================================
 router.post("/", verifyToken, async (req, res) => {
   const client = await db.getClient();
 
@@ -309,44 +312,50 @@ router.post("/", verifyToken, async (req, res) => {
 
     await client.query("COMMIT");
 
-    emitEvent("booking_created", {
-      booking_id: bookingId,
-      user_id: userId,
-      event_id,
-      event_title: event.title,
-      total_amount: totalAmount,
-      seats: totalSeats,
-      reference,
-    });
+    // ── Notifications are outside the transaction so they can't trigger a bad ROLLBACK ──
+    try {
+      emitEvent("booking_created", {
+        booking_id: bookingId,
+        user_id: userId,
+        event_id,
+        event_title: event.title,
+        total_amount: totalAmount,
+        seats: totalSeats,
+        reference,
+      });
 
-    await sendNotification(
-      userId,
-      "🎫 Booking Created",
-      `Booking for "${event.title}" created.`,
-      "booking",
-      { booking_id: bookingId }
-    );
-
-    if (event.created_by) {
-      const user = await db.query(
-        "SELECT fullname FROM usercredentials WHERE id=$1",
-        [userId]
+      await sendNotification(
+        userId,
+        "🎫 Booking Created",
+        `Booking for "${event.title}" created.`,
+        "booking",
+        { booking_id: bookingId }
       );
 
-      await notifyOrganizerNewBooking(event.created_by, {
-        event_title: event.title,
-        customer_name: user.rows[0]?.fullname,
-        seats: totalSeats,
-        total_amount: totalAmount,
-        booking_reference: reference,
-      });
+      if (event.created_by) {
+        const user = await db.query(
+          "SELECT fullname FROM usercredentials WHERE id=$1",
+          [userId]
+        );
+
+        await notifyOrganizerNewBooking(event.created_by, {
+          event_title: event.title,
+          customer_name: user.rows[0]?.fullname,
+          seats: totalSeats,
+          total_amount: totalAmount,
+          booking_reference: reference,
+        });
+      }
+    } catch (notifErr) {
+      console.error("Notification error (non-fatal):", notifErr.message);
     }
 
     res.status(201).json({ success: true, bookingId, reference });
+
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error(err);
-    res.status(500).json({ error: "Booking failed" });
+    console.error("BOOKING ERROR FULL:", err);
+    res.status(500).json({ error: "Booking failed", detail: err.message });
   } finally {
     client.release();
   }
