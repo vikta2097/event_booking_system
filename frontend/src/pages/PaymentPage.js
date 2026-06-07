@@ -17,8 +17,14 @@ const PaymentPage = ({ user }) => {
 
   const pollIntervalRef = useRef(null);
   const pollCountRef = useRef(0);
-  const checkoutRequestIdRef = useRef(null); // store checkout_request_id across renders
+  const checkoutRequestIdRef = useRef(null);
   const MAX_POLL_ATTEMPTS = 60; // 5 minutes (60 * 5s)
+
+  // ── Helper: GET /bookings/:id returns b.* so the column is "status", not "booking_status".
+  // "booking_status" only exists in the GET /bookings (list) query where it's aliased.
+  // We normalise here so all checks below use a single consistent field name.
+  const getBookingStatus = (bookingData) =>
+    bookingData?.status ?? bookingData?.booking_status ?? "";
 
   // Load booking details
   useEffect(() => {
@@ -28,7 +34,8 @@ const PaymentPage = ({ user }) => {
         const bookingData = res.data;
         setBooking(bookingData);
 
-        if (bookingData.booking_status === "confirmed") {
+        // FIX: was checking booking_status — single-booking endpoint returns "status"
+        if (getBookingStatus(bookingData) === "confirmed") {
           navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
         }
       } catch (err) {
@@ -53,7 +60,6 @@ const PaymentPage = ({ user }) => {
         if (paymentData.status === "success") {
           navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
         } else if (paymentData.status === "pending") {
-          // Resume polling with the saved checkout_request_id
           setPayment(paymentData);
           checkoutRequestIdRef.current = paymentData.checkout_request_id;
           pollCountRef.current = 0;
@@ -87,15 +93,19 @@ const PaymentPage = ({ user }) => {
           return;
         }
 
-        // Step 1: Check your own DB (fast, cheap)
+        // Step 1: Check booking status in DB
         const bookingRes = await api.get(`/bookings/${bookingId}`);
-        if (bookingRes.data.booking_status === "confirmed") {
+
+        // FIX: GET /bookings/:id returns "status" (b.*), not "booking_status".
+        // Previously this was always undefined so the poller never detected confirmation.
+        if (getBookingStatus(bookingRes.data) === "confirmed") {
           clearInterval(pollIntervalRef.current);
           setIsPolling(false);
           navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
           return;
         }
 
+        // Step 2: Check payment status in DB
         const paymentRes = await api.get(`/payments/by-booking/${bookingId}`);
         const updatedPayment = paymentRes.data;
 
@@ -114,8 +124,8 @@ const PaymentPage = ({ user }) => {
           return;
         }
 
-        // Step 2: Every 3rd poll (~15s), ask Safaricom directly
-        // This catches payments where the callback was missed (server was sleeping)
+        // Step 3: Every 3rd poll (~15s), ask Safaricom directly.
+        // Catches payments where the callback was missed (e.g. server was sleeping on Render free tier).
         if (pollCountRef.current % 3 === 0 && checkoutRequestIdRef.current) {
           try {
             console.log(`📡 Querying Safaricom directly (poll #${pollCountRef.current})...`);
@@ -132,7 +142,7 @@ const PaymentPage = ({ user }) => {
 
             console.log(`📡 Safaricom query result: not paid yet (${queryRes.data.result_desc || "pending"})`);
           } catch (queryErr) {
-            // Non-fatal — just keep polling via DB
+            // Non-fatal — keep polling via DB
             console.warn("Direct Safaricom query failed, continuing DB poll:", queryErr.message);
           }
         }
@@ -156,11 +166,10 @@ const PaymentPage = ({ user }) => {
 
     // eslint-disable-next-line no-useless-escape
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
-    // eslint-disable-next-line no-useless-escape
     const phoneRegex = /^(\+?254|0)(7\d{8}|1\d{8})$/;
 
     if (!phoneRegex.test(cleanPhone)) {
-      setError("Please enter a valid Safaricom phone number (07 or 01)");
+      setError("Please enter a valid Safaricom phone number (07xx or 01xx)");
       return;
     }
 
@@ -174,7 +183,6 @@ const PaymentPage = ({ user }) => {
         phone: cleanPhone,
       });
 
-      // Save checkout_request_id so the poller can query Safaricom directly
       checkoutRequestIdRef.current = res.data.checkout_request_id;
 
       setPayment(res.data);
