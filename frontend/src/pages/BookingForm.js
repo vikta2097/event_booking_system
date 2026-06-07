@@ -122,28 +122,28 @@ const BookingForm = ({ user }) => {
   const totalTickets = lineItems.reduce((sum, li) => sum + li.qty, 0);
 
   const handleBooking = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!user) {
-    setError("Please log in to complete booking");
-    navigate("/dashboard/login");
-    return;
-  }
+    if (!user) {
+      setError("Please log in to complete booking");
+      navigate("/dashboard/login");
+      return;
+    }
 
-  if (!phoneNumber.trim()) {
-    setError("Phone number is required for M-Pesa payment");
-    return;
-  }
+    if (!phoneNumber.trim()) {
+      setError("Phone number is required for M-Pesa payment");
+      return;
+    }
 
-  // eslint-disable-next-line no-useless-escape
-  const phoneRegex = /^(?:\+254|254|0)7\d{8}$/;
+    // FIX: Accept both 07xx and 01xx Safaricom numbers, matching PaymentPage.js
+    // eslint-disable-next-line no-useless-escape
+    const cleanPhone = phoneNumber.replace(/[\s\-()]/g, "");
+    // eslint-disable-next-line no-useless-escape
+    const phoneRegex = /^(\+?254|0)(7\d{8}|1\d{8})$/;
 
-  // eslint-disable-next-line no-useless-escape
-  const cleanPhone = phoneNumber.replace(/[\s\-()]/g, "");
-
-  if (!phoneRegex.test(cleanPhone)) {
-    setError("Please enter a valid Kenyan mobile number (e.g., 0712345678)");
-    return;
+    if (!phoneRegex.test(cleanPhone)) {
+      setError("Please enter a valid Safaricom number (e.g. 0712345678 or 0112345678)");
+      return;
     }
 
     if (totalTickets === 0) {
@@ -181,10 +181,19 @@ const BookingForm = ({ user }) => {
 
       console.log('✅ Booking response:', res.data);
 
-      // Backend returns bookingId (camelCase)
-      const bookingId = res.data.bookingId || res.data.booking_id;
+      // FIX: Handle all common response shapes the backend may return
+      const bookingId =
+        res.data.bookingId ||      // current backend (camelCase)
+        res.data.booking_id ||     // snake_case variant
+        res.data.id ||             // bare id
+        res.data.booking?.id ||    // nested object
+        res.data.data?.id;         // double-wrapped
+
       if (!bookingId) {
-        throw new Error('Invalid response: No booking ID received');
+        console.error('❌ Unexpected booking response shape:', res.data);
+        throw new Error(
+          `No booking ID in response. Keys received: ${Object.keys(res.data).join(', ')}`
+        );
       }
 
       sessionStorage.setItem('activeBooking', bookingId);
@@ -369,7 +378,7 @@ const BookingForm = ({ user }) => {
           <input
             id="phone"
             type="tel"
-            placeholder="0712345678 or 254712345678"
+            placeholder="0712345678 or 0112345678"
             value={phoneNumber}
             onChange={e => setPhoneNumber(e.target.value)}
             required

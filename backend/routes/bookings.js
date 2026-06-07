@@ -279,7 +279,16 @@ router.post("/", verifyToken, async (req, res) => {
       [userId, event_id, totalAmount, reference, totalSeats]
     );
 
-    const bookingId = bookingRes.rows[0].id;
+    // FIX: Guard against missing id — handles tables where PK is named differently
+    const bookingId = bookingRes.rows[0]?.id ?? bookingRes.rows[0]?.booking_id;
+
+    if (!bookingId) {
+      await client.query("ROLLBACK");
+      console.error("❌ RETURNING id gave unexpected row:", bookingRes.rows[0]);
+      return res.status(500).json({
+        error: "Failed to retrieve booking ID after insert. Check your bookings table primary key column name.",
+      });
+    }
 
     for (const t of tickets) {
       const update = await client.query(
@@ -309,7 +318,12 @@ router.post("/", verifyToken, async (req, res) => {
 
     await client.query("COMMIT");
 
-    // ── Notifications are outside the transaction so they can't trigger a bad ROLLBACK ──
+    // FIX: Respond IMMEDIATELY after COMMIT so the client always gets bookingId,
+    // even if the notification block below throws. Notifications are non-fatal.
+    res.status(201).json({ success: true, bookingId, reference });
+
+    // ── Notifications are outside the transaction AND after the response ──
+    // A failure here will never block the client from receiving bookingId.
     try {
       emitEvent("booking_created", {
         booking_id: bookingId,
@@ -346,8 +360,6 @@ router.post("/", verifyToken, async (req, res) => {
     } catch (notifErr) {
       console.error("Notification error (non-fatal):", notifErr.message);
     }
-
-    res.status(201).json({ success: true, bookingId, reference });
 
   } catch (err) {
     await client.query("ROLLBACK");
@@ -405,21 +417,27 @@ router.put("/:id/cancel", verifyToken, async (req, res) => {
 
     await client.query("COMMIT");
 
-    emitEvent("booking_cancelled", {
-      booking_id: bookingId,
-      user_id: booking.user_id,
-      event_title: booking.event_title,
-    });
-
-    await sendNotification(
-      booking.user_id,
-      "❌ Booking Cancelled",
-      `Booking for "${booking.event_title}" cancelled.`,
-      "booking",
-      { booking_id: bookingId }
-    );
-
     res.json({ message: "Cancelled" });
+
+    // Notifications after response — same pattern as CREATE
+    try {
+      emitEvent("booking_cancelled", {
+        booking_id: bookingId,
+        user_id: booking.user_id,
+        event_title: booking.event_title,
+      });
+
+      await sendNotification(
+        booking.user_id,
+        "❌ Booking Cancelled",
+        `Booking for "${booking.event_title}" cancelled.`,
+        "booking",
+        { booking_id: bookingId }
+      );
+    } catch (notifErr) {
+      console.error("Cancel notification error (non-fatal):", notifErr.message);
+    }
+
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);
