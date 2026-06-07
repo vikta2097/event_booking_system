@@ -1,40 +1,26 @@
-/* Settings.css */
-
-/* ----- Theme Variables ----- */
-:root {
-  --bg-color: #f9f9f9;
-  --card-bg: #fff;
-  --text-color: #1a1a1a;
-  --border-color: #ccc;
-  --primary-color: #007bff;
-  --hover-color: #0056b3;
-  --error-color: #e74c3c;
-}
-
-[data-theme="dark"] {
-  --bg-color: #121212;
-  --card-bg: #1e1e1e;
-  --text-color: #f0f0f0;
-  --border-color: #333;
-  --primary-color: #1e90ff;
-  --hover-color: #1c75d1;
-  --error-color: #ff6b6b;
-}
+/* =========================================================
+   SETTINGS
+   All colors use theme variables from Theme.css.
+   The old duplicate :root / [data-theme="dark"] blocks that
+   lived here have been removed — Theme.css is the single
+   source of truth for every variable.
+   ========================================================= */
 
 /* ----- Container ----- */
 .settings-container {
   padding: 20px;
   max-width: 1000px;
-  margin-left: 250px; /* adjust for sidebar width */
-  background-color: var(--bg-color);
-  color: var(--text-color);
+  background: var(--page-bg);
+  color: var(--text-primary);
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  transition: background 0.25s ease, color 0.25s ease;
 }
 
 .settings-container h2 {
   font-size: 28px;
   margin-bottom: 20px;
   text-align: left;
+  color: var(--text-primary);
 }
 
 /* ----- Section Cards ----- */
@@ -43,7 +29,9 @@
   border-radius: 10px;
   padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-subtle);
+  transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 .settings-container section h3 {
@@ -51,6 +39,8 @@
   margin-bottom: 15px;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 5px;
+  color: var(--text-primary);
+  transition: border-color 0.25s ease;
 }
 
 /* ----- Inputs & Selects ----- */
@@ -67,15 +57,22 @@
   border-radius: 5px;
   border: 1px solid var(--border-color);
   font-size: 14px;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  transition: border-color 0.2s, background-color 0.2s;
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  transition: border-color 0.2s, background 0.25s ease;
+}
+
+.settings-container input[type="text"]::placeholder,
+.settings-container input[type="email"]::placeholder,
+.settings-container input[type="password"]::placeholder {
+  color: var(--text-muted);
 }
 
 .settings-container input:focus,
 .settings-container select:focus {
-  border-color: var(--primary-color);
+  border-color: var(--brand-primary);
   outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 /* ----- Labels & Checkbox ----- */
@@ -84,33 +81,34 @@
   align-items: center;
   margin-bottom: 10px;
   font-size: 14px;
+  color: var(--text-primary);
 }
 
 .settings-container label input[type="checkbox"] {
   margin-right: 10px;
-  accent-color: var(--primary-color);
+  accent-color: var(--brand-primary);
 }
 
 /* ----- Buttons ----- */
 .settings-container button {
   padding: 10px 20px;
-  background-color: var(--primary-color);
+  background: var(--brand-primary);
   color: #fff;
   font-size: 14px;
   border: none;
   border-radius: 5px;
   cursor: pointer;
   margin-top: 5px;
-  transition: background-color 0.2s;
+  transition: background 0.2s;
 }
 
 .settings-container button:disabled {
-  background-color: #aaa;
+  background: var(--text-muted);
   cursor: not-allowed;
 }
 
 .settings-container button:hover:not(:disabled) {
-  background-color: var(--hover-color);
+  background: var(--brand-hover);
 }
 
 /* ----- Avatar Image ----- */
@@ -126,7 +124,7 @@
 
 /* ----- Error Messages ----- */
 .error {
-  color: var(--error-color);
+  color: var(--color-danger);
   font-weight: 500;
   margin-bottom: 10px;
 }
@@ -134,7 +132,6 @@
 /* ----- Responsive ----- */
 @media (max-width: 768px) {
   .settings-container {
-    margin-left: 0;
     padding: 15px;
   }
   .settings-container section {

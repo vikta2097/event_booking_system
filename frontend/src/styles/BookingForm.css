@@ -1,14 +1,22 @@
+/* =========================================================
+   BOOKING FORM
+   All colors use theme variables from Theme.css
+   ========================================================= */
+
 .booking-form {
   max-width: 500px;
   margin: 30px auto;
   padding: 20px;
-  background-color: #f7f9fc;
+  background: var(--card-bg);
   border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 .booking-form h2 {
-  color: #0077ff;
+  color: var(--brand-primary);
   margin-bottom: 15px;
   text-align: center;
 }
@@ -19,38 +27,56 @@
   gap: 15px;
 }
 
-
 .booking-form label {
   display: flex;
   flex-direction: column;
   font-weight: bold;
   font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
 .booking-form input {
   margin-top: 5px;
   padding: 8px;
   border-radius: 6px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  transition: border-color 0.2s, background 0.25s ease;
+}
+
+.booking-form input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.booking-form input::placeholder {
+  color: var(--text-muted);
 }
 
 .booking-form button {
   padding: 10px 15px;
-  background-color: #0077ff;
-  color: white;
+  background: var(--brand-primary);
+  color: #fff;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
+  transition: background 0.2s;
+}
+
+.booking-form button:hover:not(:disabled) {
+  background: var(--brand-hover);
 }
 
 .booking-form button:disabled {
-  background-color: #999;
+  background: var(--text-muted);
   cursor: not-allowed;
 }
 
 .booking-form .error {
-  color: red;
+  color: var(--color-danger);
   font-size: 0.9rem;
   text-align: center;
 }
@@ -58,12 +84,11 @@
 .loading-text {
   padding: 20px;
   font-style: italic;
-  color: #777;
+  color: var(--text-muted);
 }
 
 /* =====================================================
    BookingForm — Group Discount & Ticket Type additions
-   Append these to your existing BookingForm.css
    ===================================================== */
 
 /* Ticket name + badges row */
@@ -84,21 +109,21 @@
 
 .ticket-price-original {
   text-decoration: line-through;
-  color: #9ca3af;
+  color: var(--text-muted);
   font-size: 0.95rem;
 }
 
 .ticket-price--discounted {
-  color: #10b981;
+  color: var(--color-success);
   font-weight: 800;
   font-size: 1.1rem;
 }
 
 /* Group discount badge on ticket header */
 .badge-group-tip {
-  background: #eff6ff;
-  color: #1e40af;
-  border: 1px solid #bfdbfe;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--brand-primary);
+  border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -108,9 +133,9 @@
 
 /* Early bird badge */
 .badge-early-bird {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -120,8 +145,8 @@
 
 /* Discount chip next to price */
 .discount-chip {
-  background: #10b981;
-  color: white;
+  background: var(--color-success);
+  color: #fff;
   border-radius: 10px;
   font-size: 0.75rem;
   font-weight: 700;
@@ -130,18 +155,18 @@
 
 /* Ticket card highlight when group discount is active */
 .ticket-item.group-active {
-  border-color: #10b981 !important;
-  background: #f0fdf4;
+  border-color: var(--color-success) !important;
+  background: rgba(16, 185, 129, 0.06);
 }
 
-/* Nudge message — "add X more to unlock discount" */
+/* Nudge message */
 .group-nudge {
   font-size: 0.85rem;
   color: #6366f1;
   font-weight: 600;
   margin: 6px 0 0;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
   border-radius: 8px;
   padding: 6px 10px;
 }
@@ -149,26 +174,26 @@
 /* Confirmation message when discount kicks in */
 .group-discount-applied {
   font-size: 0.85rem;
-  color: #065f46;
+  color: var(--color-success);
   font-weight: 600;
   margin: 6px 0 0;
-  background: #d1fae5;
-  border: 1px solid #6ee7b7;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 8px;
   padding: 6px 10px;
 }
 
-/* Sold out label (distinct from .sold-out class on wrapper) */
+/* Sold out label */
 .sold-out-label {
-  color: #dc2626;
+  color: var(--color-danger);
   font-weight: 600;
 }
 
 /* Savings row in summary */
 .summary-row.savings-row {
-  color: #065f46;
-  background: #d1fae5;
+  color: var(--color-success);
+  background: rgba(16, 185, 129, 0.08);
   border-radius: 8px;
   padding: 6px 10px;
-  border: 1px solid #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
