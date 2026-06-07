@@ -102,7 +102,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, onLogout, role = "admin", basePa
             <NavLink
               key={idx}
               to={item.path}
-              end={item.path === basePath} // exact match only for root dashboard link
+              end={item.path === basePath}
+              title={item.name}
               className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
               onClick={() => setMobileOpen(false)}
             >

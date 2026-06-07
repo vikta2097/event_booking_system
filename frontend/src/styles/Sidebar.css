@@ -133,13 +133,62 @@
 }
 
 .link-text {
-  transition: opacity 0.3s;
+  transition: opacity 0.3s, width 0.3s;
 }
 
 .link-text.hidden {
   opacity: 0;
   width: 0;
   overflow: hidden;
+}
+
+/* ── Collapsed state — icons centred, visible on desktop ── */
+
+.sidebar.collapsed .sidebar-link {
+  padding: 12px 0;
+  justify-content: center;
+  gap: 0;
+}
+
+.sidebar.collapsed .sidebar-link svg {
+  flex-shrink: 0;
+  opacity: 1;
+}
+
+/* Centre the toggle button in the header when collapsed */
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 20px 10px;
+}
+
+/* Centre the logout icon in footer when collapsed */
+.sidebar.collapsed .logout-btn {
+  padding: 12px 0;
+  justify-content: center;
+  gap: 0;
+}
+
+/* Show tooltip on hover when collapsed */
+.sidebar.collapsed .sidebar-link {
+  position: relative;
+}
+
+.sidebar.collapsed .sidebar-link:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: 78px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1200;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 /* ============================= */
