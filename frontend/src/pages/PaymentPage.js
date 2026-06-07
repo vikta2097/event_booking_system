@@ -16,7 +16,8 @@ const PaymentPage = ({ user }) => {
   const [isPolling, setIsPolling] = useState(false);
 
   const pollIntervalRef = useRef(null);
-  const pollCountRef = useRef(0);
+  const pollCountRef = useRef(0);          // used inside interval callbacks (always current)
+  const [pollCount, setPollCount] = useState(0); // used for display (triggers re-render)
   const checkoutRequestIdRef = useRef(null);
   const MAX_POLL_ATTEMPTS = 60; // 5 minutes (60 * 5s)
 
@@ -85,6 +86,7 @@ const PaymentPage = ({ user }) => {
     pollIntervalRef.current = setInterval(async () => {
       try {
         pollCountRef.current += 1;
+        setPollCount(pollCountRef.current); // keep display in sync
 
         if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
           clearInterval(pollIntervalRef.current);
@@ -176,6 +178,7 @@ const PaymentPage = ({ user }) => {
     setLoading(true);
     setError("");
     pollCountRef.current = 0;
+    setPollCount(0);
 
     try {
       const res = await api.post("/payments/mpesa", {
@@ -203,6 +206,7 @@ const PaymentPage = ({ user }) => {
     setPayment(null);
     setError("");
     pollCountRef.current = 0;
+    setPollCount(0);
     checkoutRequestIdRef.current = null;
   };
 
@@ -295,7 +299,7 @@ const PaymentPage = ({ user }) => {
             <p>Please check your phone for the M-Pesa prompt</p>
             <p>Enter your M-Pesa PIN to complete the payment</p>
             <small>
-              Checking payment status... ({pollCountRef.current}/{MAX_POLL_ATTEMPTS})
+              Checking payment status... ({pollCount}/{MAX_POLL_ATTEMPTS})
             </small>
             <button onClick={handleCancelPolling} className="btn-cancel">
               Cancel & Try Again
