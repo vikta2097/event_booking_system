@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { verifyToken, verifyAdmin } = require("../auth");
-const { stkPush } = require("./mpesa");
+const { stkPush, querySTK } = require("./mpesa");
 const crypto = require("crypto");
 const { generateTicketCodes } = require("../utils/ticketUtils");
 
@@ -81,12 +81,11 @@ router.post("/mpesa", verifyToken, async (req, res) => {
     }
     
     if (!validatePhoneNumber(phone)) {
-  return res.status(400).json({ 
-    error: "Invalid phone number. Use format: +254712345678, 0712345678, +254112345678, or 0112345678", 
-    debugLogs 
-  });
-}
-
+      return res.status(400).json({ 
+        error: "Invalid phone number. Use format: +254712345678, 0712345678, +254112345678, or 0112345678", 
+        debugLogs 
+      });
+    }
 
     // Format phone number
     const formattedPhone = formatPhoneNumber(phone);
@@ -286,6 +285,141 @@ router.post("/mpesa", verifyToken, async (req, res) => {
       error: err.message || "M-Pesa payment failed. Please try again.",
       debugLogs
     });
+  }
+});
+
+// ==============================
+// POST /payments/mpesa/query
+// Actively asks Safaricom if an STK push was paid.
+// Called by the frontend every ~15s as a callback fallback.
+// ==============================
+router.post("/mpesa/query", verifyToken, async (req, res) => {
+  try {
+    const { checkout_request_id } = req.body;
+
+    if (!checkout_request_id) {
+      return res.status(400).json({ error: "checkout_request_id is required" });
+    }
+
+    // Make sure this payment belongs to the requesting user
+    const paymentCheck = await db.query(
+      `SELECT * FROM payments WHERE checkout_request_id = $1 LIMIT 1`,
+      [checkout_request_id]
+    );
+
+    if (!paymentCheck.rows.length) {
+      return res.status(404).json({ error: "Payment not found" });
+    }
+
+    const existingPayment = paymentCheck.rows[0];
+
+    if (existingPayment.user_id !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    // If already reconciled, no need to call Safaricom
+    if (existingPayment.status === "success") {
+      return res.json({ paid: true });
+    }
+
+    // Query Safaricom directly
+    const data = await querySTK(checkout_request_id);
+    console.log(`📡 STK Query for ${checkout_request_id}:`, data);
+
+    // ResultCode "0" or 0 means payment was successful
+    if (data.ResultCode === "0" || data.ResultCode === 0) {
+      // Reconcile — update payment + booking + generate tickets
+      const client = await db.getClient();
+      try {
+        await client.query("BEGIN");
+
+        const paymentRes = await client.query(
+          `SELECT * FROM payments WHERE checkout_request_id = $1 FOR UPDATE`,
+          [checkout_request_id]
+        );
+
+        if (!paymentRes.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(404).json({ error: "Payment record not found" });
+        }
+
+        const payment = paymentRes.rows[0];
+
+        // Only update if not already success (prevent double processing)
+        if (payment.status !== "success") {
+          await client.query(
+            `UPDATE payments SET status = 'success', paid_at = NOW() WHERE id = $1`,
+            [payment.id]
+          );
+
+          await client.query(
+            `UPDATE bookings SET status = 'confirmed' WHERE id = $1`,
+            [payment.booking_id]
+          );
+
+          console.log(`✅ Reconciled booking ${payment.booking_id} via STK query`);
+
+          // Generate tickets if not already done
+          if (!payment.tickets_generated) {
+            const bookedTickets = await client.query(
+              `SELECT ticket_type_id, quantity FROM booking_tickets WHERE booking_id = $1`,
+              [payment.booking_id]
+            );
+
+            for (const bt of bookedTickets.rows) {
+              for (let i = 0; i < bt.quantity; i++) {
+                const { qr_code, manual_code } = generateTicketCodes();
+                await client.query(
+                  `INSERT INTO tickets (booking_id, ticket_type_id, qr_code, manual_code, status, created_at)
+                   VALUES ($1, $2, $3, $4, 'valid', NOW())`,
+                  [payment.booking_id, bt.ticket_type_id, qr_code, manual_code]
+                );
+              }
+            }
+
+            await client.query(
+              `UPDATE payments SET tickets_generated = true WHERE id = $1`,
+              [payment.id]
+            );
+
+            console.log(`🎟️  Tickets generated for booking ${payment.booking_id} via STK query`);
+          }
+        }
+
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("STK query reconcile error:", err);
+        return res.status(500).json({ error: "Reconciliation failed" });
+      } finally {
+        client.release();
+      }
+
+      // Notify user (outside transaction, non-fatal)
+      try {
+        await sendNotification(
+          existingPayment.user_id,
+          "✅ Payment Confirmed",
+          "Your M-Pesa payment was received. Your tickets are ready!"
+        );
+      } catch (notifErr) {
+        console.error("Notification error (non-fatal):", notifErr.message);
+      }
+
+      return res.json({ paid: true });
+    }
+
+    // Not paid yet (or failed)
+    return res.json({
+      paid: false,
+      result_code: data.ResultCode,
+      result_desc: data.ResultDesc,
+    });
+
+  } catch (err) {
+    console.error("STK query route error:", err.message);
+    // Return paid: false so polling continues rather than crashing
+    res.status(500).json({ paid: false, error: "Could not query payment status" });
   }
 });
 

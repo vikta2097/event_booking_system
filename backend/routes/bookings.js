@@ -206,9 +206,6 @@ router.get("/:id", verifyToken, async (req, res) => {
 // ======================================================
 // CREATE BOOKING (FULL SAFE TRANSACTION)
 // ======================================================
-// ======================================================
-// CREATE BOOKING (FULL SAFE TRANSACTION)
-// ======================================================
 router.post("/", verifyToken, async (req, res) => {
   const client = await db.getClient();
 
