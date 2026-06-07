@@ -111,3 +111,96 @@ body {
   color: var(--text-primary);
   transition: background 0.25s ease, color 0.25s ease;
 }
+
+/* ── Ensure html stretches full height ── */
+html,
+body {
+  min-height: 100%;
+}
+
+/* ── ALL major layout containers must use theme vars ── */
+#root,
+.App,
+.admin-dashboard,
+.user-dashboard,
+.page-container,
+.main-content,
+.user-content,
+.dashboard-home {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* ── Cards and surfaces ── */
+.stat-card,
+.dashboard-card,
+.card {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* ── Top bar ── */
+.user-top-bar {
+  background: var(--topbar-bg) !important;
+  border-bottom-color: var(--topbar-border) !important;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+/* ── All inputs ── */
+input,
+textarea,
+select {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* ── TicketScanner manual entry has hardcoded #f8f9fa ── */
+.manual-entry {
+  background: var(--bg-surface-2) !important;
+}
+
+.manual-entry label {
+  color: var(--text-primary) !important;
+}
+
+.manual-entry input {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* ── TicketScanner result panels ── */
+.scan-result.success {
+  background: var(--bg-surface) !important;
+  border-color: var(--color-success) !important;
+}
+
+.scan-result.error {
+  background: var(--bg-surface) !important;
+  border-color: var(--color-danger) !important;
+}
+
+.scan-result h3,
+.ticket-details .label,
+.ticket-details .value {
+  color: var(--text-primary) !important;
+}
+
+.ticket-details {
+  background: var(--bg-surface-2) !important;
+}
+
+/* ── Global scrollbars ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-surface-2); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
