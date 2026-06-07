@@ -19,6 +19,7 @@
   gap: 15px;
 }
 
+
 .booking-form label {
   display: flex;
   flex-direction: column;
@@ -58,4 +59,116 @@
   padding: 20px;
   font-style: italic;
   color: #777;
+}
+
+/* =====================================================
+   BookingForm — Group Discount & Ticket Type additions
+   Append these to your existing BookingForm.css
+   ===================================================== */
+
+/* Ticket name + badges row */
+.ticket-name-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Price column */
+.ticket-price-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ticket-price-original {
+  text-decoration: line-through;
+  color: #9ca3af;
+  font-size: 0.95rem;
+}
+
+.ticket-price--discounted {
+  color: #10b981;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+/* Group discount badge on ticket header */
+.badge-group-tip {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Early bird badge */
+.badge-early-bird {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Discount chip next to price */
+.discount-chip {
+  background: #10b981;
+  color: white;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 7px;
+}
+
+/* Ticket card highlight when group discount is active */
+.ticket-item.group-active {
+  border-color: #10b981 !important;
+  background: #f0fdf4;
+}
+
+/* Nudge message — "add X more to unlock discount" */
+.group-nudge {
+  font-size: 0.85rem;
+  color: #6366f1;
+  font-weight: 600;
+  margin: 6px 0 0;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+/* Confirmation message when discount kicks in */
+.group-discount-applied {
+  font-size: 0.85rem;
+  color: #065f46;
+  font-weight: 600;
+  margin: 6px 0 0;
+  background: #d1fae5;
+  border: 1px solid #6ee7b7;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+/* Sold out label (distinct from .sold-out class on wrapper) */
+.sold-out-label {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* Savings row in summary */
+.summary-row.savings-row {
+  color: #065f46;
+  background: #d1fae5;
+  border-radius: 8px;
+  padding: 6px 10px;
+  border: 1px solid #6ee7b7;
 }

@@ -41,7 +41,15 @@ const BookingForm = ({ user }) => {
           quantity_available,
           quantity_sold,
           tickets_remaining,
-          description: ticket.description || ""
+          description: ticket.description || "",
+          // group discount
+          is_group_discount: ticket.is_group_discount || false,
+          group_size: parseInt(ticket.group_size || 0),
+          group_discount_percent: parseFloat(ticket.group_discount_percent || 0),
+          // early bird
+          is_early_bird: ticket.is_early_bird || false,
+          early_bird_deadline: ticket.early_bird_deadline || null,
+          early_bird_active: ticket.early_bird_active || false,
         };
       });
 
@@ -85,11 +93,33 @@ const BookingForm = ({ user }) => {
     setSelectedTickets(prev => ({ ...prev, [ticketId]: quantity }));
   };
 
-  const totalAmount = tickets.reduce(
-    (sum, t) => sum + (t.price * (selectedTickets[t.id] || 0)), 0
-  );
-  
-  const totalTickets = Object.values(selectedTickets).reduce((sum, q) => sum + q, 0);
+  // ── Per-ticket effective price (applies group discount when qty meets threshold) ──
+  const getEffectivePrice = (ticket, qty) => {
+    if (
+      ticket.is_group_discount &&
+      ticket.group_size > 0 &&
+      ticket.group_discount_percent > 0 &&
+      qty >= ticket.group_size
+    ) {
+      return ticket.price * (1 - ticket.group_discount_percent / 100);
+    }
+    return ticket.price;
+  };
+
+  const lineItems = tickets.map(t => {
+    const qty = selectedTickets[t.id] || 0;
+    const effectivePrice = getEffectivePrice(t, qty);
+    const originalSubtotal = t.price * qty;
+    const discountedSubtotal = effectivePrice * qty;
+    const saving = originalSubtotal - discountedSubtotal;
+    const groupDiscountActive =
+      t.is_group_discount && t.group_size > 0 && qty >= t.group_size;
+    return { ticket: t, qty, effectivePrice, originalSubtotal, discountedSubtotal, saving, groupDiscountActive };
+  }).filter(li => li.qty > 0);
+
+  const totalAmount = lineItems.reduce((sum, li) => sum + li.discountedSubtotal, 0);
+  const totalSavings = lineItems.reduce((sum, li) => sum + li.saving, 0);
+  const totalTickets = lineItems.reduce((sum, li) => sum + li.qty, 0);
 
   const handleBooking = async (e) => {
   e.preventDefault();
@@ -203,56 +233,191 @@ const BookingForm = ({ user }) => {
 
       <div className="ticket-types">
         <h3>Select Tickets</h3>
-        {tickets.length > 0 ? tickets.map(ticket => {
+
+        {tickets.length === 0 && (
+          <p className="no-tickets">No tickets available for this event.</p>
+        )}
+
+        {tickets.map(ticket => {
           const available = ticket.tickets_remaining;
           const isAvailable = available > 0;
+          const qty = selectedTickets[ticket.id] || 0;
+          const groupDiscountActive =
+            ticket.is_group_discount &&
+            ticket.group_size > 0 &&
+            qty >= ticket.group_size;
+          const effectivePrice = getEffectivePrice(ticket, qty);
+          const discountPct = ticket.group_discount_percent;
+          const nearGroupThreshold =
+            ticket.is_group_discount &&
+            ticket.group_size > 0 &&
+            qty > 0 &&
+            qty < ticket.group_size;
 
           return (
-            <div key={ticket.id} className={`ticket-item ${!isAvailable ? 'sold-out' : ''}`}>
+            <div
+              key={ticket.id}
+              className={`ticket-item${!isAvailable ? ' sold-out' : ''}${groupDiscountActive ? ' group-active' : ''}`}
+            >
+              {/* ── Header row ── */}
               <div className="ticket-info">
-                <span className="ticket-name">{ticket.name}</span>
-                <span className="ticket-price">KES {ticket.price.toLocaleString()}</span>
-              </div>
-              {ticket.description && <p className="ticket-description">{ticket.description}</p>}
-              <div className="ticket-availability">
-                {isAvailable ? <small className="available">✓ {available} available</small> : <small className="sold-out">✗ Sold Out</small>}
+                <div className="ticket-name-wrap">
+                  <span className="ticket-name">{ticket.name}</span>
+                  {ticket.is_group_discount && ticket.group_size > 0 && (
+                    <span className="badge-group-tip">
+                      👥 {ticket.group_discount_percent}% off for {ticket.group_size}+
+                    </span>
+                  )}
+                  {ticket.early_bird_active && (
+                    <span className="badge-early-bird">🐦 Early Bird</span>
+                  )}
+                </div>
+
+                <div className="ticket-price-wrap">
+                  {groupDiscountActive ? (
+                    <>
+                      <span className="ticket-price-original">
+                        KES {ticket.price.toLocaleString()}
+                      </span>
+                      <span className="ticket-price ticket-price--discounted">
+                        KES {effectivePrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </span>
+                      <span className="discount-chip">−{discountPct}%</span>
+                    </>
+                  ) : (
+                    <span className="ticket-price">
+                      KES {ticket.price.toLocaleString()}
+                    </span>
+                  )}
+                </div>
               </div>
 
+              {ticket.description && (
+                <p className="ticket-description">{ticket.description}</p>
+              )}
+
+              <div className="ticket-availability">
+                {isAvailable
+                  ? <small className="available">✓ {available} available</small>
+                  : <small className="sold-out-label">✗ Sold Out</small>}
+              </div>
+
+              {/* ── Quantity controls — only for admin/organizer-defined tiers ── */}
               {isAvailable && (
                 <>
                   <div className="ticket-controls">
-                    <button type="button" onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] - 1)} disabled={selectedTickets[ticket.id] === 0}>−</button>
-                    <input type="number" min="0" max={available} value={selectedTickets[ticket.id]} onChange={e => handleQuantityChange(ticket.id, parseInt(e.target.value) || 0)} />
-                    <button type="button" onClick={() => handleQuantityChange(ticket.id, selectedTickets[ticket.id] + 1)} disabled={selectedTickets[ticket.id] >= available}>+</button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange(ticket.id, qty - 1)}
+                      disabled={qty === 0}
+                    >−</button>
+                    <input
+                      type="number"
+                      min="0"
+                      max={available}
+                      value={qty}
+                      onChange={e =>
+                        handleQuantityChange(ticket.id, parseInt(e.target.value) || 0)
+                      }
+                      readOnly
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange(ticket.id, qty + 1)}
+                      disabled={qty >= available}
+                    >+</button>
                   </div>
-                  {selectedTickets[ticket.id] > 0 && <div className="ticket-subtotal">Subtotal: <strong>KES {(ticket.price * selectedTickets[ticket.id]).toLocaleString()}</strong></div>}
+
+                  {/* nudge toward group discount threshold */}
+                  {nearGroupThreshold && (
+                    <p className="group-nudge">
+                      ➕ Add {ticket.group_size - qty} more to unlock {discountPct}% group discount
+                    </p>
+                  )}
+
+                  {groupDiscountActive && (
+                    <p className="group-discount-applied">
+                      ✅ Group discount applied — you save KES {((ticket.price - effectivePrice) * qty).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </p>
+                  )}
+
+                  {qty > 0 && (
+                    <div className="ticket-subtotal">
+                      Subtotal:{" "}
+                      {groupDiscountActive && (
+                        <s style={{ color: "#9ca3af", marginRight: "6px" }}>
+                          KES {(ticket.price * qty).toLocaleString()}
+                        </s>
+                      )}
+                      <strong>
+                        KES {(effectivePrice * qty).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </strong>
+                    </div>
+                  )}
                 </>
               )}
             </div>
           );
-        }) : <p className="no-tickets">No tickets available for this event.</p>}
+        })}
       </div>
 
       <form onSubmit={handleBooking} className="booking-checkout">
         <div className="form-group">
           <label htmlFor="phone">M-Pesa Phone Number *</label>
-          <input id="phone" type="tel" placeholder="0712345678 or 254712345678" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required disabled={loading} />
+          <input
+            id="phone"
+            type="tel"
+            placeholder="0712345678 or 254712345678"
+            value={phoneNumber}
+            onChange={e => setPhoneNumber(e.target.value)}
+            required
+            disabled={loading}
+          />
           <small className="form-hint">Enter the phone number to receive M-Pesa payment prompt</small>
         </div>
 
         <div className="booking-summary">
-          <div className="summary-row"><span>Total Tickets:</span><strong>{totalTickets}</strong></div>
-          <div className="summary-row total"><span>Total Amount:</span><strong>KES {totalAmount.toLocaleString()}</strong></div>
+          <div className="summary-row">
+            <span>Total Tickets:</span>
+            <strong>{totalTickets}</strong>
+          </div>
+
+          {/* Show savings row only when at least one group discount is active */}
+          {totalSavings > 0 && (
+            <div className="summary-row savings-row">
+              <span>🎉 Group Discount Savings:</span>
+              <strong style={{ color: "#10b981" }}>
+                − KES {totalSavings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </strong>
+            </div>
+          )}
+
+          <div className="summary-row total">
+            <span>Total Amount:</span>
+            <strong>KES {totalAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+          </div>
         </div>
 
-        {statusMessage && <div className="status-message"><span>ℹ️ {statusMessage}</span></div>}
-        {error && <div className="error-message"><span>⚠️ {error}</span></div>}
+        {statusMessage && (
+          <div className="status-message"><span>ℹ️ {statusMessage}</span></div>
+        )}
+        {error && (
+          <div className="error-message"><span>⚠️ {error}</span></div>
+        )}
 
-        <button type="submit" disabled={loading || totalTickets === 0} className="btn-proceed">
-          {loading ? <><span className="spinner-small"></span> Processing...</> : "Proceed to Payment →"}
+        <button
+          type="submit"
+          disabled={loading || totalTickets === 0}
+          className="btn-proceed"
+        >
+          {loading
+            ? <><span className="spinner-small"></span> Processing...</>
+            : "Proceed to Payment →"}
         </button>
 
-        {totalTickets === 0 && <p className="hint-text">Please select at least one ticket to continue</p>}
+        {totalTickets === 0 && (
+          <p className="hint-text">Please select at least one ticket to continue</p>
+        )}
       </form>
     </div>
   );
