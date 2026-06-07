@@ -13,7 +13,7 @@ const EMPTY_FORM = {
   group_discount_percent: "",
 };
 
-const TicketManagement = ({ event, isOpen, onClose }) => {
+const TicketManagement = ({ event, isOpen, onClose, embedded = false }) => {
   const [ticketTypes, setTicketTypes] = useState([]);
   const [ticketLoading, setTicketLoading] = useState(false);
   const [ticketError, setTicketError] = useState("");
@@ -200,15 +200,8 @@ const TicketManagement = ({ event, isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  return (
-    <div className="modal-overlay">
-      <div className="modal large" style={{ width: "90vw", maxWidth: 860, padding: 0 }}>
-        {/* Header */}
-        <div className="modal-header">
-          <h3>🎫 Manage Tickets: {event.title}</h3>
-        </div>
-
-        <div style={{ padding: "0 24px 24px", overflowY: "auto", maxHeight: "calc(90vh - 80px)" }}>
+  const innerContent = (
+    <div style={embedded ? { padding: "0 0 24px" } : { padding: "0 24px 24px", overflowY: "auto", maxHeight: "calc(90vh - 80px)" }}>
 
           {/* Feedback banners */}
           {ticketError && (
@@ -489,6 +482,19 @@ const TicketManagement = ({ event, isOpen, onClose }) => {
             </div>
           </form>
         </div>
+  );
+
+  if (embedded) {
+    return innerContent;
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal large" style={{ width: "90vw", maxWidth: 860, padding: 0 }}>
+        <div className="modal-header">
+          <h3>🎫 Manage Tickets: {event.title}</h3>
+        </div>
+        {innerContent}
       </div>
     </div>
   );

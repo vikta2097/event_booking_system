@@ -1039,7 +1039,7 @@
 /* Make sure Actions column has enough width for all 4 buttons */
 .events-table th:last-child,
 .events-table td:last-child {
-  min-width: 280px;
+  min-width: 120px;
   white-space: nowrap;
 }
 
@@ -1190,4 +1190,90 @@
 
 #cancel {
   background: #e5e7eb;
+}
+/* ===========================
+   ACTION DROPDOWN
+=========================== */
+.action-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.action-dropdown__trigger {
+  padding: 7px 14px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(59,130,246,0.25);
+}
+
+.action-dropdown__trigger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 8px rgba(59,130,246,0.35);
+  transform: translateY(-1px);
+}
+
+.action-dropdown__trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-dropdown__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  min-width: 160px;
+  z-index: 100;
+  overflow: hidden;
+  animation: dropdownFade 0.12s ease;
+}
+
+@keyframes dropdownFade {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.action-dropdown__menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.action-dropdown__menu button:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.action-dropdown__menu button + button {
+  border-top: 1px solid #f3f4f6;
+}
+
+.action-dropdown__delete {
+  color: #dc2626 !important;
+}
+
+.action-dropdown__delete:hover {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
 }

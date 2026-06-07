@@ -20,7 +20,8 @@ const Events = ({ currentUser }) => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [deletingId, setDeletingId] = useState(null); // ✅ FIX: delete lock
+  const [deletingId, setDeletingId] = useState(null);
+  const [openDropdownId, setOpenDropdownId] = useState(null);
 
   const tableWrapperRef = useRef(null);
 
@@ -186,7 +187,18 @@ const Events = ({ currentUser }) => {
   const handleTicketManagement = (event) => {
     setSelectedEventForTickets(event);
     setShowTicketModal(true);
+    setOpenDropdownId(null);
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!openDropdownId) return;
+    const handler = (e) => {
+      if (!e.target.closest(".action-dropdown")) setOpenDropdownId(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openDropdownId]);
 
   // -----------------------------
   // Filtered
@@ -294,7 +306,14 @@ const Events = ({ currentUser }) => {
                     <td>{event.title}</td>
 
                     <td>
-                      <span className={`status-badge ${s}`}>{s}</span>
+                      <span className={`status-badge ${s}`}>
+                        {s === "upcoming" ? "Upcoming"
+                          : s === "ongoing" ? "Ongoing"
+                          : s === "expired" ? "Expired"
+                          : s === "cancelled" ? "Cancelled"
+                          : s === "draft" ? "Draft"
+                          : s}
+                      </span>
                     </td>
 
                     <td>{event.location || "—"}</td>
@@ -303,26 +322,33 @@ const Events = ({ currentUser }) => {
                     <td>{event.organizer_name}</td>
 
                     <td>
-                      <div className="action-buttons">
-                        <button className="btn-sm view" onClick={() => openModal(event)}>
-                          View
-                        </button>
-
-                        <button className="btn-sm duplicate" onClick={() => handleDuplicate(event)}>
-                          Duplicate
-                        </button>
-
-                        <button className="btn-sm tickets" onClick={() => handleTicketManagement(event)}>
-                          Tickets
-                        </button>
-
+                      <div className="action-dropdown">
                         <button
-                          className="btn-sm delete"
-                          onClick={() => handleDelete(event.id)}
+                          className="action-dropdown__trigger"
+                          onClick={() => setOpenDropdownId(openDropdownId === event.id ? null : event.id)}
                           disabled={deletingId === event.id}
                         >
-                          {deletingId === event.id ? "Deleting..." : "Delete"}
+                          {deletingId === event.id ? "Deleting…" : "Actions ▾"}
                         </button>
+                        {openDropdownId === event.id && (
+                          <div className="action-dropdown__menu">
+                            <button onClick={() => { openModal(event); setOpenDropdownId(null); }}>
+                              ✏️ View / Edit
+                            </button>
+                            <button onClick={() => { handleDuplicate(event); setOpenDropdownId(null); }}>
+                              📋 Duplicate
+                            </button>
+                            <button onClick={() => handleTicketManagement(event)}>
+                              🎫 Tickets
+                            </button>
+                            <button
+                              className="action-dropdown__delete"
+                              onClick={() => { setOpenDropdownId(null); handleDelete(event.id); }}
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
