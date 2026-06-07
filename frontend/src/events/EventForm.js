@@ -32,8 +32,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     early_bird_price: "",
     early_bird_deadline: "",
     latitude: "",
-    longitude: "",
-    image: ""
+    longitude: ""
   });
 
   const [selectedTags, setSelectedTags] = useState([]);
@@ -45,6 +44,9 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
 
   const geocoderRef = useRef(null);
   const geocoderContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const mapContainerRef = useRef(null);
+  const markerRef = useRef(null);
 
   // -------------------------
   // Load event (edit mode)
@@ -73,8 +75,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       early_bird_price: event.early_bird_price || "",
       early_bird_deadline: event.early_bird_deadline || "",
       latitude: event.latitude || "",
-      longitude: event.longitude || "",
-      image: event.image || ""
+      longitude: event.longitude || ""
     });
 
     setSelectedTags(
@@ -83,13 +84,13 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
   }, [event]);
 
   // -------------------------
-  // Mapbox geocoder — only mounts on step 2
+  // Mapbox map + geocoder — mounts on step 2, map mode only
   // -------------------------
   useEffect(() => {
     if (step !== 2) return;
     if (useManualLocation) return;
-    if (!geocoderContainerRef.current) return;
-    if (geocoderRef.current) return;
+    if (!mapContainerRef.current) return;
+    if (mapRef.current) return; // already initialised
 
     if (!mapboxgl.accessToken) {
       console.warn("Mapbox token missing — falling back to manual");
@@ -97,43 +98,103 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       return;
     }
 
+    // Default centre: use existing coords if editing, else Nairobi
+    const initLng = formData.longitude ? Number(formData.longitude) : 36.8219;
+    const initLat = formData.latitude  ? Number(formData.latitude)  : -1.2921;
+
+    // ── Map ──
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: [initLng, initLat],
+      zoom: formData.latitude ? 14 : 10,
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    mapRef.current = map;
+
+    // ── Marker (draggable) ──
+    const marker = new mapboxgl.Marker({ draggable: true, color: "#6366f1" })
+      .setLngLat([initLng, initLat])
+      .addTo(map);
+
+    // Only show marker if we already have coords
+    if (!formData.latitude) marker.getElement().style.display = "none";
+    markerRef.current = marker;
+
+    // Reverse-geocode helper
+    const reverseGeocode = async (lng, lat) => {
+      try {
+        const res = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}&types=place,address,poi`
+        );
+        const data = await res.json();
+        return data.features?.[0]?.place_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      } catch {
+        return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      }
+    };
+
+    // Update state from a lng/lat pick
+    const pickLocation = async (lng, lat, placeName) => {
+      const name = placeName || await reverseGeocode(lng, lat);
+      marker.setLngLat([lng, lat]);
+      marker.getElement().style.display = "";
+      setFormData((prev) => ({
+        ...prev,
+        location: name,
+        latitude: lat,
+        longitude: lng,
+      }));
+    };
+
+    // Drag-end on marker
+    marker.on("dragend", () => {
+      const { lng, lat } = marker.getLngLat();
+      pickLocation(lng, lat);
+    });
+
+    // Click on map
+    map.on("click", (e) => {
+      pickLocation(e.lngLat.lng, e.lngLat.lat);
+      map.flyTo({ center: [e.lngLat.lng, e.lngLat.lat], zoom: 15 });
+    });
+
+    // ── Geocoder (search bar) ──
     const geocoder = new MapboxGeocoder({
       accessToken: mapboxgl.accessToken,
+      mapboxgl: mapboxgl,
       types: "place,address,poi",
       placeholder: "Search for a venue or address in Kenya",
       marker: false,
-      countries: "ke"
+      countries: "ke",
     });
 
-    geocoder.addTo(geocoderContainerRef.current);
+    // Attach geocoder to its own container div (not the map)
+    if (geocoderContainerRef.current) {
+      geocoder.addTo(geocoderContainerRef.current);
+    }
 
     geocoder.on("result", (e) => {
       const place = e.result;
-      setFormData((prev) => ({
-        ...prev,
-        location: place.place_name,
-        latitude: place.center[1],
-        longitude: place.center[0]
-      }));
+      const [lng, lat] = place.center;
+      pickLocation(lng, lat, place.place_name);
+      map.flyTo({ center: [lng, lat], zoom: 15 });
     });
 
     geocoder.on("clear", () => {
-      setFormData((prev) => ({
-        ...prev,
-        location: "",
-        latitude: "",
-        longitude: ""
-      }));
+      marker.getElement().style.display = "none";
+      setFormData((prev) => ({ ...prev, location: "", latitude: "", longitude: "" }));
     });
 
     geocoderRef.current = geocoder;
 
     return () => {
-      if (geocoderRef.current) {
-        geocoderRef.current.remove();
-        geocoderRef.current = null;
-      }
+      if (geocoderRef.current) { geocoderRef.current.onRemove(); geocoderRef.current = null; }
+      if (markerRef.current)   { markerRef.current.remove();     markerRef.current = null; }
+      if (mapRef.current)      { mapRef.current.remove();        mapRef.current = null; }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, useManualLocation]);
 
   // -------------------------
@@ -181,6 +242,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
   const clearLocation = () => {
     setFormData((prev) => ({ ...prev, location: "", latitude: "", longitude: "" }));
     if (geocoderRef.current) geocoderRef.current.clear();
+    if (markerRef.current) markerRef.current.getElement().style.display = "none";
   };
 
   // -------------------------
@@ -454,31 +516,6 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
                 </div>
               )}
 
-              <div className="form-group" style={{ marginBottom: "16px" }}>
-                <label>Event Image URL</label>
-                <input
-                  name="image"
-                  value={formData.image}
-                  onChange={handleChange}
-                  placeholder="https://... (banner or cover photo)"
-                />
-                {formData.image && (
-                  <img
-                    src={formData.image}
-                    alt="Event preview"
-                    style={{
-                      marginTop: "8px",
-                      width: "100%",
-                      maxHeight: "180px",
-                      objectFit: "cover",
-                      borderRadius: "8px",
-                      border: "2px solid #e5e7eb"
-                    }}
-                    onError={(e) => { e.target.style.display = "none"; }}
-                  />
-                )}
-              </div>
-
               {tags && tags.length > 0 && (
                 <div className="form-group" style={{ marginBottom: "16px" }}>
                   <label>Tags</label>
@@ -505,7 +542,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
           {step === 2 && (
             <div className="form-step">
 
-              <div className="form-group" style={{ marginBottom: "16px" }}>
+              <div className="form-group" style={{ marginBottom: "12px" }}>
                 <label>
                   Search Location
                   <button
@@ -521,7 +558,26 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
                 </label>
 
                 {!useManualLocation ? (
-                  <div ref={geocoderContainerRef} />
+                  <>
+                    {/* Geocoder search input mounts here */}
+                    <div ref={geocoderContainerRef} style={{ marginBottom: "8px" }} />
+
+                    {/* Live Mapbox map — click or drag marker to pick location */}
+                    <div
+                      ref={mapContainerRef}
+                      style={{
+                        width: "100%",
+                        height: "300px",
+                        borderRadius: "10px",
+                        border: "1px solid #d1d5db",
+                        overflow: "hidden",
+                        marginBottom: "8px",
+                      }}
+                    />
+                    <p style={{ fontSize: "0.8rem", color: "#6b7280", margin: "0 0 8px" }}>
+                      💡 Search above, or click anywhere on the map to pin a location. You can also drag the marker to fine-tune.
+                    </p>
+                  </>
                 ) : (
                   <input
                     name="location"
