@@ -90,7 +90,57 @@ router.get("/", verifyToken, async (req, res) => {
 });
 
 // ======================================================
-// GET SINGLE BOOKING (FULL DETAILS)
+// GET ORGANIZER BOOKINGS  ← must be BEFORE /:id
+// ======================================================
+router.get("/organizer", verifyToken, async (req, res) => {
+  try {
+    if (!["organizer", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Organizer access required" });
+    }
+
+    const userId = req.user.id;
+
+    const result = await db.query(
+      `
+      SELECT 
+        b.*,
+        e.title AS event_title,
+        e.event_date,
+        e.location,
+        u.fullname AS user_name,
+        p.status AS payment_status
+      FROM bookings b
+      INNER JOIN events e ON b.event_id = e.id
+      INNER JOIN usercredentials u ON b.user_id = u.id
+      LEFT JOIN payments p ON p.booking_id = b.id
+      WHERE e.created_by = $1
+      ORDER BY b.booking_date DESC
+      `,
+      [userId]
+    );
+
+    const enriched = await Promise.all(
+      result.rows.map(async (b) => {
+        const tickets = await db.query(
+          `SELECT bt.*, tt.name, tt.price
+           FROM booking_tickets bt
+           JOIN ticket_types tt ON bt.ticket_type_id = tt.id
+           WHERE bt.booking_id = $1`,
+          [b.id]
+        );
+        return { ...b, tickets: tickets.rows };
+      })
+    );
+
+    res.json(enriched);
+  } catch (err) {
+    console.error("Organizer bookings error:", err);
+    res.status(500).json({ error: "Failed to fetch bookings" });
+  }
+});
+
+// ======================================================
+// GET SINGLE BOOKING (FULL DETAILS)  ← /:id must be AFTER named routes
 // ======================================================
 router.get("/:id", verifyToken, async (req, res) => {
   try {
@@ -150,56 +200,6 @@ router.get("/:id", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Get booking error:", err);
     res.status(500).json({ error: "Failed to fetch booking" });
-  }
-});
-
-// ======================================================
-// GET ORGANIZER BOOKINGS
-// ======================================================
-router.get("/organizer", verifyToken, async (req, res) => {
-  try {
-    if (!["organizer", "admin"].includes(req.user.role)) {
-      return res.status(403).json({ error: "Organizer access required" });
-    }
-
-    const userId = req.user.id;
-
-    const result = await db.query(
-      `
-      SELECT 
-        b.*,
-        e.title AS event_title,
-        e.event_date,
-        e.location,
-        u.fullname AS user_name,
-        p.status AS payment_status
-      FROM bookings b
-      INNER JOIN events e ON b.event_id = e.id
-      INNER JOIN usercredentials u ON b.user_id = u.id
-      LEFT JOIN payments p ON p.booking_id = b.id
-      WHERE e.created_by = $1
-      ORDER BY b.booking_date DESC
-      `,
-      [userId]
-    );
-
-    const enriched = await Promise.all(
-      result.rows.map(async (b) => {
-        const tickets = await db.query(
-          `SELECT bt.*, tt.name, tt.price
-           FROM booking_tickets bt
-           JOIN ticket_types tt ON bt.ticket_type_id = tt.id
-           WHERE bt.booking_id = $1`,
-          [b.id]
-        );
-        return { ...b, tickets: tickets.rows };
-      })
-    );
-
-    res.json(enriched);
-  } catch (err) {
-    console.error("Organizer bookings error:", err);
-    res.status(500).json({ error: "Failed to fetch bookings" });
   }
 });
 

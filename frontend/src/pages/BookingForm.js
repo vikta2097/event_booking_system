@@ -181,12 +181,14 @@ const BookingForm = ({ user }) => {
 
       console.log('✅ Booking response:', res.data);
 
-      if (!res.data.booking_id) {
-        throw new Error('Invalid response: No booking_id received');
+      // Backend returns bookingId (camelCase)
+      const bookingId = res.data.bookingId || res.data.booking_id;
+      if (!bookingId) {
+        throw new Error('Invalid response: No booking ID received');
       }
 
-      sessionStorage.setItem('activeBooking', res.data.booking_id);
-      navigate(`/dashboard/payment/${res.data.booking_id}`);
+      sessionStorage.setItem('activeBooking', bookingId);
+      navigate(`/dashboard/payment/${bookingId}`);
 
     } catch (err) {
       console.error('❌ Booking error:', err);
