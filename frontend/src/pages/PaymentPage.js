@@ -16,8 +16,9 @@ const PaymentPage = ({ user }) => {
   const [isPolling, setIsPolling] = useState(false);
 
   const pollIntervalRef = useRef(null);
-  const pollCountRef = useRef(0); // Use ref to track count reliably
-  const MAX_POLL_ATTEMPTS = 60; // 3 minutes (60 * 3 sec)
+  const pollCountRef = useRef(0);
+  const checkoutRequestIdRef = useRef(null); // store checkout_request_id across renders
+  const MAX_POLL_ATTEMPTS = 60; // 5 minutes (60 * 5s)
 
   // Load booking details
   useEffect(() => {
@@ -38,7 +39,7 @@ const PaymentPage = ({ user }) => {
     loadBooking();
   }, [bookingId, navigate]);
 
-  // Check for existing payment
+  // Check for existing payment (page reload recovery)
   useEffect(() => {
     if (!booking) return;
 
@@ -52,9 +53,11 @@ const PaymentPage = ({ user }) => {
         if (paymentData.status === "success") {
           navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
         } else if (paymentData.status === "pending") {
+          // Resume polling with the saved checkout_request_id
           setPayment(paymentData);
-          setIsPolling(true);
+          checkoutRequestIdRef.current = paymentData.checkout_request_id;
           pollCountRef.current = 0;
+          setIsPolling(true);
         }
       } catch (err) {
         console.error("Error checking payment:", err);
@@ -69,7 +72,7 @@ const PaymentPage = ({ user }) => {
     if (user?.phone) setPhoneNumber(user.phone);
   }, [user]);
 
-  // Poll payment status
+  // ── Polling: checks DB every 5s, queries Safaricom directly every 15s ──
   useEffect(() => {
     if (!isPolling) return;
 
@@ -80,24 +83,19 @@ const PaymentPage = ({ user }) => {
         if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
           clearInterval(pollIntervalRef.current);
           setIsPolling(false);
-          setError(
-            "Payment verification timeout. Please check your M-Pesa messages or contact support."
-          );
+          setError("Payment verification timeout. Please check your M-Pesa messages or contact support.");
           return;
         }
 
-        // Fetch latest booking
+        // Step 1: Check your own DB (fast, cheap)
         const bookingRes = await api.get(`/bookings/${bookingId}`);
-        const updatedBooking = bookingRes.data;
-
-        if (updatedBooking.booking_status === "confirmed") {
+        if (bookingRes.data.booking_status === "confirmed") {
           clearInterval(pollIntervalRef.current);
           setIsPolling(false);
           navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
           return;
         }
 
-        // Fetch latest payment
         const paymentRes = await api.get(`/payments/by-booking/${bookingId}`);
         const updatedPayment = paymentRes.data;
 
@@ -115,10 +113,34 @@ const PaymentPage = ({ user }) => {
           setPayment(null);
           return;
         }
+
+        // Step 2: Every 3rd poll (~15s), ask Safaricom directly
+        // This catches payments where the callback was missed (server was sleeping)
+        if (pollCountRef.current % 3 === 0 && checkoutRequestIdRef.current) {
+          try {
+            console.log(`📡 Querying Safaricom directly (poll #${pollCountRef.current})...`);
+            const queryRes = await api.post("/payments/mpesa/query", {
+              checkout_request_id: checkoutRequestIdRef.current,
+            });
+
+            if (queryRes.data.paid) {
+              clearInterval(pollIntervalRef.current);
+              setIsPolling(false);
+              navigate(`/dashboard/booking-success/${bookingId}`, { replace: true });
+              return;
+            }
+
+            console.log(`📡 Safaricom query result: not paid yet (${queryRes.data.result_desc || "pending"})`);
+          } catch (queryErr) {
+            // Non-fatal — just keep polling via DB
+            console.warn("Direct Safaricom query failed, continuing DB poll:", queryErr.message);
+          }
+        }
+
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 3000);
+    }, 5000); // every 5 seconds
 
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -152,17 +174,16 @@ const PaymentPage = ({ user }) => {
         phone: cleanPhone,
       });
 
+      // Save checkout_request_id so the poller can query Safaricom directly
+      checkoutRequestIdRef.current = res.data.checkout_request_id;
+
       setPayment(res.data);
       setIsPolling(true);
 
-      alert(
-        "STK Push sent to your phone. Please enter your M-Pesa PIN to complete payment."
-      );
+      alert("STK Push sent to your phone. Please enter your M-Pesa PIN to complete payment.");
     } catch (err) {
       console.error("Payment error:", err);
-      setError(
-        err.response?.data?.error || "Payment initiation failed. Please try again."
-      );
+      setError(err.response?.data?.error || "Payment initiation failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -174,6 +195,7 @@ const PaymentPage = ({ user }) => {
     setPayment(null);
     setError("");
     pollCountRef.current = 0;
+    checkoutRequestIdRef.current = null;
   };
 
   if (!booking) {

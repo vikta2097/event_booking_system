@@ -75,4 +75,38 @@ const stkPush = async ({ amount, phone, accountRef }) => {
   }
 };
 
-module.exports = { stkPush };
+// Query STK Push status directly from Safaricom
+// Used as a fallback when the callback is missed (e.g. server was sleeping)
+const querySTK = async (checkoutRequestId) => {
+  try {
+    const token = await getAccessToken();
+    const timestamp = moment().format("YYYYMMDDHHmmss");
+    const { MPESA_SHORTCODE, MPESA_PASSKEY, MPESA_ENV } = process.env;
+
+    const password = Buffer.from(MPESA_SHORTCODE + MPESA_PASSKEY + timestamp).toString("base64");
+
+    const url =
+      MPESA_ENV === "production"
+        ? "https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query"
+        : "https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query";
+
+    const res = await axios.post(
+      url,
+      {
+        BusinessShortCode: MPESA_SHORTCODE,
+        Password: password,
+        Timestamp: timestamp,
+        CheckoutRequestID: checkoutRequestId,
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    console.log("⬅️ STK Query response:", res.data);
+    return res.data;
+  } catch (err) {
+    console.error("❌ STK Query error:", err.response?.data || err.message);
+    throw new Error("M-Pesa STK Query failed");
+  }
+};
+
+module.exports = { stkPush, querySTK };
