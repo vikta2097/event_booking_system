@@ -1,10 +1,64 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import api from "../api";
 import EventForm from "../events/EventForm";
 import TicketManagement from "../events/TicketManagement";
 import AdminPanels from "../events/AdminPanels";
 import "../styles/Events.css";
 
+// ─── Portal dropdown menu ───────────────────────────────────────────────────
+// Renders the menu into document.body so it is never clipped by any ancestor's
+// overflow:hidden / overflow:auto.
+const DropdownPortal = ({ anchorRef, onClose, children }) => {
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    const update = () => {
+      if (!anchorRef.current) return;
+      const r = anchorRef.current.getBoundingClientRect();
+      setCoords({
+        top: r.bottom + window.scrollY + 4,
+        left: r.right + window.scrollX,   // will be right-aligned via CSS transform
+        width: r.width,
+      });
+    };
+    update();
+
+    // close on outside click
+    const handleClick = (e) => {
+      if (anchorRef.current && !anchorRef.current.closest(".action-dropdown").contains(e.target)) {
+        onClose();
+      }
+    };
+    // close on scroll so menu doesn't float
+    const handleScroll = () => onClose();
+
+    document.addEventListener("mousedown", handleClick);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [anchorRef, onClose]);
+
+  return ReactDOM.createPortal(
+    <div
+      className="action-dropdown__menu"
+      style={{
+        position: "absolute",
+        top: coords.top,
+        left: coords.left,
+        transform: "translateX(-100%)",  // right-align to the trigger
+        zIndex: 9999,
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+};
+
+// ─── Main component ──────────────────────────────────────────────────────────
 const Events = ({ currentUser }) => {
   const [events, setEvents] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -22,6 +76,9 @@ const Events = ({ currentUser }) => {
 
   const [deletingId, setDeletingId] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState(null);
+
+  // Maps event.id → ref for the trigger button
+  const triggerRefs = useRef({});
 
   const tableWrapperRef = useRef(null);
 
@@ -119,11 +176,8 @@ const Events = ({ currentUser }) => {
     setShowModal(true);
   };
 
-  // -----------------------------
-  // FIXED DELETE (anti-spam + rollback + lock)
-  // -----------------------------
   const handleDelete = async (id) => {
-    if (deletingId === id) return; // prevent double execution
+    if (deletingId === id) return;
 
     const confirmDelete = await new Promise((resolve) => {
       const modal = document.createElement("div");
@@ -155,19 +209,13 @@ const Events = ({ currentUser }) => {
     if (!confirmDelete) return;
 
     setDeletingId(id);
-
-    const previous = [...events]; // ✅ FIX: real snapshot copy
-
+    const previous = [...events];
     setEvents((prev) => prev.filter((e) => e.id !== id));
 
     try {
-      await api.delete(`/events/${id}`, {
-        headers: getAuthHeaders(),
-      });
+      await api.delete(`/events/${id}`, { headers: getAuthHeaders() });
     } catch (err) {
       console.error("Delete failed:", err?.response || err);
-
-      // rollback UI
       setEvents(previous);
     } finally {
       setDeletingId(null);
@@ -175,11 +223,7 @@ const Events = ({ currentUser }) => {
   };
 
   const handleDuplicate = (event) => {
-    const copy = {
-      ...event,
-      title: `${event.title} (Copy)`,
-      status: "upcoming",
-    };
+    const copy = { ...event, title: `${event.title} (Copy)`, status: "upcoming" };
     delete copy.id;
     openModal(copy);
   };
@@ -190,15 +234,9 @@ const Events = ({ currentUser }) => {
     setOpenDropdownId(null);
   };
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    if (!openDropdownId) return;
-    const handler = (e) => {
-      if (!e.target.closest(".action-dropdown")) setOpenDropdownId(null);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [openDropdownId]);
+  const toggleDropdown = (id) => {
+    setOpenDropdownId((prev) => (prev === id ? null : id));
+  };
 
   // -----------------------------
   // Filtered
@@ -213,7 +251,6 @@ const Events = ({ currentUser }) => {
     .filter((e) => {
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
-
       return (
         e.title?.toLowerCase().includes(q) ||
         e.location?.toLowerCase().includes(q) ||
@@ -230,6 +267,11 @@ const Events = ({ currentUser }) => {
   }, [currentUser, refreshData]);
 
   if (!currentUser) return <p>Loading user...</p>;
+
+  const statusLabel = (s) => {
+    const map = { upcoming: "Upcoming", ongoing: "Ongoing", expired: "Expired", cancelled: "Cancelled", draft: "Draft" };
+    return map[s] || s;
+  };
 
   // -----------------------------
   // Render
@@ -258,15 +300,9 @@ const Events = ({ currentUser }) => {
       </div>
 
       <div className="filter-buttons">
-        <button className={filterStatus === "all" ? "active" : ""} onClick={() => setFilterStatus("all")}>
-          All
-        </button>
-        <button className={filterStatus === "active" ? "active" : ""} onClick={() => setFilterStatus("active")}>
-          Active
-        </button>
-        <button className={filterStatus === "expired" ? "active" : ""} onClick={() => setFilterStatus("expired")}>
-          Expired
-        </button>
+        <button className={filterStatus === "all" ? "active" : ""} onClick={() => setFilterStatus("all")}>All</button>
+        <button className={filterStatus === "active" ? "active" : ""} onClick={() => setFilterStatus("active")}>Active</button>
+        <button className={filterStatus === "expired" ? "active" : ""} onClick={() => setFilterStatus("expired")}>Expired</button>
       </div>
 
       {loading ? (
@@ -293,6 +329,12 @@ const Events = ({ currentUser }) => {
               {filteredEvents.map((event) => {
                 const s = (event.computed_status || "upcoming").toLowerCase();
 
+                // Ensure a stable ref per row
+                if (!triggerRefs.current[event.id]) {
+                  triggerRefs.current[event.id] = React.createRef();
+                }
+                const triggerRef = triggerRefs.current[event.id];
+
                 return (
                   <tr key={event.id}>
                     <td>
@@ -306,14 +348,7 @@ const Events = ({ currentUser }) => {
                     <td>{event.title}</td>
 
                     <td>
-                      <span className={`status-badge ${s}`}>
-                        {s === "upcoming" ? "Upcoming"
-                          : s === "ongoing" ? "Ongoing"
-                          : s === "expired" ? "Expired"
-                          : s === "cancelled" ? "Cancelled"
-                          : s === "draft" ? "Draft"
-                          : s}
-                      </span>
+                      <span className={`status-badge ${s}`}>{statusLabel(s)}</span>
                     </td>
 
                     <td>{event.location || "—"}</td>
@@ -324,14 +359,19 @@ const Events = ({ currentUser }) => {
                     <td>
                       <div className="action-dropdown">
                         <button
+                          ref={triggerRef}
                           className="action-dropdown__trigger"
-                          onClick={() => setOpenDropdownId(openDropdownId === event.id ? null : event.id)}
+                          onClick={() => toggleDropdown(event.id)}
                           disabled={deletingId === event.id}
                         >
                           {deletingId === event.id ? "Deleting…" : "Actions ▾"}
                         </button>
+
                         {openDropdownId === event.id && (
-                          <div className="action-dropdown__menu">
+                          <DropdownPortal
+                            anchorRef={triggerRef}
+                            onClose={() => setOpenDropdownId(null)}
+                          >
                             <button onClick={() => { openModal(event); setOpenDropdownId(null); }}>
                               ✏️ View / Edit
                             </button>
@@ -347,7 +387,7 @@ const Events = ({ currentUser }) => {
                             >
                               🗑️ Delete
                             </button>
-                          </div>
+                          </DropdownPortal>
                         )}
                       </div>
                     </td>
@@ -355,7 +395,6 @@ const Events = ({ currentUser }) => {
                 );
               })}
             </tbody>
-
           </table>
         </div>
       )}
