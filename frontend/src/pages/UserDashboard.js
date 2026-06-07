@@ -28,22 +28,10 @@ const UserDashboard = ({ user, token, onLogout }) => {
   return (
     <div className="user-dashboard">
       {/* ================= TOP BAR ================= */}
-      <div
-        className="user-top-bar"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          backgroundColor: "#fff",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        }}
-      >
+      <div className="user-top-bar">
         <div className="top-bar-left">
           <h2
             className="brand-title"
-            style={{ cursor: "pointer" }}
             onClick={() => navigate("/dashboard")}
           >
             EventHyper
@@ -57,7 +45,7 @@ const UserDashboard = ({ user, token, onLogout }) => {
                 className="my-bookings-btn"
                 onClick={() => navigate("/dashboard/my-bookings")}
               >
-                My Bookings
+                🎟️ My Bookings
               </button>
 
               <NotificationBell user={user} />
@@ -72,14 +60,14 @@ const UserDashboard = ({ user, token, onLogout }) => {
                 className="login-btn"
                 onClick={() => navigate("/auth/login")}
               >
-                Login
+                Log in
               </button>
 
               <button
                 className="signup-btn"
                 onClick={() => navigate("/auth/login")}
               >
-                Sign Up
+                Sign up
               </button>
             </>
           )}
@@ -87,7 +75,7 @@ const UserDashboard = ({ user, token, onLogout }) => {
       </div>
 
       {/* ================= CONTENT ================= */}
-      <div className="user-content" style={{ paddingTop: "80px" }}>
+      <div className="user-content">
         <Routes>
           <Route index element={<UserDashboardHome user={user} />} />
           <Route path="contact" element={<ContactUs />} />
