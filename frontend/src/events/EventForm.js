@@ -22,6 +22,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     capacity: "",
     price: "",
     status: "upcoming",
+    event_image: "",
     organizer_name: "",
     organizer_image: "",
     venue: "",
@@ -72,6 +73,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       capacity: event.capacity || "",
       price: event.price || "",
       status: event.status || "upcoming",
+      event_image: event.image || event.event_image || "",
       organizer_name: event.organizer_name || "",
       organizer_image: event.organizer_image || "",
       venue: event.venue || "",
@@ -315,6 +317,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       const payload = {
         ...formData,
         created_by: currentUser.id,
+        image: formData.event_image || null,
         location: geo?.location || formData.location,
         latitude: geo?.latitude || formData.latitude || null,
         longitude: geo?.longitude || formData.longitude || null,
@@ -496,6 +499,31 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
                   onChange={handleChange}
                   placeholder="Describe your event..."
                 />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: "16px" }}>
+                <label>Event Image URL</label>
+                <input
+                  name="event_image"
+                  value={formData.event_image}
+                  onChange={handleChange}
+                  placeholder="https://... (event poster or banner)"
+                />
+                {formData.event_image && (
+                  <img
+                    src={formData.event_image}
+                    alt="Event preview"
+                    style={{
+                      marginTop: "10px",
+                      width: "100%",
+                      maxHeight: "180px",
+                      objectFit: "cover",
+                      borderRadius: "8px",
+                      border: "2px solid #e5e7eb"
+                    }}
+                    onError={(e) => { e.target.style.display = "none"; }}
+                  />
+                )}
               </div>
 
               <div className="form-row">

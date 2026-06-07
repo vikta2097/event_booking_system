@@ -173,7 +173,7 @@
 }
 
 .events-table-scroll table {
-  min-width: 1200px;
+  min-width: 1400px;
   border-collapse: collapse;
   width: 100%;
 }
@@ -347,16 +347,23 @@
    STATUS BADGES
 =========================== */
 .status-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
+  /* fallback so no badge ever shows invisible */
+  background: #e5e7eb;
+  color: #374151;
 }
 
-.status-badge.upcoming {
+.status-badge.upcoming,
+.status-badge.active,
+.status-badge.published {
   background: #d1fae5;
   color: #065f46;
 }
@@ -366,7 +373,8 @@
   color: #92400e;
 }
 
-.status-badge.expired {
+.status-badge.expired,
+.status-badge.draft {
   background: #f3f4f6;
   color: #6b7280;
 }
@@ -381,8 +389,8 @@
 =========================== */
 .action-buttons {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
   align-items: center;
 }
 
@@ -1028,10 +1036,10 @@
 
 /* .action-buttons — see primary definition above */
 
-/* Make sure Actions column has enough width */
+/* Make sure Actions column has enough width for all 4 buttons */
 .events-table th:last-child,
 .events-table td:last-child {
-  min-width: 180px;
+  min-width: 280px;
   white-space: nowrap;
 }
 
