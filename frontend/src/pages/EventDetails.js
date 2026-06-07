@@ -138,7 +138,7 @@ const EventDetails = ({ user }) => {
 
   const handleBookNow = () => {
     if (!user) {
-      navigate("/dashboard/login", { state: { from: `/dashboard/book/${event.id}` }, replace: true });
+      navigate("/auth/login", { state: { from: `/dashboard/events/${event.id}` } });
     } else {
       navigate(`/dashboard/book/${event.id}`);
     }

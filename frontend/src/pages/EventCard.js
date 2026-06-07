@@ -52,7 +52,7 @@ const EventCard = ({ event, user, onSaveToFavorites }) => {
     e.stopPropagation();
     if (isSoldOut) return;
     if (!user) {
-      navigate("/dashboard/login", { state: { from: `/dashboard/book/${event.id}` }, replace: true });
+      navigate("/auth/login", { state: { from: `/dashboard/events/${event.id}` } });
     } else {
       navigate(`/dashboard/book/${event.id}`);
     }

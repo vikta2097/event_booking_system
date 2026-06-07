@@ -21,6 +21,17 @@ const UserDashboard = ({ user, token, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // After login, redirect the user back to the page they came from (e.g. event detail)
+  React.useEffect(() => {
+    if (user) {
+      const redirect = localStorage.getItem("postLoginRedirect");
+      if (redirect) {
+        localStorage.removeItem("postLoginRedirect");
+        navigate(redirect, { replace: true });
+      }
+    }
+  }, [user, navigate]);
+
   const handleLogout = () => {
     onLogout();
     navigate("/auth/login", { replace: true });

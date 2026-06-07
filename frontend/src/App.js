@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 
@@ -17,6 +17,18 @@ import "./styles/responsive.css";
 
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 
+// Reads location.state.from so we can return the user to where they came from
+function LoginRedirectWrapper({ onLoginSuccess }) {
+  const location = useLocation();
+  const from = location.state?.from || null;
+
+  const handleLogin = (result) => {
+    onLoginSuccess(result, from);
+  };
+
+  return <LoginForm onLoginSuccess={handleLogin} />;
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
@@ -30,7 +42,7 @@ function App() {
     setToken(null);
   };
 
-  const handleLogin = ({ token, role, user }) => {
+  const handleLogin = ({ token, role, user }, redirectTo = null) => {
     const loginTime = Date.now();
     localStorage.setItem("token", token);
     localStorage.setItem("role", role);
@@ -39,6 +51,11 @@ function App() {
 
     setToken(token);
     setUser({ ...user, role });
+
+    // If there's a specific page to return to (e.g. event detail), store it
+    if (redirectTo) {
+      localStorage.setItem("postLoginRedirect", redirectTo);
+    }
 
     logoutTimerRef.current = setTimeout(() => {
       handleLogout();
@@ -98,7 +115,7 @@ function App() {
           element={
             isAuthenticated
               ? <Navigate to={dashboardPath} replace />
-              : <LoginForm onLoginSuccess={handleLogin} />
+              : <LoginRedirectWrapper onLoginSuccess={handleLogin} />
           }
         />
 
