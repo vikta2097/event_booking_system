@@ -1,3 +1,8 @@
+/* =========================================================
+   DASHBOARD HOME — Admin & Organizer
+   All colors use theme variables from Theme.css
+   ========================================================= */
+
 .dashboard-home {
   padding: 2rem;
   max-width: 1400px;
@@ -11,15 +16,15 @@
 .dashboard-home-header h1 {
   font-size: 2rem;
   margin-bottom: 0.5rem;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .dashboard-home-header p {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 1rem;
 }
 
-/* Statistics Cards */
+/* ── Statistics Cards ── */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -28,19 +33,20 @@
 }
 
 .stat-card {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 1.5rem;
   display: flex;
   align-items: center;
   gap: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  transition: all 0.3s ease;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-subtle);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  box-shadow: var(--shadow-lg);
 }
 
 .stat-icon {
@@ -54,25 +60,16 @@
   flex-shrink: 0;
 }
 
-.stat-icon.events { 
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
+/* Icon gradients are decorative — kept as-is, they look fine in both modes */
+.stat-icon.events   { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.stat-icon.bookings { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.stat-icon.revenue  { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
 
-.stat-icon.bookings { 
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-.stat-icon.revenue { 
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-.stat-content {
-  flex: 1;
-}
+.stat-content { flex: 1; }
 
 .stat-content h3 {
   font-size: 0.875rem;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -81,11 +78,11 @@
 .stat-number {
   font-size: 2rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
 }
 
-/* Dashboard Grid */
+/* ── Dashboard Grid ── */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -93,44 +90,45 @@
 }
 
 .dashboard-card {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-subtle);
 }
 
 .dashboard-card h2 {
   font-size: 1.25rem;
   margin-bottom: 1.25rem;
-  color: #1a1a1a;
-  border-bottom: 2px solid #f5f5f5;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-color);
   padding-bottom: 0.75rem;
 }
 
-/* Lists */
-.event-list, 
-.booking-list, 
+/* ── Lists ── */
+.event-list,
+.booking-list,
 .payment-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.event-item, 
-.booking-item, 
+.event-item,
+.booking-item,
 .payment-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 0;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--border-subtle);
   transition: background 0.2s;
 }
 
 .event-item:hover,
 .booking-item:hover,
 .payment-item:hover {
-  background: #fafafa;
+  background: var(--color-hover);
   margin: 0 -0.5rem;
   padding-left: 0.5rem;
   padding-right: 0.5rem;
@@ -143,18 +141,18 @@
   border-bottom: none;
 }
 
-.event-title, 
-.booking-id, 
+.event-title,
+.booking-id,
 .payment-method {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-size: 0.95rem;
 }
 
-.event-date, 
-.booking-date, 
+.event-date,
+.booking-date,
 .payment-date {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
@@ -165,20 +163,20 @@
 }
 
 .payment-amount {
-  color: #10b981;
+  color: var(--color-success);
   font-weight: 700;
   font-size: 1rem;
 }
 
 .no-data {
-  color: #999;
+  color: var(--text-muted);
   text-align: center;
   padding: 3rem 1rem;
   font-style: italic;
   font-size: 0.95rem;
 }
 
-.loading-screen, 
+.loading-screen,
 .error-message {
   display: flex;
   justify-content: center;
@@ -187,35 +185,14 @@
   font-size: 1.125rem;
 }
 
-.loading-screen {
-  color: #666;
-}
+.loading-screen { color: var(--text-secondary); }
+.error-message  { color: var(--color-danger); font-weight: 500; }
 
-.error-message {
-  color: #ef4444;
-  font-weight: 500;
-}
-
-/* Responsive */
+/* ── Responsive ── */
 @media (max-width: 768px) {
-  .dashboard-home {
-    padding: 1rem;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .stat-number {
-    font-size: 1.5rem;
-  }
-
-  .payment-item {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
+  .dashboard-home { padding: 1rem; }
+  .stats-grid     { grid-template-columns: 1fr; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .stat-number    { font-size: 1.5rem; }
+  .payment-item   { grid-template-columns: 1fr; gap: 0.5rem; }
 }

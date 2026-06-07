@@ -1,9 +1,13 @@
 /* =========================================================
    USER DASHBOARD — Layout
+   All colors use theme variables from Theme.css so that
+   dark-mode toggle works automatically.
    ========================================================= */
 
 .user-dashboard {
   min-height: 100vh;
+  background: var(--bg-app);
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -15,12 +19,13 @@
   right: 0;
   z-index: 1000;
   height: 64px;
-  background-color: #fff;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--topbar-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+  transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 /* ── Brand ── */
@@ -28,13 +33,14 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: #667eea;
+  color: var(--brand-primary);
   cursor: pointer;
   user-select: none;
+  transition: color 0.15s ease;
 }
 
 .brand-title:hover {
-  color: #5a67d8;
+  color: var(--brand-hover);
 }
 
 /* ── Right side button group ── */
@@ -54,56 +60,57 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
   line-height: 1.4;
+  transition: background 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
 }
 
-/* ── Guest: Log in (outlined purple) ── */
+/* ── Guest: Log in (outlined brand) ── */
 .login-btn {
-  background: none;
-  border: 1.5px solid #667eea;
-  color: #667eea;
+  background: transparent;
+  border: 1.5px solid var(--brand-primary);
+  color: var(--brand-primary);
 }
 
 .login-btn:hover {
-  background: #f0f1ff;
+  background: var(--color-hover);
 }
 
-/* ── Guest: Sign up (solid purple gradient) ── */
+/* ── Guest: Sign up (solid brand) ── */
 .signup-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
+  background: var(--brand-primary);
+  border: 1.5px solid var(--brand-primary);
   color: #fff;
 }
 
 .signup-btn:hover {
-  opacity: 0.88;
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
 }
 
-/* ── Logged-in: My Bookings (neutral outlined) ── */
+/* ── Logged-in: My Bookings ── */
 .my-bookings-btn {
-  background: none;
-  border: 1.5px solid #e5e7eb;
-  color: #374151;
+  background: transparent;
+  border: 1.5px solid var(--border-color);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .my-bookings-btn:hover {
-  border-color: #9ca3af;
-  background: #f9fafb;
+  background: var(--color-hover);
+  border-color: var(--text-secondary);
 }
 
-/* ── Logged-in: Logout (outlined red) ── */
+/* ── Logged-in: Logout ── */
 .logout-btn {
-  background: none;
-  border: 1.5px solid #ef4444;
-  color: #ef4444;
+  background: transparent;
+  border: 1.5px solid var(--color-danger);
+  color: var(--color-danger);
 }
 
 .logout-btn:hover {
-  background: #fef2f2;
+  background: var(--color-hover);
 }
 
 /* ── Page content (clears the fixed top bar) ── */
@@ -118,7 +125,6 @@
 @media (max-width: 480px) {
   .user-top-bar {
     padding: 0 14px;
-    gap: 6px;
   }
 
   .brand-title {

@@ -1,9 +1,17 @@
-/* Main container */
+/* =========================================================
+   USER DASHBOARD HOME
+   All colors use theme variables from Theme.css so that
+   dark-mode toggle works automatically.
+   ========================================================= */
+
 .dashboard-home {
   padding: 20px;
-  padding-top: 90px; /* ensures content does NOT hide behind fixed top bar */
+  padding-top: 90px;
   max-width: 1200px;
   margin: 0 auto;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  transition: background 0.25s ease, color 0.25s ease;
 }
 
 /* Welcome header */
@@ -15,29 +23,31 @@
 .welcome-title {
   font-size: 28px;
   margin: 0;
-  color: #0077ff;
+  color: var(--brand-primary);
 }
 
-/* Remove old dashboard action buttons (My Bookings + Logout inside page) */
+/* Hide old inline action buttons */
 .dashboard-actions {
   display: none !important;
 }
 
-/* Loading / error / no events */
+/* ── Loading / error / empty states ── */
 .loading-text,
-.error-text,
 .no-events {
   text-align: center;
   margin: 20px 0;
   font-size: 18px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .error-text {
-  color: #e74c3c;
+  text-align: center;
+  margin: 20px 0;
+  font-size: 18px;
+  color: var(--color-danger);
 }
 
-/* Event grid */
+/* ── Event grid ── */
 .event-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -45,7 +55,7 @@
   margin-top: 20px;
 }
 
-/* Guest notice */
+/* ── Guest notice ── */
 .guest-notice {
   text-align: center;
   margin-bottom: 20px;
@@ -53,29 +63,30 @@
 
 .guest-note {
   font-size: 16px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .login-link,
 .register-link {
-  color: #0077ff;
+  color: var(--brand-primary);
   cursor: pointer;
   text-decoration: underline;
 }
 
 .login-link:hover,
 .register-link:hover {
-  color: #005fcc;
+  color: var(--brand-hover);
 }
 
-/* Footer */
+/* ── Footer ── */
 .dashboard-footer {
   margin-top: 40px;
   padding: 20px 0;
   text-align: center;
-  border-top: 1px solid #ddd;
-  color: #555;
-  background: #fafafa;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  background: var(--bg-surface-2);
+  transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 .footer-links {
@@ -88,29 +99,35 @@
 
 .footer-link {
   cursor: pointer;
-  color: #0066cc;
+  color: var(--brand-primary);
   font-weight: 500;
-  transition: 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .footer-link:hover {
-  color: #004a99;
+  color: var(--brand-hover);
   text-decoration: underline;
 }
 
 .logout-link {
-  color: #d9534f;
+  color: var(--color-danger);
 }
 
 .logout-link:hover {
-  color: #b52b27;
+  color: var(--color-danger);
+  opacity: 0.8;
 }
 
 /* =========================================================
-   GPS DISCOVERY ADDITIONS
+   GPS DISCOVERY
    ========================================================= */
 
-/* ── Location status banners ── */
+/* ── Filters wrapper ── */
+.filters-wrapper {
+  margin-bottom: 12px;
+}
+
+/* ── Location banners ── */
 .location-banner {
   display: flex;
   align-items: center;
@@ -130,7 +147,7 @@
 
 .location-banner--granted {
   background: #d1fae5;
-  border: 1px solid #10b981;
+  border: 1px solid var(--color-success);
   color: #065f46;
 }
 
@@ -140,7 +157,21 @@
   color: #92400e;
 }
 
-/* Spinner inside acquiring banner */
+/* Dark mode overrides for banners */
+[data-theme="dark"] .location-banner--acquiring,
+[data-theme="dark"] .location-banner--fallback {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .location-banner--granted {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--color-success);
+  color: #34d399;
+}
+
+/* ── Acquiring spinner ── */
 .location-spinner {
   width: 14px;
   height: 14px;
@@ -155,9 +186,9 @@
   to { transform: rotate(360deg); }
 }
 
-/* ── GPS Active badge in results header ── */
+/* ── GPS badge ── */
 .gps-badge {
-  background: #667eea;
+  background: var(--brand-primary);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -166,7 +197,7 @@
   letter-spacing: 0.3px;
 }
 
-/* ── Results header row ── */
+/* ── Results header ── */
 .results-header {
   display: flex;
   align-items: center;
@@ -174,10 +205,5 @@
   margin-bottom: 12px;
   font-size: 16px;
   font-weight: 700;
-  color: #1f2937;
-}
-
-/* ── Filters wrapper spacing ── */
-.filters-wrapper {
-  margin-bottom: 12px;
+  color: var(--text-primary);
 }
