@@ -155,18 +155,27 @@ const BookingSuccess = ({ user }) => {
     }
   };
 
-  // Helper: convert an SVG element to an Image
-  const svgToImage = (svgElement) =>
+  // Helper: convert an SVG element to an Image at an explicit pixel size
+  const svgToImage = (svgElement, size = 200) =>
     new Promise((resolve, reject) => {
       try {
-        const svgData = new XMLSerializer().serializeToString(svgElement);
+        // Clone so we can safely mutate width/height attributes
+        const clone = svgElement.cloneNode(true);
+        clone.setAttribute("width", size);
+        clone.setAttribute("height", size);
+
+        const svgData = new XMLSerializer().serializeToString(clone);
         const hasNS = svgData.indexOf("xmlns") !== -1;
-        const finalSvg = hasNS ? svgData : svgData.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+        const finalSvg = hasNS
+          ? svgData
+          : svgData.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
 
         const blob = new Blob([finalSvg], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
 
         const img = new Image();
+        img.width = size;
+        img.height = size;
         img.onload = () => {
           URL.revokeObjectURL(url);
           resolve(img);
@@ -181,7 +190,7 @@ const BookingSuccess = ({ user }) => {
       }
     });
 
-  // Download a single ticket
+  // Download a single ticket — renders a full ticket card with all details + QR
   const handleDownloadTicket = async (ticket) => {
     try {
       const svg = document.getElementById(`qr-${ticket.id}`);
@@ -190,29 +199,117 @@ const BookingSuccess = ({ user }) => {
         return;
       }
 
-      const img = await svgToImage(svg);
+      const QR_SIZE = 200;
+      const CARD_W = 480;
+      const CARD_H = 520;
+      const PAD = 24;
+
       const canvas = document.createElement("canvas");
+      canvas.width = CARD_W;
+      canvas.height = CARD_H;
       const ctx = canvas.getContext("2d");
 
-      const width = img.width || 300;
-      const height = img.height || 300;
-      canvas.width = width;
-      canvas.height = height;
-
+      // Background
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
+      ctx.fillRect(0, 0, CARD_W, CARD_H);
+
+      // Header band
+      ctx.fillStyle = "#4f46e5";
+      ctx.fillRect(0, 0, CARD_W, 70);
+
+      // Event title
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 20px Arial, sans-serif";
+      ctx.textAlign = "center";
+      const title = booking?.event_title || "Event Ticket";
+      ctx.fillText(title.length > 40 ? title.slice(0, 38) + "…" : title, CARD_W / 2, 35);
+
+      // Booking ref in header
+      ctx.font = "13px Arial, sans-serif";
+      ctx.fillStyle = "#c7d2fe";
+      ctx.fillText(`Ref: ${booking?.reference || bookingId}`, CARD_W / 2, 57);
+
+      // Ticket type
+      ctx.fillStyle = "#1e1b4b";
+      ctx.font = "bold 16px Arial, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(ticket.ticket_type_name || "General Ticket", PAD, 100);
+
+      // Quantity & price
+      ctx.font = "14px Arial, sans-serif";
+      ctx.fillStyle = "#4b5563";
+      ctx.fillText(`Qty: ${ticket.quantity || 1}`, PAD, 124);
+      if (ticket.price) {
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#4f46e5";
+        ctx.font = "bold 15px Arial, sans-serif";
+        ctx.fillText(`KES ${(ticket.price * (ticket.quantity || 1)).toLocaleString()}`, CARD_W - PAD, 124);
+        ctx.textAlign = "left";
+      }
+
+      // Divider
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(PAD, 138);
+      ctx.lineTo(CARD_W - PAD, 138);
+      ctx.stroke();
+
+      // Date / Time / Venue
+      const details = [
+        ["📅 Date", booking?.event_date ? new Date(booking.event_date).toLocaleDateString("en-GB", { weekday: "short", year: "numeric", month: "short", day: "numeric" }) : "TBA"],
+        ["🕐 Time", `${booking?.start_time || "TBA"} – ${booking?.end_time || "TBA"}`],
+        ["📍 Venue", event?.venue || booking?.location || "TBA"],
+      ];
+      ctx.font = "13px Arial, sans-serif";
+      details.forEach(([label, value], i) => {
+        const y = 162 + i * 26;
+        ctx.fillStyle = "#6b7280";
+        ctx.fillText(label + ":", PAD, y);
+        ctx.fillStyle = "#111827";
+        ctx.fillText(value.length > 38 ? value.slice(0, 36) + "…" : value, PAD + 90, y);
+      });
+
+      // QR code
+      const qrImg = await svgToImage(svg, QR_SIZE);
+      const qrX = (CARD_W - QR_SIZE) / 2;
+      const qrY = 248;
+      ctx.fillStyle = "#f9fafb";
+      ctx.fillRect(qrX - 8, qrY - 8, QR_SIZE + 16, QR_SIZE + 16);
+      ctx.drawImage(qrImg, qrX, qrY, QR_SIZE, QR_SIZE);
+
+      // Scan hint
+      ctx.fillStyle = "#6b7280";
+      ctx.font = "12px Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Scan QR code at venue for entry", CARD_W / 2, qrY + QR_SIZE + 24);
+
+      // Manual code (if present)
+      if (ticket.manual_code) {
+        ctx.fillStyle = "#1e1b4b";
+        ctx.font = "bold 13px Arial, sans-serif";
+        ctx.fillText(`Manual code: ${ticket.manual_code}`, CARD_W / 2, qrY + QR_SIZE + 46);
+      }
+
+      // Footer
+      ctx.fillStyle = "#f3f4f6";
+      ctx.fillRect(0, CARD_H - 36, CARD_W, 36);
+      ctx.fillStyle = "#9ca3af";
+      ctx.font = "11px Arial, sans-serif";
+      ctx.fillText("EventHyper · This ticket is non-transferable · Bring valid ID", CARD_W / 2, CARD_H - 14);
 
       canvas.toBlob((blob) => {
         if (!blob) {
-          alert("Failed to create image blob. Please try again.");
+          alert("Failed to create ticket image. Please try again.");
           return;
         }
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
         const safeName = (ticket.ticket_type_name || "Ticket").replace(/[^a-z0-9_\- ]/gi, "");
         link.download = `Ticket-${safeName}-${booking?.reference || bookingId}.png`;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
         setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       }, "image/png");
     } catch (err) {
@@ -276,8 +373,8 @@ const BookingSuccess = ({ user }) => {
         const svg = document.getElementById(`qr-${ticket.id}`);
         if (svg) {
           try {
-            const img = await svgToImage(svg);
             const qrSize = Math.min(200, ticketWidth - 40);
+            const img = await svgToImage(svg, qrSize);
             const qrX = x + (ticketWidth - qrSize) / 2;
             const qrY = y + 50;
             ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
