@@ -19,6 +19,10 @@ const BookingSuccess = ({ user }) => {
   const pollCountRef = useRef(0);
   const MAX_WAIT = 40; // 40 × 3s = 2 minutes
 
+  // GET /bookings/:id returns b.* so the column is "status", not "booking_status".
+  // "booking_status" is only aliased in the list endpoint. This helper normalises both.
+  const getStatus = (data) => data?.status ?? data?.booking_status ?? "";
+
   useEffect(() => {
     isMounted.current = true;
 
@@ -33,7 +37,7 @@ const BookingSuccess = ({ user }) => {
         }
 
         // ── Already confirmed: load everything and show success ──
-        if (bookingData.booking_status === "confirmed") {
+        if (getStatus(bookingData) === "confirmed") {
           const [eventRes, ticketsRes] = await Promise.all([
             api.get(`/events/${bookingData.event_id}`),
             api.get(`/tickets/by-booking/${bookingData.id}`),
@@ -47,7 +51,7 @@ const BookingSuccess = ({ user }) => {
         }
 
         // ── Cancelled: go home ──
-        if (bookingData.booking_status === "cancelled") {
+        if (getStatus(bookingData) === "cancelled") {
           if (isMounted.current) setError("This booking has been cancelled.");
           return;
         }
@@ -70,7 +74,7 @@ const BookingSuccess = ({ user }) => {
 
           try {
             const res = await api.get(`/bookings/${bookingId}`);
-            if (res.data.booking_status === "confirmed") {
+            if (getStatus(res.data) === "confirmed") {
               clearInterval(pollRef.current);
               const [eventRes, ticketsRes] = await Promise.all([
                 api.get(`/events/${res.data.event_id}`),
