@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import api from "../api";
@@ -13,10 +13,15 @@ const BookingSuccess = ({ user }) => {
   const [error, setError] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [waitingForConfirm, setWaitingForConfirm] = useState(false);
   const isMounted = useRef(true);
+  const pollRef = useRef(null);
+  const pollCountRef = useRef(0);
+  const MAX_WAIT = 40; // 40 × 3s = 2 minutes
 
   useEffect(() => {
     isMounted.current = true;
+
     const fetchBooking = async () => {
       try {
         const response = await api.get(`/bookings/${bookingId}`);
@@ -27,22 +32,62 @@ const BookingSuccess = ({ user }) => {
           return;
         }
 
-        if (bookingData.booking_status !== "confirmed") {
+        // ── Already confirmed: load everything and show success ──
+        if (bookingData.booking_status === "confirmed") {
+          const [eventRes, ticketsRes] = await Promise.all([
+            api.get(`/events/${bookingData.event_id}`),
+            api.get(`/tickets/by-booking/${bookingData.id}`),
+          ]);
+          const ticketsData = Array.isArray(ticketsRes.data) ? ticketsRes.data : [];
           if (isMounted.current) {
-            setError("This booking has not been confirmed yet. Redirecting to payment...");
-            setTimeout(() => navigate(`/dashboard/payment/${bookingId}`), 3000);
+            setEvent(eventRes.data);
+            setBooking({ ...bookingData, tickets: ticketsData });
           }
           return;
         }
 
-        // Fetch event details for additional info
-        const eventRes = await api.get(`/events/${bookingData.event_id}`);
-        setEvent(eventRes.data);
+        // ── Cancelled: go home ──
+        if (bookingData.booking_status === "cancelled") {
+          if (isMounted.current) setError("This booking has been cancelled.");
+          return;
+        }
 
-        const ticketsRes = await api.get(`/tickets/by-booking/${bookingData.id}`);
-        const ticketsData = Array.isArray(ticketsRes.data) ? ticketsRes.data : [];
+        // ── Pending: wait and poll — DO NOT redirect back to payment ──
+        if (isMounted.current) setWaitingForConfirm(true);
 
-        if (isMounted.current) setBooking({ ...bookingData, tickets: ticketsData });
+        pollRef.current = setInterval(async () => {
+          if (!isMounted.current) return;
+          pollCountRef.current += 1;
+
+          if (pollCountRef.current >= MAX_WAIT) {
+            clearInterval(pollRef.current);
+            if (isMounted.current) {
+              setWaitingForConfirm(false);
+              setError("Payment confirmation is taking longer than expected. Please check your M-Pesa messages. If you paid, your booking will confirm shortly — refresh this page.");
+            }
+            return;
+          }
+
+          try {
+            const res = await api.get(`/bookings/${bookingId}`);
+            if (res.data.booking_status === "confirmed") {
+              clearInterval(pollRef.current);
+              const [eventRes, ticketsRes] = await Promise.all([
+                api.get(`/events/${res.data.event_id}`),
+                api.get(`/tickets/by-booking/${res.data.id}`),
+              ]);
+              const ticketsData = Array.isArray(ticketsRes.data) ? ticketsRes.data : [];
+              if (isMounted.current) {
+                setEvent(eventRes.data);
+                setBooking({ ...res.data, tickets: ticketsData });
+                setWaitingForConfirm(false);
+              }
+            }
+          } catch (pollErr) {
+            console.error("Poll error:", pollErr);
+          }
+        }, 3000);
+
       } catch (err) {
         console.error("Error fetching booking:", err);
         if (isMounted.current) setError("Failed to load booking details.");
@@ -55,8 +100,9 @@ const BookingSuccess = ({ user }) => {
 
     return () => {
       isMounted.current = false;
+      if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [bookingId, navigate]);
+  }, [bookingId]); // ← removed navigate from deps so this never re-runs on nav
 
   // Add to Calendar
   const handleAddToCalendar = () => {
@@ -293,12 +339,28 @@ const BookingSuccess = ({ user }) => {
       </div>
     );
 
+  if (waitingForConfirm)
+    return (
+      <div className="booking-success">
+        <div className="loading-spinner" />
+        <h3>Confirming your payment...</h3>
+        <p>We received your M-Pesa payment and are confirming your booking.</p>
+        <p>This usually takes a few seconds — please don't close this page.</p>
+        <small style={{ color: "#6b7280" }}>
+          Checking... ({pollCountRef.current}/{MAX_WAIT})
+        </small>
+      </div>
+    );
+
   if (error)
     return (
       <div className="booking-success error-container">
         <div className="error-icon">⚠️</div>
         <h2>Error</h2>
         <p>{error}</p>
+        <button onClick={() => window.location.reload()} className="btn-home" style={{ marginRight: "10px" }}>
+          Refresh Page
+        </button>
         <button onClick={() => navigate("/dashboard")} className="btn-home">
           Return Home
         </button>
