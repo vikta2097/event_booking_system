@@ -1,23 +1,30 @@
 /* ===================================================
    EVENTHYPER — Universal Theme Variables
    Applied to <html data-theme="light|dark">
-   Import this ONCE in index.css (top of file)
+   Import ONCE in index.css as:  @import "./styles/Theme.css";
    =================================================== */
 
-/* ── Light Theme (default) ── */
+/* ══════════════════════════════════════════════════
+   LIGHT THEME (default)
+══════════════════════════════════════════════════ */
 :root,
 [data-theme="light"] {
   /* Backgrounds */
   --bg-app:           #f3f4f6;
   --bg-surface:       #ffffff;
   --bg-surface-2:     #f9fafb;
+
+  /* Sidebar — NOTE: gradient must be used as background-image, not background-color.
+     Components should use:  background: var(--bg-sidebar-start); or the gradient below. */
+  --bg-sidebar-start: #1e3a8a;
+  --bg-sidebar-end:   #0d47a1;
   --bg-sidebar:       linear-gradient(180deg, #1e3a8a 0%, #0d47a1 100%);
 
   /* Text */
   --text-primary:     #1f2937;
   --text-secondary:   #6b7280;
   --text-muted:       #9ca3af;
-  --text-on-sidebar:  rgba(255, 255, 255, 0.85);
+  --text-on-sidebar:        rgba(255, 255, 255, 0.85);
   --text-on-sidebar-active: #ffffff;
 
   /* Borders */
@@ -30,9 +37,9 @@
   --brand-accent:     #10b981;
 
   /* Shadows */
-  --shadow-sm:        0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md:        0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-lg:        0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md:  0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg:  0 4px 16px rgba(0, 0, 0, 0.12);
 
   /* Interactive */
   --color-hover:      rgba(0, 0, 0, 0.05);
@@ -43,31 +50,35 @@
   --color-danger:     #ef4444;
   --color-warning:    #f59e0b;
 
-  /* Top bar (user dashboard) */
+  /* Top bar */
   --topbar-bg:        #ffffff;
-  --topbar-border:    #dddddd;
+  --topbar-border:    #e5e7eb;
 
-  /* Page container */
+  /* Page / card */
   --page-bg:          #f3f4f6;
-
-  /* Stat cards */
   --card-bg:          #ffffff;
   --card-shadow:      0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* ── Dark Theme ── */
+/* ══════════════════════════════════════════════════
+   DARK THEME
+══════════════════════════════════════════════════ */
 [data-theme="dark"] {
   /* Backgrounds */
   --bg-app:           #0f172a;
   --bg-surface:       #1e293b;
   --bg-surface-2:     #162032;
+
+  /* Sidebar */
+  --bg-sidebar-start: #0f172a;
+  --bg-sidebar-end:   #1e293b;
   --bg-sidebar:       linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
 
   /* Text */
   --text-primary:     #f1f5f9;
   --text-secondary:   #94a3b8;
   --text-muted:       #64748b;
-  --text-on-sidebar:  rgba(255, 255, 255, 0.75);
+  --text-on-sidebar:        rgba(255, 255, 255, 0.75);
   --text-on-sidebar-active: #ffffff;
 
   /* Borders */
@@ -80,9 +91,9 @@
   --brand-accent:     #10b981;
 
   /* Shadows */
-  --shadow-sm:        0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md:        0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-lg:        0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md:  0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg:  0 4px 16px rgba(0, 0, 0, 0.5);
 
   /* Interactive */
   --color-hover:      rgba(255, 255, 255, 0.06);
@@ -93,69 +104,86 @@
   --color-danger:     #f87171;
   --color-warning:    #fbbf24;
 
-  /* Top bar (user dashboard) */
+  /* Top bar */
   --topbar-bg:        #1e293b;
   --topbar-border:    #334155;
 
-  /* Page container */
+  /* Page / card */
   --page-bg:          #0f172a;
-
-  /* Stat cards */
   --card-bg:          #1e293b;
   --card-shadow:      0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Apply variables globally ── */
+/* ══════════════════════════════════════════════════
+   GLOBAL BASE — makes theme apply to every element
+   These rules ensure toggling data-theme on <html>
+   propagates through the entire component tree.
+══════════════════════════════════════════════════ */
+
+html {
+  min-height: 100%;
+}
+
+html,
 body {
   background: var(--bg-app);
   color: var(--text-primary);
   transition: background 0.25s ease, color 0.25s ease;
 }
 
-/* ── Ensure html stretches full height ── */
-html,
-body {
-  min-height: 100%;
-}
-
-/* ── ALL major layout containers must use theme vars ── */
+/* Every major layout container must inherit theme */
 #root,
 .App,
 .admin-dashboard,
 .user-dashboard,
-.page-container,
 .main-content,
+.page-container,
 .user-content,
-.dashboard-home {
+.dashboard-home,
+.rpt-root {
   background: var(--bg-app);
   color: var(--text-primary);
   transition: background 0.25s ease, color 0.25s ease;
 }
 
-/* ── Cards and surfaces ── */
+/* Surfaces — cards, panels, modals */
 .stat-card,
 .dashboard-card,
-.card {
-  background: var(--card-bg);
+.card,
+.rpt-section,
+.rpt-chart-card,
+.rpt-kpi,
+.rpt-alert-panel,
+.rpt-filters,
+.rpt-tooltip {
+  background: var(--bg-surface);
   color: var(--text-primary);
-  transition: background 0.25s ease, color 0.25s ease;
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
 }
 
-/* ── Top bar ── */
+/* Secondary surfaces */
+.rpt-kpi,
+.rpt-chart-card,
+.rpt-alert-panel,
+.rpt-filters {
+  background: var(--bg-surface-2);
+}
+
+/* Top bar (user dashboard) */
 .user-top-bar {
   background: var(--topbar-bg) !important;
   border-bottom-color: var(--topbar-border) !important;
   transition: background 0.25s ease, border-color 0.25s ease;
 }
 
-/* ── All inputs ── */
+/* All native inputs, selects, textareas */
 input,
 textarea,
 select {
   background: var(--bg-surface-2);
   color: var(--text-primary);
   border-color: var(--border-color);
-  transition: background 0.25s ease, color 0.25s ease;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 input::placeholder,
@@ -163,7 +191,7 @@ textarea::placeholder {
   color: var(--text-muted);
 }
 
-/* ── TicketScanner manual entry has hardcoded #f8f9fa ── */
+/* TicketScanner has hardcoded colours — override them */
 .manual-entry {
   background: var(--bg-surface-2) !important;
 }
@@ -178,7 +206,6 @@ textarea::placeholder {
   border-color: var(--border-color) !important;
 }
 
-/* ── TicketScanner result panels ── */
 .scan-result.success {
   background: var(--bg-surface) !important;
   border-color: var(--color-success) !important;
@@ -199,8 +226,8 @@ textarea::placeholder {
   background: var(--bg-surface-2) !important;
 }
 
-/* ── Global scrollbars ── */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--bg-surface-2); }
-::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+/* Global scrollbars */
+::-webkit-scrollbar              { width: 8px; height: 8px; }
+::-webkit-scrollbar-track        { background: var(--bg-surface-2); }
+::-webkit-scrollbar-thumb        { background: var(--border-color); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--text-muted); }
