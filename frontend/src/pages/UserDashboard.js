@@ -12,6 +12,7 @@ import ContactUs from "./ContactUs";
 
 // Components
 import NotificationBell from "./NotificationBell";
+import ThemeToggle from "./ThemeToggle";
 
 // Styles
 import "../styles/UserDashboard.css";
@@ -39,6 +40,7 @@ const UserDashboard = ({ user, token, onLogout }) => {
         </div>
 
         <div className="top-bar-right">
+          <ThemeToggle />
           {user ? (
             <>
               <button

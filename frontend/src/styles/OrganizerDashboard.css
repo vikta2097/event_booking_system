@@ -145,13 +145,27 @@
   position: fixed;
   top: 15px;
   left: 15px;
-  z-index: 1001;
+  z-index: 1100;
   background: var(--brand-primary);
   color: #fff;
   border: none;
   border-radius: 8px;
   padding: 10px;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  transition: background 0.2s, left 0.3s ease;
+}
+
+/* Always show when sidebar is collapsed (any screen size — handles split screen) */
+.mobile-menu-toggle.always-visible {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  left: 10px;
+}
+
+.mobile-menu-toggle:hover {
+  background: var(--brand-hover, #0d47a1);
 }
 
 .mobile-overlay {

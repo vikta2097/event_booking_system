@@ -66,10 +66,16 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, onLogout, role = "admin", basePa
 
   return (
     <>
-      {/* Mobile hamburger — only visible on small screens via CSS */}
+      {/* Hamburger — visible on mobile OR when sidebar is collapsed on any width */}
       <button
-        className="mobile-menu-toggle"
-        onClick={() => setMobileOpen(!mobileOpen)}
+        className={`mobile-menu-toggle ${!sidebarOpen ? "always-visible" : ""}`}
+        onClick={() => {
+          if (window.innerWidth <= 768) {
+            setMobileOpen(!mobileOpen);
+          } else {
+            setSidebarOpen(true);
+          }
+        }}
         aria-label="Toggle menu"
       >
         {mobileOpen ? <X size={24} /> : <Menu size={24} />}

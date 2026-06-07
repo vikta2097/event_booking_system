@@ -1,5 +1,5 @@
 /* Import theme variables FIRST — must be before any other rules */
-@import "./styles/theme.css";
+@import "./styles/Theme.css";
 
 /* === General Reset === */
 * {
