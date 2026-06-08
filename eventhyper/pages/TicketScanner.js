@@ -4,7 +4,7 @@ import {
   View, Text, TextInput, ScrollView,
   StyleSheet, TouchableOpacity
 } from "react-native";
-import { Audio } from "expo-av";
+import { useAudioPlayer } from 'expo-audio';
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";

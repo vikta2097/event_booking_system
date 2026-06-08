@@ -6,12 +6,12 @@ import ResetPasswordForm from "./ResetPasswordForm";
 import "../styles/AuthForm.css";
 
 const AuthForm = ({ onLoginSuccess }) => {
-  const [view, setView] = useState("login"); // login, signup, forgot, reset
+  const [view, setView] = useState("login");
   const [resetToken, setResetToken] = useState("");
 
-  // Extract reset token from URL if available
   useEffect(() => {
     const pathMatch = window.location.pathname.match(/\/reset-password\/(.+)/);
+
     if (pathMatch && pathMatch[1]) {
       setResetToken(pathMatch[1]);
       setView("reset");

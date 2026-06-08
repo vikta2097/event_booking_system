@@ -7,10 +7,9 @@
     "icon": "./assets/images/splash-icon.png",
     "scheme": "eventhyper",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
-    },
+  "supportsTablet": true
+},
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/splash-icon.png",
@@ -18,7 +17,6 @@
         "monochromeImage": "./assets/images/splash-icon.png",
         "backgroundColor": "#E6F4FE"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
@@ -31,7 +29,6 @@
       "favicon": "./assets/images/splash-icon.png"
     },
     "plugins": [
-      "expo-router",
       "./plugins/withKotlinFix.js",
       [
         "expo-splash-screen",
@@ -53,11 +50,9 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
       "eas": {
         "projectId": "a7fc2316-5337-415c-a87c-362563ffea45"
       }
