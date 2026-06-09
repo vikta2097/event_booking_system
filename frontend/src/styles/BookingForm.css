@@ -4,11 +4,11 @@
    ========================================================= */
 
 .booking-form {
-  max-width: 500px;
+  max-width: 560px;
   margin: 30px auto;
-  padding: 20px;
+  padding: 24px;
   background: var(--card-bg);
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: var(--card-shadow);
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
@@ -17,86 +17,129 @@
 
 .booking-form h2 {
   color: var(--brand-primary);
-  margin-bottom: 15px;
+  margin-bottom: 6px;
   text-align: center;
+  font-size: 1.4rem;
 }
 
-.booking-form form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.booking-form label {
-  display: flex;
-  flex-direction: column;
-  font-weight: bold;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-}
-
-.booking-form input {
-  margin-top: 5px;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface-2);
-  color: var(--text-primary);
-  transition: border-color 0.2s, background 0.25s ease;
-}
-
-.booking-form input:focus {
-  outline: none;
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
-
-.booking-form input::placeholder {
+.booking-form .event-date,
+.booking-form .event-location {
+  text-align: center;
   color: var(--text-muted);
+  margin: 4px 0;
+  font-size: 0.92rem;
 }
 
-.booking-form button {
-  padding: 10px 15px;
-  background: var(--brand-primary);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background 0.2s;
-}
-
-.booking-form button:hover:not(:disabled) {
-  background: var(--brand-hover);
-}
-
-.booking-form button:disabled {
-  background: var(--text-muted);
-  cursor: not-allowed;
-}
-
-.booking-form .error {
-  color: var(--color-danger);
-  font-size: 0.9rem;
-  text-align: center;
-}
-
+/* ── Loading / Error states ── */
 .loading-text {
   padding: 20px;
   font-style: italic;
   color: var(--text-muted);
+  text-align: center;
 }
 
-/* =====================================================
-   BookingForm — Group Discount & Ticket Type additions
-   ===================================================== */
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 0;
+}
 
-/* Ticket name + badges row */
+.retry-btn,
+.btn-secondary {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.retry-btn {
+  background: var(--brand-primary);
+  color: #fff;
+}
+
+.retry-btn:hover {
+  background: var(--brand-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: var(--border-color);
+}
+
+/* =========================================================
+   TICKET TYPES SECTION
+   ========================================================= */
+
+.ticket-types {
+  margin: 20px 0 0;
+}
+
+.ticket-types h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.no-tickets {
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* ── Individual ticket card ── */
+.ticket-item {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.ticket-item.sold-out {
+  opacity: 0.6;
+}
+
+.ticket-item.group-active {
+  border-color: var(--color-success) !important;
+  background: rgba(16, 185, 129, 0.06);
+}
+
+/* ── Ticket header row (name + price) ── */
+.ticket-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Ticket name + badges */
 .ticket-name-wrap {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+}
+
+.ticket-name {
+  font-weight: 700;
+  font-size: 0.97rem;
+  color: var(--text-primary);
 }
 
 /* Price column */
@@ -107,93 +150,343 @@
   flex-wrap: wrap;
 }
 
+.ticket-price {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
 .ticket-price-original {
   text-decoration: line-through;
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .ticket-price--discounted {
   color: var(--color-success);
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
-/* Group discount badge on ticket header */
+/* ── Description ── */
+.ticket-description {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 6px 0 4px;
+}
+
+/* ── Availability line ── */
+.ticket-availability {
+  margin: 6px 0;
+}
+
+.ticket-availability .available {
+  font-size: 0.82rem;
+  color: var(--color-success);
+}
+
+.sold-out-label {
+  color: var(--color-danger);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* ── Quantity controls ── */
+.ticket-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ticket-controls button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+  padding: 0;
+  font-weight: 700;
+}
+
+.ticket-controls button:hover:not(:disabled) {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+
+.ticket-controls button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ticket-controls input {
+  width: 52px;
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  /* hide browser number spinners */
+  -moz-appearance: textfield;
+}
+
+.ticket-controls input::-webkit-outer-spin-button,
+.ticket-controls input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+/* ── Subtotal line ── */
+.ticket-subtotal {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ── Group/Early Bird badges ── */
 .badge-group-tip {
   background: rgba(59, 130, 246, 0.1);
   color: var(--brand-primary);
   border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 12px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   padding: 2px 8px;
   white-space: nowrap;
 }
 
-/* Early bird badge */
 .badge-early-bird {
   background: rgba(245, 158, 11, 0.12);
   color: var(--color-warning);
   border: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: 12px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   padding: 2px 8px;
   white-space: nowrap;
 }
 
-/* Discount chip next to price */
 .discount-chip {
   background: var(--color-success);
   color: #fff;
   border-radius: 10px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   padding: 2px 7px;
 }
 
-/* Ticket card highlight when group discount is active */
-.ticket-item.group-active {
-  border-color: var(--color-success) !important;
-  background: rgba(16, 185, 129, 0.06);
-}
-
-/* Nudge message */
+/* ── Group discount nudge / confirmation ── */
 .group-nudge {
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   color: #6366f1;
   font-weight: 600;
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   background: rgba(99, 102, 241, 0.08);
   border: 1px solid rgba(99, 102, 241, 0.25);
   border-radius: 8px;
   padding: 6px 10px;
 }
 
-/* Confirmation message when discount kicks in */
 .group-discount-applied {
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   color: var(--color-success);
   font-weight: 600;
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   background: rgba(16, 185, 129, 0.08);
   border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 8px;
   padding: 6px 10px;
 }
 
-/* Sold out label */
-.sold-out-label {
-  color: var(--color-danger);
-  font-weight: 600;
+/* =========================================================
+   CHECKOUT SECTION (phone + summary + button)
+   ========================================================= */
+
+.booking-checkout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-subtle);
 }
 
-/* Savings row in summary */
+/* ── Phone input group ── */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.form-group input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  transition: border-color 0.2s, background 0.25s ease;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.form-group input::placeholder {
+  color: var(--text-muted);
+}
+
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ── Order summary ── */
+.booking-summary {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.summary-row.total {
+  font-size: 1.05rem;
+  padding-top: 8px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border-subtle);
+}
+
 .summary-row.savings-row {
   color: var(--color-success);
   background: rgba(16, 185, 129, 0.08);
   border-radius: 8px;
   padding: 6px 10px;
   border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* ── Status / error banners ── */
+.status-message {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  color: var(--brand-primary);
+}
+
+.error-message {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  color: var(--color-danger);
+}
+
+.booking-form .error {
+  color: var(--color-danger);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* ── Proceed to Payment button ── */
+.btn-proceed {
+  width: 100%;
+  padding: 13px 20px;
+  background: var(--brand-primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn-proceed:hover:not(:disabled) {
+  background: var(--brand-hover);
+  transform: translateY(-1px);
+}
+
+.btn-proceed:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-proceed:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Inline spinner inside button ── */
+.spinner-small {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Helper hint under button ── */
+.hint-text {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 600px) {
+  .booking-form {
+    margin: 16px;
+    padding: 18px 16px;
+  }
+
+  .ticket-info {
+    flex-direction: column;
+    gap: 6px;
+  }
 }
