@@ -12,7 +12,7 @@ const ITEMS_PER_PAGE = 12;
 
 // ── Haversine formula — returns distance in km between two lat/lng points ──
 const haversineDistance = (lat1, lng1, lat2, lng2) => {
-  const R = 6371; // Earth radius in km
+  const R = 6371;
   const toRad = (deg) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
@@ -49,6 +49,10 @@ const EventList = ({ user }) => {
   const [userLocation, setUserLocation] = useState(null); // { lat, lng }
   const [locationStatus, setLocationStatus] = useState("idle"); // "idle" | "acquiring" | "granted" | "denied" | "fallback"
   const [nearMeActive, setNearMeActive] = useState(false);
+
+  // ── FIX 1: radius state + persisted filter state ──
+  const [radius, setRadius] = useState(25);
+  const [activeFilters, setActiveFilters] = useState({});
 
   const observer = useRef();
   const searchTimeout = useRef(null);
@@ -112,21 +116,40 @@ const EventList = ({ user }) => {
       setNearMeActive(true);
       if (!userLocation) {
         requestGPS();
+        // fetchEvents will be triggered by the userLocation useEffect below
+        // once GPS resolves, so no need to call it here yet
       }
+      // If we already have location, the useEffect below fires immediately
     } else {
       setNearMeActive(false);
     }
   };
 
-  // Re-sort/unsort when nearMe or location changes
-  useEffect(() => {
-    setFilteredEvents((prev) => {
-      const withDist = attachDistances(prev, userLocation);
-      return nearMeActive ? sortByDistance(withDist) : withDist;
-    });
-  }, [nearMeActive, userLocation, attachDistances, sortByDistance]);
+  // ── FIX 2: Re-fetch from backend (with or without GPS) whenever
+  //    nearMeActive, userLocation, or radius changes.
+  //    This is the key fix — previously only re-sorted in-memory,
+  //    never sent lat/lng/radius to the backend so all events came back. ──
+  const nearMeRef = useRef(nearMeActive);
+  const userLocationRef = useRef(userLocation);
+  const radiusRef = useRef(radius);
 
-  const fetchEvents = async (filters = {}, pageNum = 1, append = false) => {
+  useEffect(() => { nearMeRef.current = nearMeActive; }, [nearMeActive]);
+  useEffect(() => { userLocationRef.current = userLocation; }, [userLocation]);
+  useEffect(() => { radiusRef.current = radius; }, [radius]);
+
+  useEffect(() => {
+    // Don't fire on very first render before user has toggled Near Me
+    if (!nearMeActive && locationStatus === "idle") return;
+
+    setPage(1);
+    setHasMore(true);
+    fetchEvents(activeFilters, 1, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nearMeActive, userLocation, radius]);
+
+  // ── FIX 3: fetchEvents now accepts explicit gps override to avoid
+  //    stale-closure issues when called from the effect above ──
+  const fetchEvents = async (filters = {}, pageNum = 1, append = false, gpsOverride = null) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -135,17 +158,32 @@ const EventList = ({ user }) => {
       });
       params.append("page", pageNum);
       params.append("limit", ITEMS_PER_PAGE);
+
+      // ── FIX 4: actually send GPS params to the backend so it can
+      //    apply the HAVING distance_km <= radius filter ──
+      const gps = gpsOverride ?? (nearMeRef.current && userLocationRef.current
+        ? { lat: userLocationRef.current.lat, lng: userLocationRef.current.lng, radius: radiusRef.current }
+        : null);
+
+      if (gps) {
+        params.append("lat", gps.lat);
+        params.append("lng", gps.lng);
+        params.append("radius", gps.radius);
+      }
+
       const res = await api.get(`/events?${params.toString()}`);
       const newEvents = res.data.events || res.data;
 
-      const withDist = attachDistances(newEvents, userLocation);
-      const sorted = nearMeActive ? sortByDistance(withDist) : withDist;
+      // Attach distances client-side too (for display label on cards)
+      const loc = userLocationRef.current;
+      const withDist = attachDistances(newEvents, gps ? loc : null);
+      const sorted = gps ? sortByDistance(withDist) : withDist;
 
       if (append) {
         setEvents((prev) => [...prev, ...newEvents]);
         setFilteredEvents((prev) => {
           const combined = [...prev, ...sorted];
-          return nearMeActive ? sortByDistance(combined) : combined;
+          return gps ? sortByDistance(combined) : combined;
         });
       } else {
         setEvents(newEvents);
@@ -196,8 +234,9 @@ const EventList = ({ user }) => {
     setSearchQuery(query);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
+      const loc = userLocationRef.current;
       let base = query.trim() === ""
-        ? attachDistances(events, userLocation)
+        ? attachDistances(events, loc)
         : attachDistances(
             events.filter((e) => {
               const lower = query.toLowerCase();
@@ -208,16 +247,23 @@ const EventList = ({ user }) => {
                 e.category_name?.toLowerCase().includes(lower)
               );
             }),
-            userLocation
+            loc
           );
-      setFilteredEvents(nearMeActive ? sortByDistance(base) : base);
+      setFilteredEvents(nearMeRef.current ? sortByDistance(base) : base);
     }, 300);
   };
 
+  // ── FIX 5: handleFilter saves filters so the Near Me effect can re-use them ──
   const handleFilter = (filters) => {
     setPage(1);
     setHasMore(true);
+    setActiveFilters(filters);
     fetchEvents(filters, 1, false);
+  };
+
+  // ── FIX 6: handleRadiusChange — radius change triggers the useEffect above ──
+  const handleRadiusChange = (newRadius) => {
+    setRadius(newRadius);
   };
 
   const handleSaveToFavorites = async (eventId, isFavorite) => {
@@ -248,10 +294,12 @@ const EventList = ({ user }) => {
   useEffect(() => {
     fetchEvents();
     if (user) { fetchRecommendations(); fetchFavorites(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
-    if (page > 1) fetchEvents({}, page, true);
+    if (page > 1) fetchEvents(activeFilters, page, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   // ── Mapbox Map View ──
@@ -262,8 +310,9 @@ const EventList = ({ user }) => {
     }
     const timer = setTimeout(() => {
       if (!mapContainer.current || map.current) return;
-      const center = userLocation
-        ? [userLocation.lng, userLocation.lat]
+      const loc = userLocationRef.current;
+      const center = loc
+        ? [loc.lng, loc.lat]
         : [FALLBACK_COORDS.lng, FALLBACK_COORDS.lat];
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
@@ -273,10 +322,9 @@ const EventList = ({ user }) => {
       });
       map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-      // User location marker
-      if (userLocation) {
+      if (loc) {
         new mapboxgl.Marker({ color: "#10b981" })
-          .setLngLat([userLocation.lng, userLocation.lat])
+          .setLngLat([loc.lng, loc.lat])
           .setPopup(new mapboxgl.Popup().setHTML("<strong>📍 You are here</strong>"))
           .addTo(map.current);
       }
@@ -338,7 +386,7 @@ const EventList = ({ user }) => {
     if (locationStatus === "granted") {
       return (
         <div className="location-banner location-banner--granted">
-          ✅ Showing events nearest to you
+          ✅ Showing events within {radius} km of you
         </div>
       );
     }
@@ -371,11 +419,13 @@ const EventList = ({ user }) => {
         </div>
       </div>
 
-      {/* Filters — pass GPS props so EventFilters can show Near Me chip */}
+      {/* Filters — pass GPS props so EventFilters can show Near Me chip + radius selector */}
       <EventFilters
         onFilter={handleFilter}
         nearMeActive={nearMeActive}
         onNearMe={handleNearMe}
+        radius={radius}
+        onRadiusChange={handleRadiusChange}
       />
 
       {/* Location banner */}
@@ -474,7 +524,13 @@ const EventList = ({ user }) => {
             <div className="no-events">
               <div className="no-events-icon">🎭</div>
               <h3>No Events Found</h3>
-              <p>{searchQuery ? `No events match "${searchQuery}".` : "No events available. Check back soon!"}</p>
+              <p>
+                {nearMeActive
+                  ? `No events found within ${radius} km of your location. Try increasing the radius.`
+                  : searchQuery
+                  ? `No events match "${searchQuery}".`
+                  : "No events available. Check back soon!"}
+              </p>
             </div>
           ) : (
             <>

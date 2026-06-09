@@ -2,8 +2,9 @@
   "name": "eventhyper",
   "main": "App.js",
   "version": "1.0.0",
-  "scripts": {
-     "postinstall": "node -e \"const fs=require('fs'); const p='node_modules/react-native/sdks/hermesc/linux64-bin/hermesc'; try { fs.chmodSync(p, 0o755); } catch(e) {}\"",
+    "scripts": {
+    "postinstall": "node -e \"const fs=require('fs'); const p='node_modules/react-native/sdks/hermesc/linux64-bin/hermesc'; try { fs.chmodSync(p, 0o755); } catch(e) {}\"",
+    "eas-build-pre-install": "chmod +x ./node_modules/react-native/sdks/hermesc/linux64-bin/hermesc || true",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
@@ -11,6 +12,7 @@
     "web": "expo start --web",
     "lint": "expo lint"
   },
+
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",

@@ -155,257 +155,310 @@ const BookingSuccess = ({ user }) => {
     }
   };
 
-  // Helper: convert an SVG element to an Image at an explicit pixel size
-  const svgToImage = (svgElement, size = 200) =>
+  // ── Helper: SVG element → HTMLImageElement ──────────────────────────────
+  const svgToImage = (svgElement) =>
     new Promise((resolve, reject) => {
       try {
-        // Clone so we can safely mutate width/height attributes
-        const clone = svgElement.cloneNode(true);
-        clone.setAttribute("width", size);
-        clone.setAttribute("height", size);
-
-        const svgData = new XMLSerializer().serializeToString(clone);
-        const hasNS = svgData.indexOf("xmlns") !== -1;
-        const finalSvg = hasNS
+        const svgData = new XMLSerializer().serializeToString(svgElement);
+        const finalSvg = svgData.includes("xmlns")
           ? svgData
           : svgData.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
-
         const blob = new Blob([finalSvg], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
-
         const img = new Image();
-        img.width = size;
-        img.height = size;
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          resolve(img);
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          reject(new Error("Failed to load SVG as image"));
-        };
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("SVG load failed")); };
         img.src = url;
-      } catch (err) {
-        reject(err);
-      }
+      } catch (err) { reject(err); }
     });
 
-  // Download a single ticket — renders a full ticket card with all details + QR
+  // ── Helper: wrap text onto canvas within maxWidth ───────────────────────
+  const wrapText = (ctx, text, x, y, maxWidth, lineHeight) => {
+    const words = String(text).split(" ");
+    let line = "";
+    let currentY = y;
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        ctx.fillText(line, x, currentY);
+        line = word;
+        currentY += lineHeight;
+      } else {
+        line = test;
+      }
+    }
+    if (line) ctx.fillText(line, x, currentY);
+    return currentY + lineHeight;
+  };
+
+  // ── Helper: draw one fully-detailed ticket card onto canvas ─────────────
+  const drawTicketOnCanvas = async (ctx, ticket, offsetX, offsetY, W, H) => {
+    const R = 12;
+
+    // Card shadow
+    ctx.shadowColor = "rgba(0,0,0,0.10)";
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+
+    // Card background
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(offsetX + R, offsetY);
+    ctx.lineTo(offsetX + W - R, offsetY);
+    ctx.quadraticCurveTo(offsetX + W, offsetY, offsetX + W, offsetY + R);
+    ctx.lineTo(offsetX + W, offsetY + H - R);
+    ctx.quadraticCurveTo(offsetX + W, offsetY + H, offsetX + W - R, offsetY + H);
+    ctx.lineTo(offsetX + R, offsetY + H);
+    ctx.quadraticCurveTo(offsetX, offsetY + H, offsetX, offsetY + H - R);
+    ctx.lineTo(offsetX, offsetY + R);
+    ctx.quadraticCurveTo(offsetX, offsetY, offsetX + R, offsetY);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Card border
+    ctx.strokeStyle = "#e5e7eb";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Green header bar
+    ctx.fillStyle = "#10b981";
+    ctx.beginPath();
+    ctx.moveTo(offsetX + R, offsetY);
+    ctx.lineTo(offsetX + W - R, offsetY);
+    ctx.quadraticCurveTo(offsetX + W, offsetY, offsetX + W, offsetY + R);
+    ctx.lineTo(offsetX + W, offsetY + 58);
+    ctx.lineTo(offsetX, offsetY + 58);
+    ctx.lineTo(offsetX, offsetY + R);
+    ctx.quadraticCurveTo(offsetX, offsetY, offsetX + R, offsetY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Check circle in header
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.beginPath();
+    ctx.arc(offsetX + 34, offsetY + 29, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 17px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("✓", offsetX + 34, offsetY + 35);
+
+    // Header text
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("TICKET CONFIRMED", offsetX + 58, offsetY + 24);
+    ctx.font = "11px Arial";
+    ctx.fillStyle = "rgba(255,255,255,0.80)";
+    ctx.fillText("Present at venue for entry", offsetX + 58, offsetY + 40);
+
+    let curY = offsetY + 78;
+
+    // Event title
+    ctx.fillStyle = "#111827";
+    ctx.font = "bold 17px Arial";
+    ctx.textAlign = "center";
+    curY = wrapText(ctx, booking.event_title || "Event", offsetX + W / 2, curY, W - 32, 22);
+    curY += 6;
+
+    // Divider
+    ctx.strokeStyle = "#e5e7eb";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(offsetX + 20, curY);
+    ctx.lineTo(offsetX + W - 20, curY);
+    ctx.stroke();
+    curY += 14;
+
+    // Info rows
+    const dateStr = booking.event_date
+      ? new Date(booking.event_date).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+      : "TBA";
+    const infoRows = [
+      ["DATE",   dateStr],
+      ["VENUE",  event?.venue || booking.location || "TBA"],
+      ["TYPE",   ticket.ticket_type_name || ticket.name || "General"],
+      ["QTY",    String(ticket.quantity || 1)],
+      ["AMOUNT", "KES " + Number((ticket.price || 0) * (ticket.quantity || 1)).toLocaleString()],
+    ];
+
+    ctx.textAlign = "left";
+    for (const [label, value] of infoRows) {
+      ctx.font = "bold 9px Arial";
+      ctx.fillStyle = "#9ca3af";
+      ctx.fillText(label, offsetX + 20, curY);
+      ctx.font = "13px Arial";
+      ctx.fillStyle = "#1f2937";
+      curY = wrapText(ctx, value, offsetX + 20, curY + 13, W - 40, 16);
+      curY += 5;
+    }
+
+    // Perforation dashes
+    curY += 6;
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = "#d1d5db";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(offsetX + 16, curY);
+    ctx.lineTo(offsetX + W - 16, curY);
+    ctx.stroke();
+    ctx.restore();
+    curY += 14;
+
+    // QR code
+    const qrSize = 140;
+    const qrX = offsetX + (W - qrSize) / 2;
+    const svg = document.getElementById("qr-" + ticket.id);
+    if (svg) {
+      try {
+        const qrImg = await svgToImage(svg);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(qrX - 6, curY - 6, qrSize + 12, qrSize + 12);
+        ctx.strokeStyle = "#e5e7eb";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(qrX - 6, curY - 6, qrSize + 12, qrSize + 12);
+        ctx.drawImage(qrImg, qrX, curY, qrSize, qrSize);
+      } catch (_) {
+        ctx.fillStyle = "#f3f4f6";
+        ctx.fillRect(qrX, curY, qrSize, qrSize);
+        ctx.fillStyle = "#9ca3af";
+        ctx.font = "11px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("QR unavailable", offsetX + W / 2, curY + qrSize / 2);
+      }
+    }
+    curY += qrSize + 10;
+
+    // QR hint
+    ctx.font = "10px Arial";
+    ctx.fillStyle = "#9ca3af";
+    ctx.textAlign = "center";
+    ctx.fillText("Scan QR code at venue", offsetX + W / 2, curY);
+    curY += 16;
+
+    // Manual code
+    if (ticket.manual_code) {
+      ctx.font = "bold 9px Arial";
+      ctx.fillStyle = "#9ca3af";
+      ctx.textAlign = "center";
+      ctx.fillText("MANUAL ENTRY CODE", offsetX + W / 2, curY);
+      curY += 12;
+
+      ctx.fillStyle = "#f9fafb";
+      const codeBoxW = W - 40;
+      ctx.fillRect(offsetX + 20, curY, codeBoxW, 28);
+      ctx.strokeStyle = "#d1d5db";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(offsetX + 20, curY, codeBoxW, 28);
+      ctx.font = "bold 13px 'Courier New', monospace";
+      ctx.fillStyle = "#111827";
+      ctx.textAlign = "center";
+      ctx.fillText(ticket.manual_code, offsetX + W / 2, curY + 19);
+      curY += 36;
+    }
+
+    // Footer reference
+    ctx.font = "9px Arial";
+    ctx.fillStyle = "#d1d5db";
+    ctx.textAlign = "center";
+    ctx.fillText("Ref: " + (booking.reference || ""), offsetX + W / 2, offsetY + H - 10);
+  };
+
+  // ── Download a single ticket ─────────────────────────────────────────────
   const handleDownloadTicket = async (ticket) => {
     try {
-      const svg = document.getElementById(`qr-${ticket.id}`);
-      if (!svg) {
-        alert("QR code not found – please ensure it is visible on screen and try again.");
-        return;
-      }
-
-      const QR_SIZE = 200;
-      const CARD_W = 480;
-      const CARD_H = 520;
-      const PAD = 24;
-
+      const W = 360;
+      const H = 600;
       const canvas = document.createElement("canvas");
-      canvas.width = CARD_W;
-      canvas.height = CARD_H;
+      canvas.width = W * 2;
+      canvas.height = H * 2;
       const ctx = canvas.getContext("2d");
+      ctx.scale(2, 2);
 
-      // Background
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, CARD_W, CARD_H);
-
-      // Header band
-      ctx.fillStyle = "#4f46e5";
-      ctx.fillRect(0, 0, CARD_W, 70);
-
-      // Event title
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 20px Arial, sans-serif";
-      ctx.textAlign = "center";
-      const title = booking?.event_title || "Event Ticket";
-      ctx.fillText(title.length > 40 ? title.slice(0, 38) + "…" : title, CARD_W / 2, 35);
-
-      // Booking ref in header
-      ctx.font = "13px Arial, sans-serif";
-      ctx.fillStyle = "#c7d2fe";
-      ctx.fillText(`Ref: ${booking?.reference || bookingId}`, CARD_W / 2, 57);
-
-      // Ticket type
-      ctx.fillStyle = "#1e1b4b";
-      ctx.font = "bold 16px Arial, sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText(ticket.ticket_type_name || "General Ticket", PAD, 100);
-
-      // Quantity & price
-      ctx.font = "14px Arial, sans-serif";
-      ctx.fillStyle = "#4b5563";
-      ctx.fillText(`Qty: ${ticket.quantity || 1}`, PAD, 124);
-      if (ticket.price) {
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#4f46e5";
-        ctx.font = "bold 15px Arial, sans-serif";
-        ctx.fillText(`KES ${(ticket.price * (ticket.quantity || 1)).toLocaleString()}`, CARD_W - PAD, 124);
-        ctx.textAlign = "left";
-      }
-
-      // Divider
-      ctx.strokeStyle = "#e5e7eb";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(PAD, 138);
-      ctx.lineTo(CARD_W - PAD, 138);
-      ctx.stroke();
-
-      // Date / Time / Venue
-      const details = [
-        ["📅 Date", booking?.event_date ? new Date(booking.event_date).toLocaleDateString("en-GB", { weekday: "short", year: "numeric", month: "short", day: "numeric" }) : "TBA"],
-        ["🕐 Time", `${booking?.start_time || "TBA"} – ${booking?.end_time || "TBA"}`],
-        ["📍 Venue", event?.venue || booking?.location || "TBA"],
-      ];
-      ctx.font = "13px Arial, sans-serif";
-      details.forEach(([label, value], i) => {
-        const y = 162 + i * 26;
-        ctx.fillStyle = "#6b7280";
-        ctx.fillText(label + ":", PAD, y);
-        ctx.fillStyle = "#111827";
-        ctx.fillText(value.length > 38 ? value.slice(0, 36) + "…" : value, PAD + 90, y);
-      });
-
-      // QR code
-      const qrImg = await svgToImage(svg, QR_SIZE);
-      const qrX = (CARD_W - QR_SIZE) / 2;
-      const qrY = 248;
-      ctx.fillStyle = "#f9fafb";
-      ctx.fillRect(qrX - 8, qrY - 8, QR_SIZE + 16, QR_SIZE + 16);
-      ctx.drawImage(qrImg, qrX, qrY, QR_SIZE, QR_SIZE);
-
-      // Scan hint
-      ctx.fillStyle = "#6b7280";
-      ctx.font = "12px Arial, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("Scan QR code at venue for entry", CARD_W / 2, qrY + QR_SIZE + 24);
-
-      // Manual code (if present)
-      if (ticket.manual_code) {
-        ctx.fillStyle = "#1e1b4b";
-        ctx.font = "bold 13px Arial, sans-serif";
-        ctx.fillText(`Manual code: ${ticket.manual_code}`, CARD_W / 2, qrY + QR_SIZE + 46);
-      }
-
-      // Footer
       ctx.fillStyle = "#f3f4f6";
-      ctx.fillRect(0, CARD_H - 36, CARD_W, 36);
-      ctx.fillStyle = "#9ca3af";
-      ctx.font = "11px Arial, sans-serif";
-      ctx.fillText("EventHyper · This ticket is non-transferable · Bring valid ID", CARD_W / 2, CARD_H - 14);
+      ctx.fillRect(0, 0, W, H);
+
+      await drawTicketOnCanvas(ctx, ticket, 16, 16, W - 32, H - 32);
 
       canvas.toBlob((blob) => {
-        if (!blob) {
-          alert("Failed to create ticket image. Please try again.");
-          return;
-        }
+        if (!blob) { alert("Failed to create ticket image."); return; }
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
         const safeName = (ticket.ticket_type_name || "Ticket").replace(/[^a-z0-9_\- ]/gi, "");
-        link.download = `Ticket-${safeName}-${booking?.reference || bookingId}.png`;
-        document.body.appendChild(link);
+        link.download = "Ticket-" + safeName + "-" + (booking?.reference || bookingId) + ".png";
         link.click();
-        document.body.removeChild(link);
         setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       }, "image/png");
     } catch (err) {
-      console.error("Download single ticket error:", err);
-      alert(err.message || "Failed to download ticket. Please try again.");
+      console.error("Download ticket error:", err);
+      alert(err.message || "Failed to download ticket.");
     }
   };
 
-  // Download all tickets combined
+  // ── Download all tickets on one sheet ───────────────────────────────────
   const handleDownloadAllTickets = async () => {
-    if (!booking?.tickets?.length) {
-      alert("No tickets to download.");
-      return;
-    }
-
+    if (!booking?.tickets?.length) { alert("No tickets to download."); return; }
     try {
-      const ticketWidth = 300;
-      const ticketHeight = 400;
-      const padding = 20;
-      const cols = Math.min(booking.tickets.length, 3);
+      const TW = 320;
+      const TH = 600;
+      const PAD = 24;
+      const cols = Math.min(booking.tickets.length, 2);
       const rows = Math.ceil(booking.tickets.length / cols);
+      const HEADER = 84;
+
+      const W = cols * TW + (cols + 1) * PAD;
+      const H = HEADER + rows * TH + (rows + 1) * PAD;
 
       const canvas = document.createElement("canvas");
+      canvas.width = W * 2;
+      canvas.height = H * 2;
       const ctx = canvas.getContext("2d");
+      ctx.scale(2, 2);
 
-      canvas.width = cols * (ticketWidth + padding) + padding;
-      canvas.height = rows * (ticketHeight + padding) + padding + 120;
+      ctx.fillStyle = "#f3f4f6";
+      ctx.fillRect(0, 0, W, H);
 
+      // Sheet header
+      ctx.fillStyle = "#10b981";
+      ctx.fillRect(0, 0, W, HEADER);
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.fillStyle = "#333";
-      ctx.font = "bold 24px Arial, sans-serif";
+      ctx.font = "bold 20px Arial";
       ctx.textAlign = "center";
-      const title = booking.event_title || "Event";
-      ctx.fillText(title, canvas.width / 2, 40);
-
-      ctx.font = "16px Arial, sans-serif";
-      const dateStr = booking.event_date
-        ? new Date(booking.event_date).toLocaleDateString()
+      ctx.fillText(booking.event_title || "Event Tickets", W / 2, 30);
+      ctx.font = "13px Arial";
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      const ds = booking.event_date
+        ? new Date(booking.event_date).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "long", year: "numeric" })
         : "";
-      ctx.fillText(`${dateStr} | ${booking.location || ""}`, canvas.width / 2, 70);
+      ctx.fillText(ds + (booking.location ? "  ·  " + booking.location : ""), W / 2, 52);
+      ctx.font = "11px Arial";
+      ctx.fillStyle = "rgba(255,255,255,0.65)";
+      ctx.fillText("Ref: " + (booking.reference || bookingId), W / 2, 70);
 
       for (let i = 0; i < booking.tickets.length; i++) {
-        const ticket = booking.tickets[i];
         const col = i % cols;
         const row = Math.floor(i / cols);
-        const x = padding + col * (ticketWidth + padding);
-        const y = 100 + padding + row * (ticketHeight + padding);
-
-        ctx.fillStyle = "#f9f9f9";
-        ctx.fillRect(x, y, ticketWidth, ticketHeight);
-        ctx.strokeStyle = "#ddd";
-        ctx.strokeRect(x, y, ticketWidth, ticketHeight);
-
-        ctx.fillStyle = "#333";
-        ctx.font = "bold 16px Arial, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(ticket.ticket_type_name || "General", x + ticketWidth / 2, y + 28);
-
-        const svg = document.getElementById(`qr-${ticket.id}`);
-        if (svg) {
-          try {
-            const qrSize = Math.min(200, ticketWidth - 40);
-            const img = await svgToImage(svg, qrSize);
-            const qrX = x + (ticketWidth - qrSize) / 2;
-            const qrY = y + 50;
-            ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
-          } catch (imgErr) {
-            console.warn(`Failed to render QR for ticket ${ticket.id}`, imgErr);
-          }
-        }
-
-        ctx.font = "14px Arial, sans-serif";
-        ctx.fillStyle = "#333";
-        ctx.fillText(`Qty: ${ticket.quantity || 1}`, x + ticketWidth / 2, y + 280);
-
-        ctx.font = "12px Arial, sans-serif";
-        ctx.fillStyle = "#666";
-        ctx.fillText(`Ref: ${booking.reference || bookingId}`, x + ticketWidth / 2, y + 305);
+        const x = PAD + col * (TW + PAD);
+        const y = HEADER + PAD + row * (TH + PAD);
+        await drawTicketOnCanvas(ctx, booking.tickets[i], x, y, TW, TH);
       }
 
       canvas.toBlob((blob) => {
-        if (!blob) {
-          alert("Failed to create combined ticket image. Please try individually.");
-          return;
-        }
+        if (!blob) { alert("Failed to create tickets image."); return; }
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `All-Tickets-${booking.reference || bookingId}.png`;
+        link.download = "All-Tickets-" + (booking.reference || bookingId) + ".png";
         link.click();
         setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       }, "image/png");
     } catch (err) {
       console.error("Download all tickets error:", err);
-      alert("Failed to download all tickets. Please try again.");
+      alert("Failed to download tickets. Please try again.");
     }
   };
 
