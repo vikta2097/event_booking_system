@@ -1,36 +1,861 @@
 /* =========================================================
-   BOOKING FORM
-   All colors use theme variables from Theme.css
+   BOOKING FORM — Professional Redesign
+   Color system:
+     Brand:    #1A56DB  (deep cobalt)  / hover #1648C8
+     Surface:  #FFFFFF  card  /  #F8FAFC  page bg
+     Border:   #E2E8F0  default  /  #CBD5E1  strong
+     Text:     #0F172A  primary  /  #475569  secondary  /  #94A3B8  muted
+     Success:  #059669  /  bg rgba(5,150,105,0.07)
+     Warning:  #D97706  /  bg rgba(217,119,6,0.07)
+     Danger:   #DC2626  /  bg rgba(220,38,38,0.07)
+     Indigo:   #4F46E5  (group nudge)
    ========================================================= */
 
+/* ── Local tokens (override theme vars where needed) ── */
 .booking-form {
+  --bf-brand:        #1A56DB;
+  --bf-brand-hover:  #1648C8;
+  --bf-brand-ring:   rgba(26, 86, 219, 0.18);
+  --bf-bg:           #F8FAFC;
+  --bf-card:         #FFFFFF;
+  --bf-border:       #E2E8F0;
+  --bf-border-strong:#CBD5E1;
+  --bf-text-primary: #0F172A;
+  --bf-text-sec:     #475569;
+  --bf-text-muted:   #94A3B8;
+  --bf-success:      #059669;
+  --bf-success-bg:   rgba(5, 150, 105, 0.07);
+  --bf-success-bdr:  rgba(5, 150, 105, 0.28);
+  --bf-warning:      #D97706;
+  --bf-warning-bg:   rgba(217, 119, 6, 0.07);
+  --bf-warning-bdr:  rgba(217, 119, 6, 0.28);
+  --bf-danger:       #DC2626;
+  --bf-danger-bg:    rgba(220, 38, 38, 0.07);
+  --bf-danger-bdr:   rgba(220, 38, 38, 0.28);
+  --bf-indigo:       #4F46E5;
+  --bf-indigo-bg:    rgba(79, 70, 229, 0.07);
+  --bf-indigo-bdr:   rgba(79, 70, 229, 0.25);
+  --bf-shadow-sm:    0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --bf-shadow-md:    0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --bf-radius-lg:    14px;
+  --bf-radius-md:    10px;
+  --bf-radius-sm:    7px;
+
   max-width: 560px;
   margin: 2rem auto;
-  padding: 0 1rem 3rem;
-  color: var(--text-primary);
+  padding: 0 1rem 3.5rem;
+  background: var(--bf-bg);
+  color: var(--bf-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 
 /* =========================================================
-   EVENT HEADER  — title, date, location
+   PAGE TITLE  (rendered directly as h2 + p in BookingForm.js)
+   ========================================================= */
+
+.booking-form > h2 {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--bf-text-primary);
+  margin: 0 0 0.4rem;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
+}
+
+.booking-form > .event-date {
+  font-size: 0.9rem;
+  color: var(--bf-text-sec);
+  margin: 0 0 0.25rem;
+  font-weight: 500;
+}
+
+.booking-form > .event-location {
+  font-size: 0.9rem;
+  color: var(--bf-text-sec);
+  margin: 0 0 1.5rem;
+}
+
+
+/* =========================================================
+   SECTION CARD  — shared wrapper  (.booking-section)
+   ========================================================= */
+
+.booking-section {
+  background: var(--bf-card);
+  border-radius: var(--bf-radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--bf-border);
+  box-shadow: var(--bf-shadow-sm);
+  transition: border-color 0.2s ease;
+}
+
+.booking-section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  color: var(--bf-text-muted);
+  margin: 0 0 1.1rem;
+}
+
+
+/* =========================================================
+   TICKET TYPES WRAPPER  (.ticket-types)
+   ========================================================= */
+
+.ticket-types {
+  background: var(--bf-card);
+  border-radius: var(--bf-radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--bf-border);
+  box-shadow: var(--bf-shadow-sm);
+}
+
+.ticket-types > h3 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  color: var(--bf-text-muted);
+  margin: 0 0 1.1rem;
+}
+
+.no-tickets {
+  font-size: 0.9rem;
+  color: var(--bf-text-muted);
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+
+/* =========================================================
+   TICKET ITEM  (.ticket-item)
+   ========================================================= */
+
+.ticket-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.1rem;
+  border: 1.5px solid var(--bf-border);
+  border-radius: var(--bf-radius-md);
+  margin-bottom: 0.75rem;
+  background: var(--bf-bg);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.ticket-item:last-child {
+  margin-bottom: 0;
+}
+
+.ticket-item:hover {
+  border-color: var(--bf-brand);
+  box-shadow: 0 0 0 3px var(--bf-brand-ring);
+}
+
+/* Group discount active state */
+.ticket-item.group-active {
+  border-color: var(--bf-success);
+  background: var(--bf-success-bg);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+/* Sold out */
+.ticket-item.sold-out {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+
+/* ── Ticket info row  (.ticket-info) ── */
+.ticket-info {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+
+/* ── Name + badges  (.ticket-name-wrap) ── */
+.ticket-name-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 0.15rem;
+}
+
+.ticket-name {
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: var(--bf-text-primary);
+  line-height: 1.3;
+}
+
+.ticket-description {
+  font-size: 0.82rem;
+  color: var(--bf-text-sec);
+  line-height: 1.5;
+  margin: 0;
+}
+
+
+/* ── Price wrap  (.ticket-price-wrap) ── */
+.ticket-price-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.ticket-price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--bf-text-primary);
+  white-space: nowrap;
+}
+
+.ticket-price--discounted {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--bf-success);
+  white-space: nowrap;
+}
+
+.ticket-price-original {
+  text-decoration: line-through;
+  color: var(--bf-text-muted);
+  font-size: 0.87rem;
+  white-space: nowrap;
+}
+
+
+/* ── Availability  (.ticket-availability) ── */
+.ticket-availability {
+  margin: 0;
+}
+
+.ticket-availability .available {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--bf-success);
+  letter-spacing: 0.1px;
+}
+
+.sold-out-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--bf-danger);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ticket-availability.low-stock .available {
+  color: var(--bf-warning);
+}
+
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+
+.badge-early-bird {
+  background: var(--bf-warning-bg);
+  color: var(--bf-warning);
+  border: 1px solid var(--bf-warning-bdr);
+  border-radius: 20px;
+  font-size: 0.69rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.badge-group-tip {
+  background: rgba(26, 86, 219, 0.08);
+  color: var(--bf-brand);
+  border: 1px solid rgba(26, 86, 219, 0.25);
+  border-radius: 20px;
+  font-size: 0.69rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.discount-chip {
+  background: var(--bf-success);
+  color: #fff;
+  border-radius: 20px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   QUANTITY STEPPER  (.ticket-controls)
+   ========================================================= */
+
+.ticket-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: 1.5px solid var(--bf-border-strong);
+  border-radius: var(--bf-radius-sm);
+  overflow: hidden;
+  background: var(--bf-card);
+  align-self: flex-start;
+}
+
+/* − and + buttons */
+.ticket-controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  color: var(--bf-brand);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+  user-select: none;
+  padding: 0;
+}
+
+.ticket-controls button:hover:not(:disabled) {
+  background: rgba(26, 86, 219, 0.08);
+}
+
+.ticket-controls button:active:not(:disabled) {
+  background: rgba(26, 86, 219, 0.16);
+}
+
+.ticket-controls button:disabled {
+  color: var(--bf-text-muted);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.ticket-controls button:focus-visible {
+  outline: 2px solid var(--bf-brand);
+  outline-offset: -2px;
+}
+
+/* Quantity number input */
+.ticket-controls input[type="number"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px !important;
+  height: 36px;
+  padding: 0 !important;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--bf-text-primary);
+  background: var(--bf-bg);
+  border: none;
+  border-left: 1.5px solid var(--bf-border-strong);
+  border-right: 1.5px solid var(--bf-border-strong);
+  border-radius: 0;
+  box-shadow: none;
+  box-sizing: border-box;
+  -moz-appearance: textfield;
+  pointer-events: none;
+}
+
+.ticket-controls input[type="number"]::-webkit-inner-spin-button,
+.ticket-controls input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+
+/* =========================================================
+   SUBTOTAL / DISCOUNT FEEDBACK LINES
+   ========================================================= */
+
+.ticket-subtotal {
+  font-size: 0.88rem;
+  color: var(--bf-text-sec);
+  margin-top: 0.1rem;
+}
+
+.ticket-subtotal strong {
+  color: var(--bf-text-primary);
+  font-weight: 700;
+}
+
+.group-nudge {
+  font-size: 0.84rem;
+  color: var(--bf-indigo);
+  font-weight: 600;
+  margin: 0.1rem 0 0;
+  background: var(--bf-indigo-bg);
+  border: 1px solid var(--bf-indigo-bdr);
+  border-radius: var(--bf-radius-sm);
+  padding: 0.5rem 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.group-discount-applied {
+  font-size: 0.84rem;
+  color: var(--bf-success);
+  font-weight: 600;
+  margin: 0.1rem 0 0;
+  background: var(--bf-success-bg);
+  border: 1px solid var(--bf-success-bdr);
+  border-radius: var(--bf-radius-sm);
+  padding: 0.5rem 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+
+/* =========================================================
+   CHECKOUT FORM  (.booking-checkout)
+   ========================================================= */
+
+.booking-checkout {
+  background: var(--bf-card);
+  border-radius: var(--bf-radius-lg);
+  padding: 1.5rem;
+  border: 1px solid var(--bf-border);
+  box-shadow: var(--bf-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+
+/* ── Form group  (.form-group) ── */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--bf-text-primary);
+  margin-bottom: 0.45rem;
+}
+
+.booking-form input[type="tel"],
+.booking-form input[type="text"],
+.booking-form input[type="number"]:not(.ticket-controls input) {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--bf-border-strong);
+  border-radius: var(--bf-radius-md);
+  font-size: 0.97rem;
+  background: var(--bf-bg);
+  color: var(--bf-text-primary);
+  box-sizing: border-box;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  line-height: 1.5;
+}
+
+.booking-form input[type="tel"]:focus,
+.booking-form input[type="text"]:focus {
+  outline: none;
+  border-color: var(--bf-brand);
+  box-shadow: 0 0 0 3px var(--bf-brand-ring);
+  background: var(--bf-card);
+}
+
+.booking-form input::placeholder {
+  color: var(--bf-text-muted);
+  font-weight: 400;
+}
+
+.booking-form input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--bf-text-muted);
+  line-height: 1.5;
+}
+
+.form-help {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--bf-text-muted);
+  line-height: 1.5;
+}
+
+.form-error {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--bf-danger);
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   ORDER SUMMARY  (.booking-summary)
+   ========================================================= */
+
+.booking-summary {
+  background: var(--bf-bg);
+  border-radius: var(--bf-radius-md);
+  padding: 0;
+  border: 1px solid var(--bf-border);
+  overflow: hidden;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  font-size: 0.92rem;
+  border-bottom: 1px solid var(--bf-border);
+  color: var(--bf-text-sec);
+  transition: background 0.15s ease;
+}
+
+.summary-row:last-of-type {
+  border-bottom: none;
+}
+
+.summary-row strong {
+  font-weight: 700;
+  color: var(--bf-text-primary);
+}
+
+/* Savings row */
+.summary-row.savings-row {
+  background: var(--bf-success-bg);
+  color: var(--bf-success);
+  border-color: var(--bf-success-bdr);
+}
+
+.summary-row.savings-row strong {
+  color: var(--bf-success);
+}
+
+/* Total row */
+.summary-row.total {
+  background: var(--bf-card);
+  padding: 0.85rem 1rem;
+  border-top: 2px solid var(--bf-border-strong);
+  border-bottom: none;
+}
+
+.summary-row.total span {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--bf-text-primary);
+}
+
+.summary-row.total strong {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--bf-brand);
+}
+
+
+/* =========================================================
+   FEEDBACK MESSAGES
+   ========================================================= */
+
+.status-message {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 1rem;
+  background: rgba(26, 86, 219, 0.07);
+  border: 1px solid rgba(26, 86, 219, 0.22);
+  border-radius: var(--bf-radius-sm);
+  color: var(--bf-brand);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 1rem;
+  background: var(--bf-danger-bg);
+  border: 1px solid var(--bf-danger-bdr);
+  border-radius: var(--bf-radius-sm);
+  color: var(--bf-danger);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* Legacy classes used by error-container state */
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.booking-form .error {
+  text-align: center;
+  color: var(--bf-danger);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.75rem 1rem;
+  background: var(--bf-danger-bg);
+  border: 1px solid var(--bf-danger-bdr);
+  border-radius: var(--bf-radius-sm);
+  width: 100%;
+}
+
+.booking-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.8rem 1rem;
+  background: var(--bf-danger-bg);
+  border: 1px solid var(--bf-danger-bdr);
+  border-radius: var(--bf-radius-sm);
+  color: var(--bf-danger);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.booking-success-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.8rem 1rem;
+  background: var(--bf-success-bg);
+  border: 1px solid var(--bf-success-bdr);
+  border-radius: var(--bf-radius-sm);
+  color: var(--bf-success);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.field-warning {
+  font-size: 0.8rem;
+  color: var(--bf-warning);
+  font-weight: 500;
+  margin-top: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.no-ticket-warning {
+  text-align: center;
+  padding: 0.65rem 1rem;
+  background: var(--bf-warning-bg);
+  border: 1px solid var(--bf-warning-bdr);
+  border-radius: var(--bf-radius-sm);
+  color: var(--bf-warning);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   PROCEED TO PAYMENT  — primary CTA  (.btn-proceed)
+   ========================================================= */
+
+.btn-proceed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.9rem 1.5rem;
+  background: var(--bf-brand);
+  color: #fff;
+  border: none;
+  border-radius: var(--bf-radius-md);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.14s ease, box-shadow 0.18s ease;
+  box-shadow: 0 2px 8px rgba(26, 86, 219, 0.3), 0 1px 3px rgba(26, 86, 219, 0.2);
+}
+
+.btn-proceed:hover:not(:disabled) {
+  background: var(--bf-brand-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(26, 86, 219, 0.36);
+}
+
+.btn-proceed:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(26, 86, 219, 0.25);
+}
+
+.btn-proceed:focus-visible {
+  outline: 2px solid var(--bf-brand);
+  outline-offset: 3px;
+}
+
+.btn-proceed:disabled {
+  background: var(--bf-text-muted);
+  color: rgba(255, 255, 255, 0.65);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Spinner inside proceed button */
+.spinner-small {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: bf-spin 0.7s linear infinite;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+
+/* =========================================================
+   SECONDARY / UTILITY BUTTONS
+   ========================================================= */
+
+.btn-secondary,
+.btn-secondary-action,
+.retry-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1.2rem;
+  background: var(--bf-card);
+  color: var(--bf-text-primary);
+  border: 1.5px solid var(--bf-border-strong);
+  border-radius: var(--bf-radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  text-decoration: none;
+}
+
+.btn-secondary:hover:not(:disabled),
+.btn-secondary-action:hover:not(:disabled),
+.retry-btn:hover:not(:disabled) {
+  background: var(--bf-bg);
+  border-color: var(--bf-brand);
+  color: var(--bf-brand);
+  transform: translateY(-1px);
+}
+
+.btn-secondary:active:not(:disabled),
+.btn-secondary-action:active:not(:disabled),
+.retry-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-secondary:focus-visible,
+.btn-secondary-action:focus-visible,
+.retry-btn:focus-visible {
+  outline: 2px solid var(--bf-brand);
+  outline-offset: 2px;
+}
+
+.btn-secondary:disabled,
+.btn-secondary-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   HINT TEXT
+   ========================================================= */
+
+.hint-text {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--bf-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   LOADING STATE  (.loading-text)
+   ========================================================= */
+
+.loading-text {
+  text-align: center;
+  padding: 3.5rem 1rem;
+  color: var(--bf-text-muted);
+  font-size: 0.92rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.loading-text .spinner-sm,
+.spinner-sm {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--bf-border-strong);
+  border-top-color: var(--bf-brand);
+  border-radius: 50%;
+  animation: bf-spin 0.85s linear infinite;
+}
+
+@keyframes bf-spin {
+  to { transform: rotate(360deg); }
+}
+
+
+/* =========================================================
+   EVENT HEADER  (.booking-event-header) — legacy support
    ========================================================= */
 
 .booking-event-header {
-  background: var(--card-bg);
-  border-radius: 16px;
+  background: var(--bf-card);
+  border-radius: var(--bf-radius-lg);
   padding: 1.5rem;
-  margin-bottom: 1.25rem;
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--card-shadow);
-  transition: background 0.25s ease, border-color 0.25s ease;
+  margin-bottom: 1rem;
+  border: 1px solid var(--bf-border);
+  box-shadow: var(--bf-shadow-sm);
 }
 
 .booking-event-header h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 0.6rem;
-  line-height: 1.3;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--bf-text-primary);
+  margin: 0 0 0.5rem;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
 }
 
 .booking-event-meta {
@@ -41,8 +866,8 @@
 }
 
 .booking-event-meta span {
-  font-size: 0.92rem;
-  color: var(--text-secondary);
+  font-size: 0.88rem;
+  color: var(--bf-text-sec);
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -50,297 +875,8 @@
 
 
 /* =========================================================
-   SECTION CARD  — shared wrapper for each form section
+   PHONE INPUT EXTRAS  (.phone-input-wrap)
    ========================================================= */
-
-.booking-section {
-  background: var(--card-bg);
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-bottom: 1.25rem;
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--card-shadow);
-  transition: background 0.25s ease, border-color 0.25s ease;
-}
-
-.booking-section-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  color: var(--text-muted);
-  margin: 0 0 1.1rem;
-}
-
-
-/* =========================================================
-   TICKET TYPE ITEM
-   ========================================================= */
-
-.ticket-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
-  border: 1.5px solid var(--border-color);
-  border-radius: 12px;
-  margin-bottom: 0.75rem;
-  background: var(--bg-surface-2);
-  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.ticket-item:last-child {
-  margin-bottom: 0;
-}
-
-.ticket-item:hover {
-  border-color: var(--brand-primary);
-  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.1);
-}
-
-/* Highlighted when group discount is active */
-.ticket-item.group-active {
-  border-color: var(--color-success);
-  background: rgba(16, 185, 129, 0.05);
-}
-
-/* Sold out */
-.ticket-item.sold-out {
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-/* Left column: name, price, badges */
-.ticket-item-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.ticket-name-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 0.3rem;
-}
-
-.ticket-name {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.ticket-description {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.35rem;
-  line-height: 1.4;
-}
-
-.ticket-price-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.ticket-price {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.ticket-price--discounted {
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: var(--color-success);
-}
-
-.ticket-price-original {
-  text-decoration: line-through;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-/* Availability */
-.ticket-availability {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin-top: 0.25rem;
-}
-
-.ticket-availability.low-stock {
-  color: var(--color-warning);
-  font-weight: 600;
-}
-
-/* Sold out label */
-.sold-out-label {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--color-danger);
-}
-
-
-/* =========================================================
-   BADGES
-   ========================================================= */
-
-.badge-early-bird {
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--color-warning);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  border-radius: 12px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  white-space: nowrap;
-}
-
-.badge-group-tip {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--brand-primary);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 12px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  white-space: nowrap;
-}
-
-.discount-chip {
-  background: var(--color-success);
-  color: #fff;
-  border-radius: 10px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 7px;
-}
-
-
-/* =========================================================
-   QUANTITY STEPPER  — the −  n  + control
-   ========================================================= */
-
-.ticket-item-qty {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex-shrink: 0;
-  border: 1.5px solid var(--border-color);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--card-bg);
-}
-
-/* Minus / Plus buttons */
-.qty-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  border: none;
-  color: var(--brand-primary);
-  font-size: 1.2rem;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-  user-select: none;
-}
-
-.qty-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.qty-btn:active:not(:disabled) {
-  background: rgba(59, 130, 246, 0.2);
-}
-
-.qty-btn:disabled {
-  color: var(--text-muted);
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.qty-btn:focus-visible {
-  outline: 2px solid var(--brand-primary);
-  outline-offset: -2px;
-}
-
-/* Current count display */
-.qty-value {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  height: 36px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  border-left: 1.5px solid var(--border-color);
-  border-right: 1.5px solid var(--border-color);
-  background: var(--bg-surface-2);
-  user-select: none;
-}
-
-
-/* =========================================================
-   GROUP DISCOUNT NUDGE / CONFIRMATION
-   ========================================================= */
-
-.group-nudge {
-  font-size: 0.85rem;
-  color: #6366f1;
-  font-weight: 600;
-  margin: 0.5rem 0 0;
-  background: rgba(99, 102, 241, 0.07);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.group-discount-applied {
-  font-size: 0.85rem;
-  color: var(--color-success);
-  font-weight: 600;
-  margin: 0.5rem 0 0;
-  background: rgba(16, 185, 129, 0.07);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-
-/* =========================================================
-   M-PESA PHONE INPUT
-   ========================================================= */
-
-.form-group {
-  margin-bottom: 0;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-}
-
-.form-group label .required-star {
-  color: var(--color-danger);
-  margin-left: 2px;
-}
 
 .phone-input-wrap {
   position: relative;
@@ -353,356 +889,39 @@
   left: 0.9rem;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--bf-text-sec);
   pointer-events: none;
   user-select: none;
 }
 
-.booking-form input[type="tel"],
-.booking-form input[type="text"],
-.booking-form input[type="number"] {
-  width: 100%;
-  padding: 0.8rem 1rem 0.8rem 3.2rem;
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
-  font-size: 1rem;
-  background: var(--bg-surface-2);
-  color: var(--text-primary);
-  box-sizing: border-box;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.booking-form input[type="tel"]:focus,
-.booking-form input[type="text"]:focus,
-.booking-form input[type="number"]:focus {
-  outline: none;
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
-
-.booking-form input::placeholder {
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
-/* Input with no prefix icon */
 .booking-form input.no-prefix {
   padding-left: 1rem;
 }
 
-.form-help {
-  display: block;
-  margin-top: 0.4rem;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-
-.form-error {
-  display: block;
-  margin-top: 0.4rem;
-  font-size: 0.82rem;
-  color: var(--color-danger);
-  font-weight: 500;
-}
-
 
 /* =========================================================
-   ORDER SUMMARY
+   SUMMARY TOTAL  (.summary-total) — legacy class support
    ========================================================= */
 
-.booking-summary {
-  background: var(--card-bg);
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-bottom: 1.25rem;
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--card-shadow);
-  transition: background 0.25s ease;
-}
-
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.45rem 0;
-  font-size: 0.95rem;
-  border-bottom: 1px solid var(--border-subtle);
-  transition: border-color 0.25s ease;
-}
-
-.summary-row:last-of-type {
-  border-bottom: none;
-}
-
-.summary-row .row-label {
-  flex: 1;
-  color: var(--text-secondary);
-}
-
-.summary-row .row-value {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-/* Savings highlight row */
-.summary-row.savings-row {
-  background: rgba(16, 185, 129, 0.07);
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  margin-top: 0.25rem;
-}
-
-.summary-row.savings-row .row-label,
-.summary-row.savings-row .row-value {
-  color: var(--color-success);
-}
-
-/* Total row */
 .summary-total {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.9rem 0 0;
-  margin-top: 0.75rem;
-  border-top: 2px solid var(--border-color);
+  padding: 0.85rem 1rem;
+  margin-top: 0;
+  border-top: 2px solid var(--bf-border-strong);
 }
 
 .summary-total .total-label {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--bf-text-primary);
 }
 
 .summary-total .total-amount {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 800;
-  color: var(--brand-primary);
-}
-
-
-/* =========================================================
-   INLINE FEEDBACK MESSAGES
-   ========================================================= */
-
-.booking-error {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.85rem 1rem;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 10px;
-  color: var(--color-danger);
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 1rem;
-}
-
-.booking-success-msg {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.85rem 1rem;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 10px;
-  color: var(--color-success);
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 1rem;
-}
-
-.field-warning {
-  font-size: 0.82rem;
-  color: var(--color-warning);
-  font-weight: 500;
-  margin-top: 0.35rem;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-/* No tickets selected nudge */
-.no-ticket-warning {
-  text-align: center;
-  padding: 0.65rem 1rem;
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 8px;
-  color: var(--color-warning);
-  font-size: 0.88rem;
-  font-weight: 500;
-  margin-bottom: 0.75rem;
-}
-
-/* Generic .error class used by old code */
-.booking-form .error {
-  text-align: center;
-  color: var(--color-danger);
-  font-size: 0.92rem;
-  font-weight: 500;
-  padding: 0.75rem 1rem;
-  background: rgba(239, 68, 68, 0.07);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  border-radius: 10px;
-  margin-bottom: 1rem;
-}
-
-
-/* =========================================================
-   PROCEED TO PAYMENT  — primary CTA
-   ========================================================= */
-
-.btn-proceed {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 1rem 1.5rem;
-  background: var(--brand-primary);
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
-}
-
-.btn-proceed:hover:not(:disabled) {
-  background: var(--brand-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.42);
-}
-
-.btn-proceed:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);
-}
-
-.btn-proceed:focus-visible {
-  outline: 2px solid var(--brand-primary);
-  outline-offset: 3px;
-}
-
-.btn-proceed:disabled {
-  background: var(--text-muted);
-  color: rgba(255, 255, 255, 0.6);
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* Spinner inside proceed button */
-.btn-proceed .btn-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2.5px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-
-/* =========================================================
-   SECONDARY / UTILITY BUTTONS
-   ========================================================= */
-
-/* Generic outlined button */
-.btn-secondary-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  padding: 0.7rem 1.25rem;
-  background: var(--bg-surface-2);
-  color: var(--text-primary);
-  border: 1.5px solid var(--border-color);
-  border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
-}
-
-.btn-secondary-action:hover:not(:disabled) {
-  background: var(--color-hover);
-  border-color: var(--text-muted);
-  transform: translateY(-1px);
-}
-
-.btn-secondary-action:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.btn-secondary-action:focus-visible {
-  outline: 2px solid var(--brand-primary);
-  outline-offset: 2px;
-}
-
-.btn-secondary-action:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-/* Legacy .booking-form button — keeps old code working */
-.booking-form button:not(.qty-btn):not(.btn-proceed):not(.btn-secondary-action) {
-  padding: 0.75rem 1.25rem;
-  background: var(--brand-primary);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  font-weight: 600;
-  transition: background 0.2s ease, transform 0.15s ease;
-}
-
-.booking-form button:not(.qty-btn):not(.btn-proceed):not(.btn-secondary-action):hover:not(:disabled) {
-  background: var(--brand-hover);
-  transform: translateY(-1px);
-}
-
-.booking-form button:not(.qty-btn):not(.btn-proceed):not(.btn-secondary-action):disabled {
-  background: var(--text-muted);
-  cursor: not-allowed;
-  transform: none;
-}
-
-
-/* =========================================================
-   LOADING STATE
-   ========================================================= */
-
-.loading-text {
-  text-align: center;
-  padding: 3rem 1rem;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  font-style: italic;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-.loading-text .spinner-sm {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--brand-primary);
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  color: var(--bf-brand);
 }
 
 
@@ -712,37 +931,58 @@
 
 @media (max-width: 600px) {
   .booking-form {
-    padding: 0 0.75rem 2rem;
-    margin: 1rem auto;
+    padding: 0 0.75rem 2.5rem;
+    margin: 0.75rem auto;
   }
 
-  .booking-event-header,
-  .booking-section,
-  .booking-summary {
-    padding: 1.1rem;
-    border-radius: 12px;
-  }
-
-  .booking-event-header h2 {
-    font-size: 1.25rem;
-  }
-
-  .ticket-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-  }
-
-  .ticket-item-qty {
-    align-self: flex-end;
-  }
-
-  .summary-total .total-amount {
+  .booking-form > h2 {
     font-size: 1.2rem;
   }
 
+  .ticket-types,
+  .booking-checkout,
+  .booking-section,
+  .booking-event-header {
+    padding: 1.1rem;
+    border-radius: var(--bf-radius-md);
+  }
+
+  .ticket-item {
+    gap: 0.5rem;
+  }
+
+  .ticket-info {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .summary-row.total strong {
+    font-size: 1.15rem;
+  }
+
   .btn-proceed {
-    font-size: 1rem;
-    padding: 0.9rem 1.25rem;
+    font-size: 0.97rem;
+    padding: 0.85rem 1.25rem;
+  }
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-proceed,
+  .btn-secondary,
+  .btn-secondary-action,
+  .retry-btn,
+  .ticket-item {
+    transition: none;
+  }
+
+  .spinner-small,
+  .spinner-sm,
+  .loading-text .spinner-sm {
+    animation: none;
+    border-top-color: var(--bf-brand);
   }
 }
