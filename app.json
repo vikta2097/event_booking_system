@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "979e7cf5-e0d8-4522-8214-d87ca391198c"
+      }
+    },
+    "android": {
+      "package": "id123com.victorlabs.eventhyper"
+    }
+  }
+}

@@ -3,6 +3,7 @@
     "name": "eventhyper",
     "slug": "eventhyper",
     "version": "1.0.0",
+    "jsEngine": "jsc",
     "orientation": "portrait",
     "icon": "./assets/images/splash-icon.png",
     "scheme": "eventhyper",
