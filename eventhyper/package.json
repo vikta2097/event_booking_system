@@ -3,8 +3,6 @@
   "main": "App.js",
   "version": "1.0.0",
   "scripts": {
-    "postinstall": "node -e \"const fs=require('fs'); const p='node_modules/react-native/sdks/hermesc/linux64-bin/hermesc'; try { fs.chmodSync(p, 0o755); } catch(e) {}\"",
-    "eas-build-pre-install": "chmod +x ./node_modules/react-native/sdks/hermesc/linux64-bin/hermesc || true",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
@@ -47,7 +45,7 @@
     "lucide-react-native": "^1.7.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-native": "^0.85.3",
+    "react-native": "0.85.3",
     "react-native-chart-kit": "^6.12.0",
     "react-native-gesture-handler": "~2.31.1",
     "react-native-qrcode-svg": "^6.3.21",
@@ -55,7 +53,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
     "react-native-svg": "15.15.4",
-    "react-native-web": "~0.21.0",
+    "react-native-web": "^0.21.2",
     "react-native-worklets": "0.8.3",
     "socket.io-client": "^4.8.3"
   },

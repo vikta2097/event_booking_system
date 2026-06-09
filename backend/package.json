@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ngrok/ngrok": "^1.7.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
@@ -20,6 +21,7 @@
     "csv-parser": "^3.2.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "groq-sdk": "^1.2.1",
     "jsonwebtoken": "^9.0.2",
     "moment": "^2.30.1",
     "multer": "^2.0.2",
