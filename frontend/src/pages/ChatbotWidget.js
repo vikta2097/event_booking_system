@@ -1,7 +1,7 @@
 // Add to your ChatbotWidget.js - Enhanced version
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api';
-import './ChatbotWidget.css';
+import '../styles/ChatbotWidget.css';
 
 const ChatbotWidget = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
