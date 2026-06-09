@@ -238,8 +238,6 @@
   color: var(--text-primary);
   font-size: 0.95rem;
   font-weight: 700;
-  /* hide browser number spinners */
-  -moz-appearance: textfield;
 }
 
 .ticket-controls input::-webkit-outer-spin-button,
