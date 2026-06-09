@@ -3,7 +3,7 @@
    Covers every className used in BookingSuccess.js
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
 
 /* ── Root tokens ── */
 :root {
@@ -63,7 +63,6 @@
   to { transform: rotate(360deg); }
 }
 
-/* The waiting-for-confirm and loading state share .booking-success layout */
 .booking-success > .loading-spinner + h3,
 .booking-success > .loading-spinner + p {
   text-align: center;
@@ -179,24 +178,28 @@
 }
 
 .quick-action-btn {
-  padding: 0.625rem 1.125rem;
-  background: white;
-  border: 1.5px solid var(--gray-200);
+  padding: 0.625rem 1.25rem;
+  background: var(--gray-900);
+  border: 2px solid var(--gray-900);
   border-radius: 999px;
-  color: var(--gray-700);
+  color: #ffffff;
   font-family: var(--font);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: border-color 0.18s, background 0.18s, color 0.18s, transform 0.18s;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
   white-space: nowrap;
 }
 
 .quick-action-btn:hover {
-  border-color: var(--green);
-  background: var(--green-light);
-  color: var(--green-dark);
-  transform: translateY(-1px);
+  background: var(--green-dark);
+  border-color: var(--green-dark);
+  transform: translateY(-2px);
+}
+
+.quick-action-btn:active {
+  transform: translateY(0);
 }
 
 /* ============================================================
@@ -331,22 +334,31 @@
   display: block;
   width: 100%;
   margin-top: 1rem;
-  padding: 0.7rem 1rem;
-  background: var(--blue);
-  color: white;
-  border: none;
+  padding: 0.75rem 1rem;
+  background: var(--blue-dark);
+  color: #ffffff;
+  border: 2px solid var(--blue-dark);
   border-radius: var(--radius-sm);
   font-family: var(--font);
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  transition: background 0.18s, transform 0.18s;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
   text-align: center;
+  text-transform: uppercase;
 }
 
 .btn-directions-large:hover {
-  background: var(--blue-dark);
-  transform: translateY(-1px);
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.btn-directions-large:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 /* ============================================================
@@ -378,20 +390,30 @@
 }
 
 .btn-contact-organizer {
-  padding: 0.6rem 1.25rem;
+  padding: 0.65rem 1.25rem;
   background: #92400e;
-  color: white;
-  border: none;
+  color: #ffffff;
+  border: 2px solid #92400e;
   border-radius: var(--radius-sm);
   font-family: var(--font);
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.18s;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .btn-contact-organizer:hover {
   background: #78350f;
+  border-color: #78350f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(146, 64, 14, 0.30);
+}
+
+.btn-contact-organizer:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 /* ============================================================
@@ -497,18 +519,19 @@
 
 .btn-copy-code {
   padding: 0.4rem 0.65rem;
-  background: white;
-  border: 1.5px solid var(--gray-300);
+  background: var(--gray-900);
+  border: 2px solid var(--gray-900);
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 1rem;
-  transition: border-color 0.15s, background 0.15s;
+  color: #ffffff;
+  transition: background 0.15s, border-color 0.15s;
   line-height: 1;
 }
 
 .btn-copy-code:hover {
-  border-color: var(--green);
-  background: var(--green-light);
+  background: var(--green-dark);
+  border-color: var(--green-dark);
 }
 
 .manual-code-hint {
@@ -551,22 +574,30 @@
 
 .btn-download-ticket {
   width: 100%;
-  padding: 0.6rem 1rem;
-  background: white;
-  border: 1.5px solid var(--gray-300);
+  padding: 0.65rem 1rem;
+  background: var(--blue-dark);
+  border: 2px solid var(--blue-dark);
   border-radius: var(--radius-sm);
-  color: var(--gray-700);
+  color: #ffffff;
   font-family: var(--font);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: border-color 0.18s, background 0.18s, color 0.18s;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .btn-download-ticket:hover {
-  border-color: var(--blue);
-  background: var(--blue-light);
-  color: var(--blue-dark);
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.btn-download-ticket:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 /* ============================================================
@@ -589,71 +620,102 @@
 .btn-secondary,
 .btn-home {
   flex: 1 1 140px;
-  padding: 0.65rem 1rem;
+  padding: 0.7rem 1rem;
   border-radius: var(--radius-sm);
   font-family: var(--font);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   cursor: pointer;
-  border: 1.5px solid transparent;
-  transition: all 0.18s;
+  border: 2px solid transparent;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s;
   white-space: nowrap;
   text-align: center;
 }
 
 .btn-print {
-  background: var(--gray-800);
-  color: white;
-  border-color: var(--gray-800);
+  background: var(--gray-900);
+  color: #ffffff;
+  border-color: var(--gray-900);
 }
 .btn-print:hover {
-  background: var(--gray-900);
-  border-color: var(--gray-900);
+  background: var(--gray-700);
+  border-color: var(--gray-700);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(17, 24, 39, 0.25);
+}
+.btn-print:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn-download-all {
-  background: var(--blue);
-  color: white;
-  border-color: var(--blue);
+  background: var(--blue-dark);
+  color: #ffffff;
+  border-color: var(--blue-dark);
 }
 .btn-download-all:hover {
-  background: var(--blue-dark);
-  border-color: var(--blue-dark);
-  transform: translateY(-1px);
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+.btn-download-all:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn-email {
-  background: white;
+  background: #ffffff;
   color: var(--blue-dark);
-  border-color: var(--blue);
+  border-color: var(--blue-dark);
 }
 .btn-email:hover:not(:disabled) {
-  background: var(--blue-light);
+  background: var(--blue-dark);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+.btn-email:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
 }
 .btn-email:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .btn-secondary {
-  background: white;
-  color: var(--gray-700);
-  border-color: var(--gray-300);
+  background: #ffffff;
+  color: var(--gray-900);
+  border-color: var(--gray-900);
 }
 .btn-secondary:hover {
-  border-color: var(--gray-500);
-  background: var(--gray-100);
+  background: var(--gray-900);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(17, 24, 39, 0.20);
+}
+.btn-secondary:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn-home {
   background: var(--green);
-  color: white;
+  color: #ffffff;
   border-color: var(--green);
 }
 .btn-home:hover {
   background: var(--green-dark);
   border-color: var(--green-dark);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+.btn-home:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 /* ============================================================
