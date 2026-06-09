@@ -286,12 +286,11 @@
    ============================================================ */
 
 .venue-info-card {
-  margin: 0 1.75rem 0;
+  margin: 1.25rem 1.75rem 0;
   padding: 1.25rem;
   background: var(--blue-light);
   border: 1.5px solid #bfdbfe;
   border-radius: var(--radius-md);
-  margin-top: 1.25rem;
 }
 
 .venue-info-card h4 {
