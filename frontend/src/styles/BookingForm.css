@@ -373,7 +373,6 @@
   border-radius: 0;
   box-shadow: none;
   box-sizing: border-box;
-  -moz-appearance: textfield;
   pointer-events: none;
 }
 
