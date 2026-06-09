@@ -474,4 +474,335 @@ router.get("/models", verifyToken, async (req, res) => {
   });
 });
 
+const express = require("express");
+const router = express.Router();
+const db = require("../db");
+const { verifyToken } = require("../auth");
+const Groq = require("groq-sdk");
+
+// Initialize Groq client
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
+
+// In-memory conversation context (no database needed)
+const conversationContext = new Map();
+
+function updateContext(userId, data) {
+  const existing = conversationContext.get(userId) || {};
+  conversationContext.set(userId, { 
+    ...existing, 
+    ...data, 
+    lastActivity: Date.now()
+  });
+}
+
+function getContext(userId) {
+  const context = conversationContext.get(userId);
+  if (context && Date.now() - context.lastActivity > 1800000) {
+    conversationContext.delete(userId);
+    return null;
+  }
+  return context;
+}
+
+function clearContext(userId) {
+  conversationContext.delete(userId);
+}
+
+// ======================
+// DATABASE QUERY FUNCTIONS (these work with existing tables)
+// ======================
+
+async function getUserById(userId) {
+  try {
+    const result = await db.query(
+      `SELECT id, fullname, email, role, phone FROM usercredentials WHERE id = $1`,
+      [userId]
+    );
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error("getUserById error:", err);
+    return null;
+  }
+}
+
+async function getUpcomingEvents(limit = 5) {
+  try {
+    const result = await db.query(`
+      SELECT e.id, e.title, e.event_date, e.start_time, e.location, e.price, e.venue,
+             c.name as category
+      FROM events e
+      LEFT JOIN event_categories c ON e.category_id = c.id
+      WHERE e.status = 'upcoming' AND e.event_date >= CURRENT_DATE
+      ORDER BY e.event_date ASC
+      LIMIT $1
+    `, [limit]);
+    return result.rows;
+  } catch (err) {
+    console.error("getUpcomingEvents error:", err);
+    return [];
+  }
+}
+
+async function getUserBookings(userId, limit = 5) {
+  try {
+    const result = await db.query(`
+      SELECT b.id, b.reference, b.status, b.total_amount, b.seats,
+             e.title, e.event_date, e.location,
+             p.status as payment_status
+      FROM bookings b
+      JOIN events e ON b.event_id = e.id
+      LEFT JOIN payments p ON p.booking_id = b.id
+      WHERE b.user_id = $1
+      ORDER BY b.created_at DESC
+      LIMIT $2
+    `, [userId, limit]);
+    return result.rows;
+  } catch (err) {
+    console.error("getUserBookings error:", err);
+    return [];
+  }
+}
+
+async function searchEvents(keyword, limit = 5) {
+  try {
+    const result = await db.query(`
+      SELECT id, title, event_date, location, price
+      FROM events
+      WHERE status = 'upcoming' 
+        AND event_date >= CURRENT_DATE
+        AND (title ILIKE $1 OR description ILIKE $1 OR location ILIKE $1)
+      ORDER BY event_date ASC
+      LIMIT $2
+    `, [`%${keyword}%`, limit]);
+    return result.rows;
+  } catch (err) {
+    console.error("searchEvents error:", err);
+    return [];
+  }
+}
+
+// ======================
+// GROQ AI RESPONSE GENERATION
+// ======================
+
+async function generateAIResponse(message, role, userData, context, relevantData) {
+  const systemPrompt = `You are an AI assistant for EventHyper, an event booking platform.
+
+USER ROLE: ${role.toUpperCase()}
+${userData ? `USER: ${userData.fullname} (${userData.email})` : 'GUEST USER'}
+
+CAPABILITIES:
+- Help users find and book events
+- Answer questions about bookings and payments
+- Explain M-Pesa payment process
+- Provide event recommendations
+- Assist organizers with event management
+
+AVAILABLE DATA:
+${relevantData.events?.length ? `📅 Found ${relevantData.events.length} upcoming events` : '📅 No specific events queried'}
+${relevantData.bookings?.length ? `🎟️ User has ${relevantData.bookings.length} existing bookings` : '🎟️ No specific bookings queried'}
+${relevantData.searchResults?.length ? `🔍 Found ${relevantData.searchResults.length} events matching search` : ''}
+
+RESPONSE GUIDELINES:
+1. Be friendly, helpful, and concise
+2. Use emojis to make responses engaging
+3. If user asks about events you don't have, suggest they check the Events page
+4. For booking/payment questions, guide them to the dashboard
+5. Never ask for or share passwords or sensitive info
+6. If unsure, offer to connect with human support
+
+Respond naturally as a helpful event assistant.`;
+
+  const userPrompt = `User (${role}) asks: "${message}"
+
+${relevantData.events?.length ? `\nRecent events:\n${relevantData.events.map(e => `- ${e.title} on ${new Date(e.event_date).toLocaleDateString()} at ${e.location}`).join('\n')}` : ''}
+${relevantData.bookings?.length ? `\nUser's bookings:\n${relevantData.bookings.map(b => `- ${b.title} (${b.status})`).join('\n')}` : ''}
+${relevantData.searchResults?.length ? `\nSearch results:\n${relevantData.searchResults.map(e => `- ${e.title}`).join('\n')}` : ''}
+
+Provide a helpful, natural response.`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      model: process.env.GROQ_MODEL || "mixtral-8x7b-32768",
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    return completion.choices[0]?.message?.content || null;
+  } catch (error) {
+    console.error("Groq API error:", error.message);
+    return null;
+  }
+}
+
+// Fallback responses when AI unavailable
+function getFallbackResponse(role, message) {
+  const msg = message.toLowerCase();
+  
+  if (msg.includes('event') || msg.includes('upcoming')) {
+    return "You can browse all upcoming events in the Events section. Is there a specific type of event you're looking for?";
+  }
+  if (msg.includes('booking') || msg.includes('ticket')) {
+    return role === 'guest' 
+      ? "To view bookings, please log in to your account first."
+      : "You can view all your bookings in 'My Bookings' section. Need help with a specific booking?";
+  }
+  if (msg.includes('payment') || msg.includes('mpesa') || msg.includes('pay')) {
+    return "Payments are processed via M-Pesa. At checkout, you'll receive an STK push on your phone to complete payment. Need help with a payment issue?";
+  }
+  if (msg.includes('hello') || msg.includes('hi')) {
+    return role === 'admin' ? "Hello Admin! How can I help you manage the platform today?" :
+           role === 'organizer' ? "Welcome back! Ready to check your event stats?" :
+           "Hi there! 👋 How can I help you with events today?";
+  }
+  if (msg.includes('help')) {
+    return "I can help you with:\n• Finding upcoming events\n• Checking your bookings\n• Payment information\n• Event details\n\nWhat would you like to know?";
+  }
+  
+  return "How can I help you with events or bookings today? Feel free to ask about upcoming events, your bookings, or payment methods.";
+}
+
+// ======================
+// MAIN CHAT PROCESSOR
+// ======================
+
+async function processChat(message, role, userId) {
+  try {
+    // Get user data if authenticated
+    let userData = null;
+    let relevantData = {
+      events: [],
+      bookings: [],
+      searchResults: []
+    };
+    
+    const msgLower = message.toLowerCase();
+    
+    // Fetch relevant data based on message
+    if (userId && role !== 'guest') {
+      userData = await getUserById(userId);
+      
+      if (msgLower.includes('event') || msgLower.includes('upcoming') || msgLower.includes('show')) {
+        relevantData.events = await getUpcomingEvents(5);
+      }
+      
+      if (msgLower.includes('booking') || msgLower.includes('my') || msgLower.includes('ticket')) {
+        relevantData.bookings = await getUserBookings(userId, 3);
+      }
+    }
+    
+    // Handle search queries
+    if (msgLower.includes('search') || msgLower.includes('find')) {
+      const searchTerm = message.replace(/search|find|look for|events? about/gi, '').trim();
+      if (searchTerm && searchTerm.length > 2) {
+        relevantData.searchResults = await searchEvents(searchTerm, 5);
+      }
+    }
+    
+    // Try AI response first
+    let response = await generateAIResponse(message, role, userData, getContext(userId), relevantData);
+    
+    // Fallback to template if AI fails
+    if (!response) {
+      response = getFallbackResponse(role, message);
+    }
+    
+    // Update context
+    if (userId) {
+      updateContext(userId, { lastMessage: message, lastResponse: response, timestamp: Date.now() });
+    }
+    
+    // Generate suggestions
+    let suggestions = [];
+    if (msgLower.includes('event')) {
+      suggestions = ["View all events", "Search by location", "Filter by price"];
+    } else if (msgLower.includes('booking')) {
+      suggestions = ["My bookings", "Cancel booking", "Download ticket"];
+    } else if (msgLower.includes('payment')) {
+      suggestions = ["Payment methods", "Check status", "Payment help"];
+    } else {
+      suggestions = ["Upcoming events", "My bookings", "Payment info", "Contact support"];
+    }
+    
+    return {
+      response,
+      intent: 'ai_response',
+      events: relevantData.events,
+      bookings: relevantData.bookings,
+      searchResults: relevantData.searchResults,
+      user: userData,
+      suggestions: suggestions.slice(0, 4)
+    };
+    
+  } catch (error) {
+    console.error("Chat processing error:", error);
+    return {
+      response: "I'm having trouble processing your request. Please try again or contact support if the issue persists.",
+      intent: 'error',
+      suggestions: ["Show upcoming events", "My bookings", "Contact support"]
+    };
+  }
+}
+
+// ======================
+// API ENDPOINTS
+// ======================
+
+// Main chat endpoint
+router.post("/chat", async (req, res) => {
+  try {
+    const { message, role, userId } = req.body;
+    
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+    
+    // Get role from token if authenticated
+    let effectiveRole = role;
+    let effectiveUserId = userId;
+    
+    if (req.user) {
+      effectiveUserId = req.user.id;
+      effectiveRole = req.user.role;
+    }
+    
+    const result = await processChat(
+      message.trim(),
+      effectiveRole || "guest",
+      effectiveUserId
+    );
+    
+    res.json(result);
+    
+  } catch (err) {
+    console.error("Chatbot error:", err);
+    res.status(500).json({ 
+      error: "Sorry, I encountered an error. Please try again.",
+      response: "I'm having trouble right now. Please try again in a moment.",
+      suggestions: ["Show upcoming events", "Contact support"]
+    });
+  }
+});
+
+// Clear conversation context
+router.post("/clear", verifyToken, async (req, res) => {
+  clearContext(req.user.id);
+  res.json({ success: true, message: "Conversation context cleared" });
+});
+
+// Health check for chatbot
+router.get("/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    model: process.env.GROQ_MODEL || "default",
+    groqConfigured: !!process.env.GROQ_API_KEY
+  });
+});
+
 module.exports = router;
