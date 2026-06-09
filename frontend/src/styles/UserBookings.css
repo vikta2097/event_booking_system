@@ -449,6 +449,7 @@
 .btn-action.primary {
   background: var(--brand-primary);
   color: rgba(76, 0, 255, 0.548);
+  background-color: rgba(88, 218, 235, 0.527);
   border-color: var(--brand-primary);
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
 }
@@ -462,9 +463,11 @@
 
 /* ── Secondary — calendar, directions, event details ── */
 .btn-action.secondary {
-  background: var(--bg-surface-2);
-  color: var(--text-primary);
-  border-color: var(--border-color);
+  background: var(--brand-primary);
+  color: rgba(76, 0, 255, 0.548);
+  background-color: rgba(88, 218, 235, 0.527);
+  border-color: var(--brand-primary);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
 }
 
 .btn-action.secondary:hover:not(:disabled) {
@@ -476,10 +479,11 @@
 
 /* ── Success — e.g. download, share confirmed ticket ── */
 .btn-action.success {
-  background: var(--color-success);
-  color: #fff;
-  border-color: var(--color-success);
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+  background: var(--brand-primary);
+  color: rgba(76, 0, 255, 0.548);
+  background-color: rgba(88, 218, 235, 0.527);
+  border-color: var(--brand-primary);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
 }
 
 .btn-action.success:hover:not(:disabled) {
@@ -491,7 +495,7 @@
 /* ── Warning — e.g. pending payment reminder ── */
 .btn-action.warning {
   background: var(--color-warning);
-  color: #fff;
+  color: #f10d0d;
   border-color: var(--color-warning);
   box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
 }
