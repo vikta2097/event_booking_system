@@ -727,11 +727,11 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
               </button>
             )}
 
-            {step < STEPS.length - 1 ? (
+            {step < 4 ? (
               <button type="button" className="btn-primary" onClick={handleNext}>
                 Next →
               </button>
-            ) : step === STEPS.length - 1 ? (
+            ) : step === 4 ? (
               <>
                 <button type="submit" className="btn-primary" disabled={loading}>
                   {loading ? "Saving..." : (eventId ? "💾 Save Changes" : "🚀 Create Event")}
