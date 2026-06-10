@@ -47,7 +47,9 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
   const geocoderRef = useRef(null);
   const geocoderContainerRef = useRef(null);
 
-  // ---------------- LOAD EVENT ----------------
+  // -------------------------
+  // Load event (edit mode)
+  // -------------------------
   useEffect(() => {
     if (!event) return;
 
@@ -79,7 +81,9 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     setSelectedTags(event.tag_ids ? event.tag_ids.split(",").map(Number) : []);
   }, [event]);
 
-  // ---------------- MAPBOX GEOCODER ----------------
+  // -------------------------
+  // Mapbox Geocoder (SAFE)
+  // -------------------------
   useEffect(() => {
     if (step !== 2) return;
     if (useManualLocation) return;
@@ -94,7 +98,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     const geocoder = new MapboxGeocoder({
       accessToken: mapboxgl.accessToken,
       types: "place,address,poi",
-      placeholder: "Search location",
+      placeholder: "Search for a venue or address",
       marker: false,
       countries: "ke"
     });
@@ -102,12 +106,21 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     geocoder.addTo(geocoderContainerRef.current);
 
     geocoder.on("result", (e) => {
-      const p = e.result;
+      const place = e.result;
+      const center = place?.center;
+
+      if (!center || center.length < 2) return;
+
+      const latitude = Number(center[1]);
+      const longitude = Number(center[0]);
+
+      if (Number.isNaN(latitude) || Number.isNaN(longitude)) return;
+
       setFormData((prev) => ({
         ...prev,
-        location: p.place_name,
-        latitude: p.center[1],
-        longitude: p.center[0]
+        location: place.place_name || "",
+        latitude,
+        longitude
       }));
     });
 
@@ -122,24 +135,17 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
 
     geocoderRef.current = geocoder;
 
-    // SAFE CLEANUP (NO .remove() CRASH)
     return () => {
-      try {
-        const gc = geocoderRef.current;
-        if (gc) {
-          if (gc._container && gc._container.parentNode) {
-            gc._container.parentNode.removeChild(gc._container);
-          }
-        }
-      } catch (e) {
-        console.warn("Geocoder cleanup skipped:", e);
-      } finally {
+      if (geocoderRef.current) {
+        geocoderRef.current.remove();
         geocoderRef.current = null;
       }
     };
   }, [step, useManualLocation]);
 
-  // ---------------- FALLBACK GEOCODE ----------------
+  // -------------------------
+  // Fallback geocode
+  // -------------------------
   const geocodeFallback = async (text) => {
     if (!text) return null;
 
@@ -151,9 +157,9 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       );
 
       const data = await res.json();
-      if (!data.features?.length) return null;
+      const best = data.features?.[0];
 
-      const best = data.features[0];
+      if (!best?.center) return null;
 
       return {
         location: best.place_name,
@@ -165,48 +171,52 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     }
   };
 
-  // ---------------- HELPERS ----------------
+  // -------------------------
+  // Helpers
+  // -------------------------
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((p) => ({
-      ...p,
+
+    setFormData((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value
     }));
+
     setStepError("");
   };
 
   const toggleTag = (id) => {
-    setSelectedTags((p) =>
-      p.includes(id) ? p.filter((x) => x !== id) : [...p, id]
+    setSelectedTags((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
     );
   };
 
   const clearLocation = () => {
-    setFormData((p) => ({
-      ...p,
+    setFormData((prev) => ({
+      ...prev,
       location: "",
       latitude: "",
       longitude: ""
     }));
 
-    try {
-      geocoderRef.current?.clear?.();
-    } catch {}
+    geocoderRef.current?.clear();
   };
 
-  // ---------------- VALIDATION ----------------
+  // -------------------------
+  // Validation
+  // -------------------------
   const validateStep = () => {
     if (step === 1) {
-      if (!formData.title.trim()) return "Title required";
-      if (!formData.description.trim()) return "Description required";
-      if (!formData.category_id) return "Category required";
-      if (formData.price === "") return "Price required";
-      if (!formData.capacity) return "Capacity required";
+      if (!formData.title.trim()) return "Event title is required.";
+      if (!formData.description.trim()) return "Description is required.";
+      if (!formData.category_id) return "Category required.";
+      if (formData.price === "") return "Price required.";
+      if (!formData.capacity) return "Capacity required.";
     }
 
     if (step === 3) {
-      if (!formData.event_date) return "Date required";
-      if (!formData.start_time) return "Start time required";
+      if (!formData.event_date) return "Event date required.";
+      if (!formData.start_time) return "Start time required.";
     }
 
     return null;
@@ -215,6 +225,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
   const handleNext = () => {
     const err = validateStep();
     if (err) return setStepError(err);
+
     setStepError("");
     setStep((s) => s + 1);
   };
@@ -224,9 +235,33 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     setStep((s) => s - 1);
   };
 
+  const handleStepClick = (target) => {
+    if (target === step) return;
+
+    if (target < step) {
+      setStepError("");
+      setStep(target);
+      return;
+    }
+
+    for (let s = step; s < target; s++) {
+      const err = validateStep();
+      if (err) {
+        setStepError(err);
+        setTimeout(() => setStep(s), 0);
+        return;
+      }
+    }
+
+    setStepError("");
+    setStep(target);
+  };
+
   const eventId = event?.id ?? null;
 
-  // ---------------- SUBMIT ----------------
+  // -------------------------
+  // Submit
+  // -------------------------
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -238,6 +273,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       setSubmitError("");
 
       let geo = null;
+
       if (!formData.latitude || !formData.longitude) {
         geo = await geocodeFallback(formData.location);
       }
@@ -247,11 +283,15 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
         created_by: currentUser.id,
         image: formData.event_image || null,
         location: geo?.location || formData.location,
-        latitude: geo?.latitude || formData.latitude || null,
-        longitude: geo?.longitude || formData.longitude || null,
+        latitude:
+          geo?.latitude ??
+          (formData.latitude !== "" ? Number(formData.latitude) : null),
+        longitude:
+          geo?.longitude ??
+          (formData.longitude !== "" ? Number(formData.longitude) : null),
         event_date: formData.event_date,
-        price: Number(formData.price),
-        capacity: Number(formData.capacity),
+        price: Number(formData.price) || 0,
+        capacity: Number(formData.capacity) || 0,
         tag_ids: selectedTags.join(",") || null
       };
 
@@ -268,60 +308,114 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       await onSave();
       onClose();
     } catch (err) {
-      setSubmitError(err.response?.data?.error || "Failed to save event");
+      setSubmitError(err.response?.data?.error || "Failed to save event.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------- UI (UNCHANGED STRUCTURE) ----------------
+  // -------------------------
+  // UI
+  // -------------------------
   return (
     <div className="modal-overlay">
-      <div className="modal large" style={{ width: "100%" }}>
+      <div className="modal large">
 
         <div className="modal-header">
           <h3>{eventId ? "Edit Event" : "Create Event"}</h3>
+
+          <div className="form-steps">
+            {STEPS.map((label, i) => (
+              <button
+                key={label}
+                type="button"
+                className={`step-btn${step === i + 1 ? " active" : ""}`}
+                onClick={() => handleStepClick(i + 1)}
+              >
+                {i + 1}. {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
 
+          {/* STEP 1 */}
           {step === 1 && (
             <div className="form-step">
-              <input name="title" value={formData.title} onChange={handleChange} />
+              <input name="title" value={formData.title} onChange={handleChange} placeholder="Title" />
               <textarea name="description" value={formData.description} onChange={handleChange} />
+
+              <input name="price" type="number" value={formData.price} onChange={handleChange} />
+              <input name="capacity" type="number" value={formData.capacity} onChange={handleChange} />
             </div>
           )}
 
+          {/* STEP 2 */}
           {step === 2 && (
             <div className="form-step">
+
+              <button type="button" onClick={() => setUseManualLocation(v => !v)}>
+                Toggle Mode
+              </button>
+
               {!useManualLocation ? (
                 <div ref={geocoderContainerRef} />
               ) : (
                 <input name="location" value={formData.location} onChange={handleChange} />
               )}
+
+              {formData.location && (
+                <div>
+                  📍 {formData.location}
+                  {formData.latitude && (
+                    <span>
+                      {" "}
+                      ({Number(formData.latitude).toFixed(4)}, {Number(formData.longitude).toFixed(4)})
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
+          {/* STEP 3 */}
           {step === 3 && (
             <div className="form-step">
               <input type="date" name="event_date" value={formData.event_date} onChange={handleChange} />
+              <input type="time" name="start_time" value={formData.start_time} onChange={handleChange} />
             </div>
           )}
 
-          {stepError && <div className="error">{stepError}</div>}
-          {submitError && <div className="error">{submitError}</div>}
+          {/* STEP 4 */}
+          {step === 4 && (
+            <div className="form-step">
+              <input name="organizer_name" value={formData.organizer_name} onChange={handleChange} />
+              <input name="organizer_email" value={formData.organizer_email} onChange={handleChange} />
+            </div>
+          )}
+
+          {/* STEP 5 */}
+          {step === 5 && eventId && (
+            <TicketManagement event={event} embedded />
+          )}
+
+          {stepError && <div className="error">⚠️ {stepError}</div>}
+          {submitError && <div className="error">❌ {submitError}</div>}
 
           <div className="modal-actions">
             <button type="button" onClick={onClose}>Cancel</button>
 
             {step > 1 && <button type="button" onClick={handleBack}>Back</button>}
 
-            {step < 4 ? (
+            {step < STEPS.length ? (
               <button type="button" onClick={handleNext}>Next</button>
-            ) : (
+            ) : step === 4 ? (
               <button type="submit" disabled={loading}>
-                {loading ? "Saving..." : "Save"}
+                {loading ? "Saving..." : "Save Event"}
               </button>
+            ) : (
+              <button type="button" onClick={onClose}>Done</button>
             )}
           </div>
 
