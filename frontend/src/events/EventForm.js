@@ -46,6 +46,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
 
   const geocoderRef = useRef(null);
   const geocoderContainerRef = useRef(null);
+  const geocoderMountedRef = useRef(false);
 
   // -------------------------
   // Load event (edit mode)
@@ -89,14 +90,16 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
   useEffect(() => {
     if (step !== 2) return;
     if (useManualLocation) return;
+    if (geocoderMountedRef.current) return;
     if (!geocoderContainerRef.current) return;
-    if (geocoderRef.current) return;
 
     if (!mapboxgl.accessToken) {
       console.warn("Mapbox token missing — falling back to manual");
       setUseManualLocation(true);
       return;
     }
+
+    geocoderMountedRef.current = true;
 
     const geocoder = new MapboxGeocoder({
       accessToken: mapboxgl.accessToken,
@@ -107,6 +110,7 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
     });
 
     geocoder.addTo(geocoderContainerRef.current);
+    geocoderRef.current = geocoder;
 
     geocoder.on("result", (e) => {
       const place = e.result;
@@ -127,13 +131,19 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       }));
     });
 
-    geocoderRef.current = geocoder;
-
     return () => {
-      if (geocoderRef.current) {
-        geocoderRef.current.remove();
-        geocoderRef.current = null;
+      // Safely clear the container DOM instead of calling .remove()
+      // which throws "is not a function" in some MapboxGeocoder versions
+      try {
+        if (geocoderRef.current) {
+          geocoderRef.current._inputEl?.blur();
+        }
+      } catch (_) {}
+      if (geocoderContainerRef.current) {
+        geocoderContainerRef.current.innerHTML = "";
       }
+      geocoderRef.current = null;
+      geocoderMountedRef.current = false;
     };
   }, [step, useManualLocation]);
 
@@ -194,6 +204,10 @@ const EventForm = ({ event, categories, tags, currentUser, onClose, onSave }) =>
       if (!formData.category_id) return "Please select a category.";
       if (formData.price === "" || formData.price === null) return "Price is required (use 0 for free).";
       if (!formData.capacity) return "Capacity is required.";
+    }
+    if (step === 2) {
+      if (!formData.location) return "Please select a location.";
+      if (!formData.latitude || !formData.longitude) return "Please use the location search so GPS coordinates are captured.";
     }
     if (step === 3) {
       if (!formData.event_date) return "Event date is required.";
