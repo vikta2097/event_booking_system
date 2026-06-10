@@ -12,7 +12,14 @@ const RADIUS_OPTIONS = [
   { label: "500 km", value: 500 },
 ];
 
-const EventFilters = ({ onFilter, nearMeActive = false, onNearMe, radius = 200, onRadiusChange }) => {
+const EventFilters = ({
+  onFilter,
+  nearMeActive = false,
+  onNearMe,
+  radius = 200,
+  onRadiusChange,
+  locLoading = false,   // ← parent passes true while geolocation is pending
+}) => {
   const [categories, setCategories] = useState([]);
   const [catLoading, setCatLoading] = useState(true);
   const [catError, setCatError] = useState(false);
@@ -62,8 +69,14 @@ const EventFilters = ({ onFilter, nearMeActive = false, onNearMe, radius = 200, 
     onFilter(reset);
   };
 
-  // Count active filters
   const activeCount = Object.values(filters).filter(Boolean).length;
+
+  // Label shown inside the Near Me chip
+  const nearMeLabel = locLoading
+    ? "📍 Locating…"
+    : nearMeActive
+    ? "📍 Near Me ✓"
+    : "📍 Near Me";
 
   return (
     <div className="ef-wrap">
@@ -71,11 +84,18 @@ const EventFilters = ({ onFilter, nearMeActive = false, onNearMe, radius = 200, 
       <div className="ef-chips-row">
         {/* 📍 Near Me chip — always first */}
         <button
-          className={`ef-chip ef-chip--near-me${nearMeActive ? " ef-chip--on active" : ""}`}
+          className={`ef-chip ef-chip--near-me${nearMeActive ? " ef-chip--on active" : ""}${locLoading ? " ef-chip--loading" : ""}`}
           onClick={onNearMe}
-          title="Sort events by distance from your location"
+          disabled={locLoading}
+          title={
+            locLoading
+              ? "Getting your location…"
+              : nearMeActive
+              ? "Click to turn off Near Me"
+              : "Sort events by distance from your location"
+          }
         >
-          📍 Near Me
+          {nearMeLabel}
         </button>
 
         {catLoading && (
@@ -139,7 +159,6 @@ const EventFilters = ({ onFilter, nearMeActive = false, onNearMe, radius = 200, 
           )}
         </div>
 
-        {/* Toggle advanced panel */}
         <button
           className={`ef-toggle-btn${panelOpen ? " ef-toggle-btn--on" : ""}`}
           onClick={() => setPanelOpen((p) => !p)}

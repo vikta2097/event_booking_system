@@ -32,7 +32,7 @@ router.get("/", async (req, res) => {
       exclude,
       lat,
       lng,
-      radius = 200          // ✅ raised default: 10 km was too tight for Kenya
+      radius = 200
     } = req.query;
 
     let query = `
@@ -152,7 +152,11 @@ router.get("/", async (req, res) => {
     `;
 
     // ─────────────────────────────────────────────
-    // GPS FILTER — radius uses correct paramIndex
+    // GPS RADIUS FILTER
+    // FIX: Use HAVING with OR so events without lat/lng are still shown
+    // (they appear last due to ORDER BY distance_km ASC NULLS LAST).
+    // Previously the HAVING required lat/lng to be NOT NULL, which silently
+    // dropped every event that had no coordinates stored.
     // ─────────────────────────────────────────────
     if (hasGPS) {
       params.push(Number(radius));
@@ -160,7 +164,7 @@ router.get("/", async (req, res) => {
 
       query += `
         HAVING (
-          e.latitude IS NOT NULL AND e.longitude IS NOT NULL AND
+          e.latitude IS NULL OR e.longitude IS NULL OR
           (6371 * acos(
             LEAST(1.0,
               cos(radians($1)) *
@@ -178,6 +182,8 @@ router.get("/", async (req, res) => {
     // SORTING
     // ─────────────────────────────────────────────
     if (hasGPS) {
+      // Events with coordinates bubble to the top sorted by distance;
+      // events without coordinates fall to the bottom.
       query += ` ORDER BY distance_km ASC NULLS LAST`;
     } else {
       switch (sortBy) {
@@ -209,7 +215,7 @@ router.get("/", async (req, res) => {
 
     const enhanced = result.rows.map(e => ({
       ...e,
-      _distanceKm: e.distance_km ?? null,   // ✅ EventCard reads _distanceKm
+      _distanceKm: e.distance_km ?? null,
       is_trending: e.view_count > 100,
       is_early_bird:
         e.early_bird_deadline &&
@@ -231,7 +237,6 @@ router.get("/recommendations", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Get user's booking history to find preferred categories and tags
     const historyResult = await db.query(`
       SELECT DISTINCT e.category_id, STRING_AGG(DISTINCT t.id::text, ',') as tag_ids
       FROM bookings b
@@ -254,7 +259,6 @@ router.get("/recommendations", verifyToken, async (req, res) => {
       .split(',')
       .filter(Boolean);
 
-    // Find similar events
     let query = `
       SELECT DISTINCT e.*, c.name AS category_name, u.fullname AS organizer_name
       FROM events e
@@ -567,7 +571,6 @@ router.post("/", verifyToken, async (req, res) => {
 
     const eventId = result.rows[0].id;
 
-    // Insert tags
     if (tag_ids) {
       const tagArray = tag_ids.split(',').filter(Boolean);
       for (const tagId of tagArray) {
@@ -605,7 +608,6 @@ router.post("/bulk-upload", verifyToken, verifyAdmin, upload.single("file"), asy
 
     await client.query("BEGIN");
 
-    // Parse CSV
     await new Promise((resolve, reject) => {
       fs.createReadStream(filePath)
         .pipe(csv())
@@ -614,7 +616,6 @@ router.post("/bulk-upload", verifyToken, verifyAdmin, upload.single("file"), asy
         .on("error", reject);
     });
 
-    // Insert events
     for (const event of events) {
       await client.query(`
         INSERT INTO events
@@ -637,7 +638,6 @@ router.post("/bulk-upload", verifyToken, verifyAdmin, upload.single("file"), asy
 
     await client.query("COMMIT");
 
-    // Clean up file
     fs.unlinkSync(filePath);
 
     res.json({ message: `Successfully uploaded ${events.length} events` });
@@ -691,27 +691,22 @@ router.put("/:id", verifyToken, async (req, res) => {
       if (req.body[f] !== undefined) {
         let value = req.body[f];
 
-        // 🔴 Fix numeric fields
         if (["capacity", "price", "early_bird_price", "category_id"].includes(f)) {
           value = value === "" ? null : Number(value);
         }
 
-        // 🔴 Fix float fields
         if (["latitude", "longitude"].includes(f)) {
           value = value === "" ? null : parseFloat(value);
         }
 
-        // 🔴 Fix boolean
         if (f === "is_early_bird") {
           value = value === true || value === "true";
         }
 
-        // 🔴 Fix date fields
         if (["event_date", "early_bird_deadline"].includes(f)) {
           value = value ? value.split("T")[0] : null;
         }
 
-        // 🔴 Convert empty string to null
         if (value === "") value = null;
 
         updates.push(`${f} = $${i++}`);
@@ -728,7 +723,6 @@ router.put("/:id", verifyToken, async (req, res) => {
       );
     }
 
-    // 🔴 Update tags safely
     if (req.body.tag_ids !== undefined) {
       await client.query(
         `DELETE FROM event_tags WHERE event_id = $1`,
@@ -755,15 +749,11 @@ router.put("/:id", verifyToken, async (req, res) => {
 
   } catch (err) {
     await client.query("ROLLBACK");
-
     console.error("❌ Error updating event:", err);
-
-    // 🔥 Better error message (helps debugging)
     res.status(500).json({
       error: "Failed to update event",
       details: err.message
     });
-
   } finally {
     client.release();
   }
@@ -772,21 +762,16 @@ router.put("/:id", verifyToken, async (req, res) => {
 // ======================
 // DELETE event
 // ======================
-/* ======================
-   DELETE event (FIXED)
-====================== */
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
     const user = req.user;
 
-    // 🔒 basic defense layer (don’t rely only on service)
     if (!user || !user.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
     const result = await deleteEvent(req.params.id, user);
 
-    // service-level failure handling
     if (!result?.success) {
       return res.status(result.status || 500).json({
         error: result.message || "Failed to delete event",
@@ -794,16 +779,11 @@ router.delete("/:id", verifyToken, async (req, res) => {
       });
     }
 
-    return res.json({
-      message: "Event deleted successfully",
-    });
+    return res.json({ message: "Event deleted successfully" });
 
   } catch (err) {
     console.error("DELETE /events/:id crash:", err);
-
-    return res.status(500).json({
-      error: "Internal server error during delete",
-    });
+    return res.status(500).json({ error: "Internal server error during delete" });
   }
 });
 
